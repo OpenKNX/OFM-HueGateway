@@ -8,7 +8,9 @@
           <Static>
             <Parameters>
               <!-- Kanalbezeichnung -->
-              <Parameter Id="%AID%_P-%TT%5%CC%000" Name="CH%C%Name" ParameterType="%AID%_PT-Text40Byte" Text="Bezeichnung" Value="" />
+              <Parameter Id="%AID%_P-%TT%5%CC%000" Name="CH%C%Name" ParameterType="%AID%_PT-Text40Byte" Text="Bezeichnung" Value="">
+                <Memory CodeSegment="%MID%" Offset="184" BitOffset="0" />
+              </Parameter>
               
               <!-- Hue-Lampen-UUID -->
               <Parameter Id="%AID%_P-%TT%5%CC%001" Name="CH%C%LightUUID" ParameterType="%AID%_PT-Text40Byte" Text="Hue Lampen-ID (UUID)" Value="01234567-89ab-cdef-0123-456789abcdef">
