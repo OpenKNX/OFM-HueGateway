@@ -769,7 +769,7 @@ Hinweise:
 <!-- DOC -->
 ### Lichtmanager Zuordnung
 
-Ordnet den Kanal einem Lichtmanager (1..8) zu.
+Ordnet den Kanal einem Lichtmanager (1..N) zu.
 Bei `Kein Lichtmanager` arbeitet der Kanal ohne automatische Sollwert-Übernahme.
 
 <!-- DOC -->
@@ -781,7 +781,7 @@ Der zugeordnete Lichtmanager selbst läuft weiter und versorgt weiterhin alle an
 
 Sichtbarkeit:
 - Nur bei Lampentyp `Farbtemperatur` oder `Farbe RGB`.
-- Nur wenn beim Kanal ein Lichtmanager `1..8` zugeordnet ist.
+- Nur wenn beim Kanal ein Lichtmanager `1..N` zugeordnet ist.
 
 Option je Kanal:
 - **Rückfallzeit nach Sperre** (inkl. Tageswechsel, `kein Rückfall` möglich)

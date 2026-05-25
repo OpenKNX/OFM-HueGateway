@@ -24,6 +24,7 @@ OpenKNX Funktionsmodul zur Integration von Philips Hue Geräten in KNX-Systeme.
 - Bidirektionale Status-Updates (Event Stream)
 - ETS-Konfiguration
 - Optionale Anbindung an [OFM-LightManager](../OFM-LightManager) (HCL — Human Centric Lighting)
+  - Partial-Sink-Vertrag: achsenweise Gültigkeitsmaske via `onLightManagerPartial()` — Kanäle mit `HCL-Achsen = Nur CT` senden keine Helligkeitswerte und umgekehrt
 
 ## Abhängigkeiten
 
