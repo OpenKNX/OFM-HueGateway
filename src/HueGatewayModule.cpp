@@ -359,13 +359,18 @@ static String buildHclSvgChart(const LightManagerChannel* ch, uint16_t currentMi
 // Gibt false zurueck wenn keine gueltige Loesung (Polarnacht).
 // outSunrise / outSunset: Minuten seit Mitternacht (0..1439).
 static bool computeGeoSunriseSunset(const HCL::Master* m, uint16_t dayOfYear,
+                                     int16_t dstOffsetMin,
                                      uint16_t& outSunrise, uint16_t& outSunset)
 {
     if (!m) return false;
+    // Effektiver UTC-Offset = Basis-Zeitzone + Sommerzeitkorrektur
+    const int16_t tzOffset = m->getTimezoneOffsetMin() + dstOffsetMin;
+    const float lat = m->getLatitudeDeg();
+    const float lon = m->getLongitudeDeg();
     // Polarnacht: Altitude um Mittag < 0 → keine Sonne.
     {
         int16_t d, a;
-        m->computeSolarPosition(dayOfYear, 720, d, a);
+        HCL::Master::computeSolarPosition(dayOfYear, 720, lat, lon, tzOffset, d, a);
         if (a < 0) return false;
     }
     // Sonnenaufgang: erstes Minute in [0..720] mit altitude >= 0.
@@ -375,7 +380,7 @@ static bool computeGeoSunriseSunset(const HCL::Master* m, uint16_t dayOfYear,
         {
             const int mid = (lo + hi) / 2;
             int16_t d, a;
-            m->computeSolarPosition(dayOfYear, (uint16_t)mid, d, a);
+            HCL::Master::computeSolarPosition(dayOfYear, (uint16_t)mid, lat, lon, tzOffset, d, a);
             if (a < 0) lo = mid + 1;
             else hi = mid;
         }
@@ -388,7 +393,7 @@ static bool computeGeoSunriseSunset(const HCL::Master* m, uint16_t dayOfYear,
         {
             const int mid = (lo + hi) / 2;
             int16_t d, a;
-            m->computeSolarPosition(dayOfYear, (uint16_t)mid, d, a);
+            HCL::Master::computeSolarPosition(dayOfYear, (uint16_t)mid, lat, lon, tzOffset, d, a);
             if (a > 0) lo = mid + 1;
             else hi = mid;
         }
@@ -6402,7 +6407,8 @@ void HueGatewayModule::handleWebLichtmanager(WebRequest& req, WebResponse& res)
             {
                 uint16_t geoSunrise = 0, geoSunset = 0;
                 const uint16_t yday = (uint16_t)(statusTimeinfo.tm_yday + 1);
-                if (computeGeoSunriseSunset(master, yday, geoSunrise, geoSunset))
+                const int16_t dstOffset = (statusTimeinfo.tm_isdst > 0) ? 60 : 0;
+                if (computeGeoSunriseSunset(master, yday, dstOffset, geoSunrise, geoSunset))
                 {
                     sunrise = formatMinutesToClock(geoSunrise) + " (geo)";
                     sunset  = formatMinutesToClock(geoSunset)  + " (geo)";
