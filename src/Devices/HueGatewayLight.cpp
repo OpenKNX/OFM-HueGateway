@@ -88,39 +88,9 @@ HueGatewayLight::HueGatewayLight(const String& lightId, const String& name, HueG
 
 HueGatewayLight::~HueGatewayLight()
 {
-#ifdef HUEGATEWAY_LIGHT_HAS_LIGHTMANAGER
-    // Auto-deregister from LightManager so it never dereferences a dangling pointer.
-    openknxLightManagerModule.unregisterOutput(this);
-#endif
 }
 
 unsigned long HueGatewayLight::globalHclWriteNextAllowedMs() { return sGlobalHclWriteNextAllowedMs; }
-
-void HueGatewayLight::onLightManagerValue(uint8_t masterNum, uint16_t kelvin, uint8_t brightness, uint8_t fadeDuration)
-{
-    if (masterNum != _hclMasterNum)
-        return;
-
-    _pendingHclKelvin = kelvin;
-    _pendingHclBrightness = brightness;
-    _pendingHclFadeDuration = fadeDuration;
-    _hclValuePending = true;
-}
-
-void HueGatewayLight::onLightManagerPartial(uint8_t masterNum, uint16_t kelvin, uint8_t brightness,
-                                            uint8_t validMask, uint8_t fadeDuration)
-{
-    if (masterNum != _hclMasterNum)
-        return;
-    if (validMask == 0)
-        return;
-
-    // Nur valide Achsen uebernehmen; die anderen behalten den letzten Pending-Wert.
-    if (validMask & 0b01) _pendingHclKelvin     = kelvin;
-    if (validMask & 0b10) _pendingHclBrightness = brightness;
-    _pendingHclFadeDuration = fadeDuration;
-    _hclValuePending = true;
-}
 
 void HueGatewayLight::begin(uint16_t koSwitch, uint16_t koBrightness, uint16_t koDimming,
                             uint16_t koStatusSwitch, uint16_t koStatusBrightness,
@@ -851,8 +821,28 @@ void HueGatewayLight::loop()
         || !_on
         || _hclMasterNum == 0
         || _hclMasterNum > kMaxHclMasters
-        || _hclChannelLockActive
-        || !_hclValuePending)
+        || _hclChannelLockActive)
+        return;
+
+#ifdef HUEGATEWAY_LIGHT_HAS_LIGHTMANAGER
+    {
+        auto* lmCh = openknxLightManagerModule.channel(_hclMasterNum);
+        if (lmCh && !lmCh->applyBlocked() && !HCL::masterManager.isApplyBlocked()
+            && lmCh->internalOutputEnabled())
+        {
+            const uint8_t validMask = lmCh->internalValidMask();
+            if (validMask != 0)
+            {
+                if (validMask & 0x01) _pendingHclKelvin     = lmCh->appliedKelvin();
+                if (validMask & 0x02) _pendingHclBrightness = lmCh->effectiveBrightness();
+                _pendingHclFadeDuration = lmCh->fadeDurationSec();
+                _hclValuePending = true;
+            }
+        }
+    }
+#endif
+
+    if (!_hclValuePending)
         return;
 
     unsigned long now = millis();

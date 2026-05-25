@@ -2,7 +2,6 @@
 
 #include <Arduino.h>
 #include "HueGatewayDevice.h"
-#include "ILightManagerOutput.h"
 
 // Forward Declaration
 class HueGatewayClient;
@@ -19,7 +18,7 @@ class HueGatewayClient;
  * Hue → KNX: updateFromHue()
  */
 
-class HueGatewayLight : public HueGatewayDevice, public ILightManagerOutput
+class HueGatewayLight : public HueGatewayDevice
 {
 public:
     /**
@@ -147,19 +146,6 @@ public:
     bool isHCLChannelLocked() const override { return _hclChannelLockActive; }
 
     static unsigned long globalHclWriteNextAllowedMs();
-
-    /**
-     * @brief ILightManagerOutput: empfängt HCL-Sollwert von LightManagerModule.
-     */
-    void onLightManagerValue(uint8_t masterNum, uint16_t kelvin, uint8_t brightness, uint8_t fadeDuration) override;
-
-    /**
-     * @brief ILightManagerOutput: Partial-Push (0.3.0, F11). validMask Bit 0 = Kelvin valid,
-     *        Bit 1 = Brightness valid. Nicht-valide Achsen werden aus dem letzten Pending-Wert
-     *        beibehalten.
-     */
-    void onLightManagerPartial(uint8_t masterNum, uint16_t kelvin, uint8_t brightness,
-                               uint8_t validMask, uint8_t fadeDuration) override;
 
     /**
     * @brief Sets ETS light type (0=switch,1=dimm,2=ct,3=rgb).
