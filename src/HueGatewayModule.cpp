@@ -1,4 +1,4 @@
-#include "HueGatewayModule.h"
+﻿#include "HueGatewayModule.h"
 #include "versions.h"
 #include "HueGatewayDiscovery.h"
 #include "HueGatewayAuth.h"
@@ -21,6 +21,13 @@
 #if __has_include("NetworkModule.h")
 #include "NetworkModule.h"
 #define HUEGATEWAY_HAS_OPENKNX_NETWORK 1
+#endif
+
+#ifdef OPENKNX_WEBSERVER
+#include "OpenKNX/Network/Module.h"
+#include "OpenKNX/Network/Webserver/WebRequest.h"
+#include "OpenKNX/Network/Webserver/WebResponse.h"
+#include "OpenKNX/Network/Webserver/Webserver.h"
 #endif
 
 #if __has_include("LightManagerModule.h")
@@ -230,6 +237,195 @@ static bool buildFixedInterpolationDebug(const LightManagerChannel* channel, uin
     return true;
 }
 
+static String buildHclSvgChart(const LightManagerChannel* ch, uint16_t currentMinutes, bool hasCurrentTime)
+{
+    if (ch == nullptr)
+        return String();
+    const uint8_t count = ch->resolvedCount();
+    if (count < 2)
+        return String("<p><span class='gray'>Keine Setpoints f\xc3\xbcr Diagramm verf\xc3\xbcgbar.</span></p>");
+
+    // Plot margins: Left, Right, Top, Bottom
+    const int mLeft = 52, mRight = 58, mTop = 22, mBot = 38;
+    const int plotW = 590, plotH = 220;
+    const int x0 = mLeft;
+    const int y0 = mTop;
+    const int xE = mLeft + plotW;
+    const int yE = mTop + plotH;
+    (void)mRight; (void)mBot;
+
+    // --- Kelvin range: snap to 500K boundaries ---
+    uint16_t kMin = 65535u, kMax = 0;
+    for (uint8_t i = 0; i < count; i++)
+    {
+        const HCL::ResolvedSetpoint& sp = ch->resolvedAt(i);
+        if (sp.kelvin < kMin) kMin = sp.kelvin;
+        if (sp.kelvin > kMax) kMax = sp.kelvin;
+    }
+    // Snap to 500K boundaries — gives clean round labels (2000, 2500, 3000 ...)
+    kMin = (kMin / 500u) * 500u;
+    kMax = ((kMax + 500u) / 500u) * 500u;  // ceil + one extra step for headroom
+    const int kRange = (int)kMax - (int)kMin;
+
+    // --- Coordinate helpers (integer arithmetic only) ---
+    // briPadTop: headroom above 100% / kMax so curves are clearly visible below the top border
+    const int briPadTop = 10;
+    const int effH = plotH - briPadTop;  // effective pixel height for the 0-100% / kMin-kMax range
+    auto xP   = [&](int t) -> int { return x0 + (int)((long)t * plotW / 1440); };
+    auto yBri = [&](int b) -> int { return y0 + briPadTop + effH - (int)((long)b * effH / 100); };
+    auto yKel = [&](int k) -> int { return y0 + briPadTop + effH - (int)((long)(k - (int)kMin) * effH / kRange); };
+
+    // --- Polyline point strings, with virtual wrap-around endpoints ---
+    const HCL::ResolvedSetpoint& first = ch->resolvedAt(0);
+    const HCL::ResolvedSetpoint& last  = ch->resolvedAt(count - 1);
+    String ptsBri, ptsKel;
+    ptsBri.reserve((count + 2) * 12);
+    ptsKel.reserve((count + 2) * 12);
+    if (first.timeMinutes > 0)
+    {
+        ptsBri += String(xP(0)) + "," + String(yBri(last.brightness)) + " ";
+        ptsKel += String(xP(0)) + "," + String(yKel(last.kelvin))     + " ";
+    }
+    for (uint8_t i = 0; i < count; i++)
+    {
+        const HCL::ResolvedSetpoint& sp = ch->resolvedAt(i);
+        ptsBri += String(xP(sp.timeMinutes)) + "," + String(yBri(sp.brightness)) + " ";
+        ptsKel += String(xP(sp.timeMinutes)) + "," + String(yKel(sp.kelvin))     + " ";
+    }
+    if (last.timeMinutes < 1440)
+    {
+        ptsBri += String(xP(1440)) + "," + String(yBri(first.brightness));
+        ptsKel += String(xP(1440)) + "," + String(yKel(first.kelvin));
+    }
+
+    // --- Build SVG ---
+    String svg;
+    svg.reserve(3200);
+    svg += "<svg viewBox='0 0 700 280' width='100%' preserveAspectRatio='xMinYMid meet'>";
+
+    // Horizontal grid + Y-left labels (brightness 0/25/50/75/100%)
+    const int briTicks[] = {0, 25, 50, 75, 100};
+    for (int i = 0; i < 5; i++)
+    {
+        const int b = briTicks[i];
+        const int y = yBri(b);
+        svg += "<line x1='" + String(x0) + "' y1='" + String(y) + "' x2='" + String(xE) + "' y2='" + String(y) + "' stroke='#eee'/>";
+        svg += "<text x='" + String(x0 - 4) + "' y='" + String(y + 4) + "' text-anchor='end' font-size='10' fill='#449841'>" + String(b) + "%</text>";
+    }
+
+    // Vertical grid + X-axis labels (every 2 hours)
+    for (int h = 0; h <= 22; h += 2)
+    {
+        const int x = xP(h * 60);
+        svg += "<line x1='" + String(x) + "' y1='" + String(y0) + "' x2='" + String(x) + "' y2='" + String(yE) + "' stroke='#eee'/>";
+        char lbl[6];
+        snprintf(lbl, sizeof(lbl), "%02d:00", h);
+        svg += "<text x='" + String(x) + "' y='" + String(yE + 14) + "' text-anchor='middle' font-size='10' fill='#888'>" + String(lbl) + "</text>";
+    }
+
+    // Y-right labels (Kelvin, 500K steps)
+    for (int k = (int)kMin; k <= (int)kMax; k += 500)
+    {
+        const int y = yKel(k);
+        svg += "<text x='" + String(xE + 4) + "' y='" + String(y + 4) + "' text-anchor='start' font-size='10' fill='#5b9bd5'>" + String(k) + "K</text>";
+    }
+
+    // Kelvin polyline (drawn first, behind brightness)
+    svg += "<polyline points='" + ptsKel + "' stroke='#5b9bd5' stroke-width='2' fill='none'/>";
+    // Brightness polyline
+    svg += "<polyline points='" + ptsBri + "' stroke='#449841' stroke-width='2' fill='none'/>";
+
+    // "Jetzt"-Marker (red dashed vertical)
+    if (hasCurrentTime)
+    {
+        const int xNow = xP((int)currentMinutes);
+        svg += "<line x1='" + String(xNow) + "' y1='" + String(y0) + "' x2='" + String(xNow) + "' y2='" + String(yE) + "' stroke='#ff5555' stroke-width='1' stroke-dasharray='4 3'/>";
+    }
+
+    // Plot area border (drawn on top)
+    svg += "<rect x='" + String(x0) + "' y='" + String(y0) + "' width='" + String(plotW) + "' height='" + String(plotH) + "' fill='none' stroke='#bbb'/>";
+
+    // Legend
+    svg += "<rect x='" + String(x0 + 4) + "' y='" + String(y0 + 5) + "' width='14' height='3' fill='#449841'/>";
+    svg += "<text x='" + String(x0 + 22) + "' y='" + String(y0 + 10) + "' font-size='10' fill='#888'>Helligkeit</text>";
+    svg += "<rect x='" + String(x0 + 90) + "' y='" + String(y0 + 5) + "' width='14' height='3' fill='#5b9bd5'/>";
+    svg += "<text x='" + String(x0 + 108) + "' y='" + String(y0 + 10) + "' font-size='10' fill='#888'>Farbtemperatur</text>";
+
+    svg += "</svg>";
+    return svg;
+}
+
+// Berechnet Sonnenaufgang und -untergang aus Geo-Daten des Masters per Bisektion.
+// Gibt false zurueck wenn keine gueltige Loesung (Polarnacht).
+// outSunrise / outSunset: Minuten seit Mitternacht (0..1439).
+static bool computeGeoSunriseSunset(const HCL::Master* m, uint16_t dayOfYear,
+                                     uint16_t& outSunrise, uint16_t& outSunset)
+{
+    if (!m) return false;
+    // Polarnacht: Altitude um Mittag < 0 → keine Sonne.
+    {
+        int16_t d, a;
+        m->computeSolarPosition(dayOfYear, 720, d, a);
+        if (a < 0) return false;
+    }
+    // Sonnenaufgang: erstes Minute in [0..720] mit altitude >= 0.
+    {
+        int lo = 0, hi = 720;
+        for (int i = 0; i < 14; i++)
+        {
+            const int mid = (lo + hi) / 2;
+            int16_t d, a;
+            m->computeSolarPosition(dayOfYear, (uint16_t)mid, d, a);
+            if (a < 0) lo = mid + 1;
+            else hi = mid;
+        }
+        outSunrise = (uint16_t)lo;
+    }
+    // Sonnenuntergang: erstes Minute in [720..1439] mit altitude <= 0.
+    {
+        int lo = 720, hi = 1439;
+        for (int i = 0; i < 14; i++)
+        {
+            const int mid = (lo + hi) / 2;
+            int16_t d, a;
+            m->computeSolarPosition(dayOfYear, (uint16_t)mid, d, a);
+            if (a > 0) lo = mid + 1;
+            else hi = mid;
+        }
+        outSunset = (uint16_t)hi;
+    }
+    return true;
+}
+
+static String buildSetpointListHtml(const LightManagerChannel* channel)
+{
+    if (channel == nullptr)
+        return String("<em>n/a</em>");
+
+    const uint8_t count = channel->resolvedCount();
+    if (count == 0)
+        return String("<em>(keine aufgel\xC3\xB6sten Setpoints)</em>");
+
+    String html;
+    html.reserve(count * 80 + 80);
+    html += "<table><tr><th>#</th><th>Zeit</th><th>Kelvin</th><th>Helligkeit</th></tr>";
+    for (uint8_t i = 0; i < count; ++i)
+    {
+        const HCL::ResolvedSetpoint& sp = channel->resolvedAt(i);
+        html += "<tr><td>";
+        html += String(i + 1);
+        html += "</td><td>";
+        html += formatMinutesToClock(sp.timeMinutes);
+        html += "</td><td>";
+        html += String(sp.kelvin);
+        html += " K</td><td>";
+        html += String(sp.brightness);
+        html += "%</td></tr>";
+    }
+    html += "</table>";
+    return html;
+}
+
 static String buildSetpointListDebug(const LightManagerChannel* channel)
 {
     if (channel == nullptr)
@@ -283,35 +479,6 @@ static String getDeviceIpString()
     }
 
     return String("n/a");
-}
-
-static String getRequestLocalIpString(httpd_req_t* req)
-{
-    if (req != nullptr)
-    {
-        const int socketFd = httpd_req_to_sockfd(req);
-        if (socketFd >= 0)
-        {
-            struct sockaddr_storage localAddr;
-            socklen_t localAddrLen = sizeof(localAddr);
-            memset(&localAddr, 0, sizeof(localAddr));
-
-            if (getsockname(socketFd, reinterpret_cast<struct sockaddr*>(&localAddr), &localAddrLen) == 0)
-            {
-                if (localAddr.ss_family == AF_INET)
-                {
-                    const struct sockaddr_in* localAddrV4 = reinterpret_cast<const struct sockaddr_in*>(&localAddr);
-                    char ipBuffer[INET_ADDRSTRLEN] = {0};
-                    if (inet_ntop(AF_INET, &(localAddrV4->sin_addr), ipBuffer, sizeof(ipBuffer)) != nullptr)
-                    {
-                        return String(ipBuffer);
-                    }
-                }
-            }
-        }
-    }
-
-    return getDeviceIpString();
 }
 
 void HueGatewayModule::appendDiagnosticLog(const char* level, const char* category, const String& message)
@@ -793,6 +960,10 @@ HueGatewayModule::HueGatewayModule()
         _diagLastWriteTraceResult[i] = "-";
         _diagLastWriteTraceMethod[i] = "-";
         _diagLastWriteTraceEndpoint[i] = "-";
+#ifdef OPENKNX_WEBSERVER
+        _liveDirty[i] = false;
+        _liveLastSentMs[i] = 0;
+#endif
         for (int s = 0; s < SCENE_SLOTS; s++)
             _sceneStore[i][s] = { SCENE_STORE_EMPTY, 0, 0, 0, 0, 0, 0 };
     }
@@ -855,7 +1026,9 @@ void HueGatewayModule::setup()
     setupBridge();
     setupDevices();
     setupHCL();
+#ifdef OPENKNX_WEBSERVER
     setupWebUI();
+#endif
     setupMDNS();
     _networkConnectedLast = hasNetworkConnectivity();
     
@@ -881,6 +1054,10 @@ void HueGatewayModule::loop()
         return;
 
     esp_task_wdt_reset();
+
+#ifdef OPENKNX_WEBSERVER
+    flushLiveUpdates();
+#endif
 
     // Update Info-LED pattern
     updateInfoLED();
@@ -1563,6 +1740,9 @@ void HueGatewayModule::processInputKo(GroupObject& ko)
         _diagLastKoCommandMs[channel] = nowMs;
         _diagLastKoType[channel] = koType;
         _diagLastKoBlockReason[channel] = "ok";
+#ifdef OPENKNX_WEBSERVER
+        markChannelDirty(channel);
+#endif
     }
 
     if (isCommandKo && !(syncDir == 0 || syncDir == 2))
@@ -3333,17 +3513,6 @@ void HueGatewayModule::setupDevices()
         }
         _devices[ch]->setHCLMaster(hclMaster);
 
-#ifdef HUEGATEWAY_HAS_LIGHTMANAGER
-        // Register/unregister with LightManagerModule so HCL setpoints are pushed
-        // to this light. unregister first ensures clean state when the master changes
-        // or setupDevices() runs again.
-        openknxLightManagerModule.unregisterOutput(setupLight);
-        if (hclMaster > 0)
-        {
-            openknxLightManagerModule.registerOutput(hclMaster, setupLight);
-        }
-#endif
-
         _hclChannelLockFallbackMode[ch] = static_cast<uint8_t>(HclLockFallbackMode::None);
         #ifdef ParamHUE_CHHCLLockFallback
         _hclChannelLockFallbackMode[ch] = ParamHUE_CHHCLLockFallback;
@@ -3989,6 +4158,18 @@ void HueGatewayModule::refreshLightStatus()
                     channelSnapshot[j].blue);
 
                 _lastChannelSyncOkMs = now;
+                {
+                    uint16_t briPct = (uint16_t)((channelSnapshot[j].brightness * 100u + 127u) / 254u);
+                    if (briPct > 100) briPct = 100;
+                    logInfo("HUE", "K%d %s: %s %u%% (Poll)",
+                            i + 1,
+                            lightI->getName().c_str(),
+                            channelSnapshot[j].on ? "EIN" : "AUS",
+                            static_cast<unsigned>(briPct));
+                }
+#ifdef OPENKNX_WEBSERVER
+                markChannelDirty(i);
+#endif
 
                 if (fastTrackDue)
                 {
@@ -4041,6 +4222,9 @@ void HueGatewayModule::refreshLightStatus()
                     {
                         static_cast<HueGatewayPlug*>(_devices[i])->updateFromHue(lightSnapshot[j].on, lightSnapshot[j].reachable);
                         _lastChannelSyncOkMs = now;
+#ifdef OPENKNX_WEBSERVER
+                        markChannelDirty(i);
+#endif
                         break;
                     }
                 }
@@ -5111,9 +5295,22 @@ void HueGatewayModule::applyEventStreamUpdates(const HueGatewayEventLightUpdate*
                           static_cast<unsigned>(red),
                           static_cast<unsigned>(green),
                           static_cast<unsigned>(blue));
+            {
+                uint16_t briPct = (uint16_t)((brightness * 100u + 127u) / 254u);
+                if (briPct > 100) briPct = 100;
+                logInfo("HUE", "K%d %s: %s %u%%",
+                        i + 1,
+                        light->getName().c_str(),
+                        on ? "EIN" : "AUS",
+                        static_cast<unsigned>(briPct));
+            }
 
             _channelFastTrackRemaining[i] = 0;
             _channelFastTrackNextMs[i] = 0;
+
+#ifdef OPENKNX_WEBSERVER
+            markChannelDirty(i);
+#endif
 
             applied = true;
             break;
@@ -5160,13 +5357,26 @@ void HueGatewayModule::applyEventStreamUpdates(const HueGatewayEventLightUpdate*
         }
 
         uint32_t nowMs = millis();
-        if ((nowMs - lastIgnoredSummaryMs) >= 30000 || nowMs < lastIgnoredSummaryMs)
+        if ((nowMs - lastIgnoredSummaryMs) >= 5000 || nowMs < lastIgnoredSummaryMs)
         {
             Serial.printf("[HueGatewayModule] EventStream ignored unmapped updates: light=%lu grouped=%lu sample(light=%s grouped=%s)\n",
                           static_cast<unsigned long>(pendingIgnoredLightEvents),
                           static_cast<unsigned long>(pendingIgnoredGroupedEvents),
                           pendingIgnoredLightSampleId.length() > 0 ? pendingIgnoredLightSampleId.c_str() : "-",
                           pendingIgnoredGroupedSampleId.length() > 0 ? pendingIgnoredGroupedSampleId.c_str() : "-");
+            {
+                const char* _sampleId = pendingIgnoredLightSampleId.length() > 0 ? pendingIgnoredLightSampleId.c_str() : pendingIgnoredGroupedSampleId.c_str();
+                logInfo("HUE", "EVT unkonfig: L%lu G%lu eingehend=%.8s",
+                        static_cast<unsigned long>(pendingIgnoredLightEvents),
+                        static_cast<unsigned long>(pendingIgnoredGroupedEvents),
+                        _sampleId);
+                for (int _ci = 0; _ci < MAX_LIGHTS; _ci++)
+                {
+                    HueGatewayLight* _cl = lightAt(_ci);
+                    if (_cl != nullptr)
+                        logInfo("HUE", "  K%d %s ID=%.8s %s", _ci + 1, _cl->getName().c_str(), _cl->getLightId().c_str(), _cl->isGroupedTarget() ? "[Grp]" : "[Lmp]");
+                }
+            }
 
             pendingIgnoredLightEvents = 0;
             pendingIgnoredGroupedEvents = 0;
@@ -5401,38 +5611,45 @@ void HueGatewayModule::updateInfoLED()
 }
 
 // ============================================
-// WebUI Implementation
+// WebUI Implementation (OFM-Network Webserver)
 // ============================================
 
-static esp_err_t send_html(httpd_req_t* req, const String& html, int status)
+#ifdef OPENKNX_WEBSERVER
+
+using OpenKNX::Network::WebRequest;
+using OpenKNX::Network::WebResponse;
+
+static void send_html(WebResponse& res, const String& html, int status = 200)
 {
-    httpd_resp_set_type(req, "text/html; charset=UTF-8");
-    httpd_resp_set_status(req, status == 200 ? "200 OK" : "500 Internal Server Error");
-    return httpd_resp_send(req, html.c_str(), HTTPD_RESP_USE_STRLEN);
+    res.setStatus(status);
+    res.setContentType("text/html; charset=UTF-8");
+    res.send(html.c_str());
 }
 
-static esp_err_t send_text(httpd_req_t* req, const String& text, int status)
+static void send_text(WebResponse& res, const String& text, int status = 200)
 {
-    httpd_resp_set_type(req, "text/plain; charset=UTF-8");
-    httpd_resp_set_status(req, status == 200 ? "200 OK" : "500 Internal Server Error");
-    return httpd_resp_send(req, text.c_str(), HTTPD_RESP_USE_STRLEN);
+    res.setStatus(status);
+    res.setContentType("text/plain; charset=UTF-8");
+    res.send(text.c_str());
 }
 
-static esp_err_t begin_chunked_html(httpd_req_t* req)
+// KNX stores text parameters as ISO-8859-1; convert to UTF-8 for HTML output
+static String latin1ToUtf8(const std::string& s)
 {
-    httpd_resp_set_type(req, "text/html; charset=UTF-8");
-    httpd_resp_set_status(req, "200 OK");
-    return ESP_OK;
-}
-
-static esp_err_t send_html_chunk(httpd_req_t* req, const String& chunk)
-{
-    return httpd_resp_send_chunk(req, chunk.c_str(), chunk.length());
-}
-
-static esp_err_t end_html_chunks(httpd_req_t* req)
-{
-    return httpd_resp_send_chunk(req, nullptr, 0);
+    String out;
+    out.reserve(s.length() * 2);
+    for (size_t i = 0; i < s.length(); i++)
+    {
+        const uint8_t c = (uint8_t)s[i];
+        if (c < 0x80)
+            out += (char)c;
+        else
+        {
+            out += (char)(0xC0 | (c >> 6));
+            out += (char)(0x80 | (c & 0x3F));
+        }
+    }
+    return out;
 }
 
 static String escape_html(const String& input)
@@ -5511,346 +5728,305 @@ static String urlEncode(const String& input)
     return encoded;
 }
 
-static void readDiagnoseQuery(httpd_req_t* req, size_t& depth, String& note, bool& viewMode, bool& includeNetworkDetails)
+static void readDiagnoseQuery(WebRequest& req, size_t& depth, String& note, bool& viewMode, bool& includeNetworkDetails)
 {
     depth = kDiagDefaultDepth;
     note = "";
     viewMode = false;
     includeNetworkDetails = false;
 
-    if (req == nullptr)
+    String depthValue = req.getQueryParam("depth").c_str();
+    if (depthValue.length() > 0)
     {
-        return;
+        depth = parseDiagnosticDepth(depthValue);
     }
 
-    char query[640] = {0};
-    if (httpd_req_get_url_query_str(req, query, sizeof(query)) != ESP_OK)
+    String noteValue = req.getQueryParam("note").c_str();
+    if (noteValue.length() > 0)
     {
-        return;
+        note = noteValue;
     }
 
-    char depthValue[16] = {0};
-    if (httpd_query_key_value(query, "depth", depthValue, sizeof(depthValue)) == ESP_OK)
+    String viewValue = req.getQueryParam("view").c_str();
+    if (viewValue.length() > 0)
     {
-        depth = parseDiagnosticDepth(String(depthValue));
+        viewMode = (viewValue == "1");
     }
 
-    char noteValue[384] = {0};
-    if (httpd_query_key_value(query, "note", noteValue, sizeof(noteValue)) == ESP_OK)
+    String netValue = req.getQueryParam("net").c_str();
+    if (netValue.length() > 0)
     {
-        note = String(noteValue);
-    }
-
-    char viewValue[8] = {0};
-    if (httpd_query_key_value(query, "view", viewValue, sizeof(viewValue)) == ESP_OK)
-    {
-        viewMode = (strcmp(viewValue, "1") == 0);
-    }
-
-    char netValue[8] = {0};
-    if (httpd_query_key_value(query, "net", netValue, sizeof(netValue)) == ESP_OK)
-    {
-        includeNetworkDetails = (strcmp(netValue, "1") == 0);
+        includeNetworkDetails = (netValue == "1");
     }
 }
+
+static const char hueLiveCss[] =
+    "#live-status{padding:.4em 0 .8em;color:#666;font-size:.88em}"
+    "#live-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1em}"
+    ".lc{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:1em;"
+        "transition:opacity .2s;box-shadow:0 1px 4px rgba(0,0,0,.06)}"
+    ".lc.off{opacity:.55}"
+    ".lc h3{display:flex;align-items:center;gap:.4em;font-size:.95em;font-weight:600;"
+        "margin-bottom:.6em;flex-wrap:wrap}"
+    ".ch{background:#449841;color:#fff;border-radius:3px;padding:1px 6px;"
+        "font-size:.78em;white-space:nowrap}"
+    ".rch{display:inline-block;width:9px;height:9px;border-radius:50%;"
+        "flex-shrink:0;margin-left:auto}"
+    ".rch.ok{background:#449841}.rch.no{background:#aaa}"
+    ".row{display:flex;justify-content:space-between;align-items:center;"
+        "padding:3px 0;border-bottom:1px solid #f4f4f4;font-size:.86em;gap:.5em}"
+    ".row span:first-child{color:#888;white-space:nowrap}"
+    ".sw.on{color:#449841;font-weight:600}.sw.off{color:#aaa}"
+    ".col{display:inline-block;width:14px;height:9px;border:1px solid #ccc;"
+        "border-radius:2px;vertical-align:middle;margin-right:3px}"
+    ".hcl{font-size:.78em;color:#449841;background:#f0f8f0;border-radius:3px;"
+        "padding:2px 7px;margin-top:.5em;display:inline-block}"
+    ".lc .meta{color:#888;font-size:.78em;margin-top:.5em;margin-bottom:0;"
+        "border-top:1px solid #f4f4f4;padding-top:.4em}";
 
 void HueGatewayModule::setupWebUI()
 {
-    WebHandler scanTextHandler;
-    scanTextHandler.name = "Hue Geräte (Text)";
-    scanTextHandler.uri = "/hue/scan.txt";
-    scanTextHandler.isVisible = false;
-    scanTextHandler.httpd = {
-        .uri = "/hue/scan.txt",
-        .method = HTTP_GET,
-        .handler = HueGatewayModule::handleWebScanText,
-        .user_ctx = this
-    };
-    openknxWebUI.addHandler(scanTextHandler);
+    using namespace OpenKNX::Network;
 
-    WebHandler diagnoseTextHandler;
-    diagnoseTextHandler.name = "Hue Diagnose (Text)";
-    diagnoseTextHandler.uri = "/hue/diagnose.txt";
-    diagnoseTextHandler.isVisible = false;
-    diagnoseTextHandler.httpd = {
-        .uri = "/hue/diagnose.txt",
-        .method = HTTP_GET,
-        .handler = HueGatewayModule::handleWebDiagnoseText,
-        .user_ctx = this
-    };
-    openknxWebUI.addHandler(diagnoseTextHandler);
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue", [this](WebRequest& req, WebResponse& res) { handleWebRoot(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/scan", [this](WebRequest& req, WebResponse& res) { handleWebScan(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/scan.txt", [this](WebRequest& req, WebResponse& res) { handleWebScanText(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/status", [this](WebRequest& req, WebResponse& res) { handleWebStatus(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/pair", [this](WebRequest& req, WebResponse& res) { handleWebPair(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/reset-auth", [this](WebRequest& req, WebResponse& res) { handleWebResetAuth(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/diagnose", [this](WebRequest& req, WebResponse& res) { handleWebDiagnose(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/diagnose.txt", [this](WebRequest& req, WebResponse& res) { handleWebDiagnoseText(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/retry-setup", [this](WebRequest& req, WebResponse& res) { handleWebRetrySetup(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/live", [this](WebRequest& req, WebResponse& res) { handleWebLive(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/assets/huelive.css",
+        OpenKNX::Network::Webserver::Static("text/css", hueLiveCss));
+    openknxNetwork.webserver.addStylesheet("/assets/huelive.css");
 
-    WebPage scanPage;
-    scanPage.uri = "/hue/scan";
-    scanPage.name = "Hue Geräte";
-    scanPage.handler = HueGatewayModule::pageWebScan;
-    scanPage.arg = this;
-    openknxWebUI.addPage(scanPage);
+    openknxNetwork.webserver.addMenuItem("Hue Gateway", "/hue", 30);
+    openknxNetwork.webserver.addMenuItem("Hue Live", "/hue/live", 31);
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/lichtmanager", [this](WebRequest& req, WebResponse& res) { handleWebLichtmanager(req, res); });
+    openknxNetwork.webserver.addMenuItem("Lichtmanager", "/hue/lichtmanager", 32);
 
-    WebPage statusPage;
-    statusPage.uri = "/hue/status";
-    statusPage.name = "Hue-Status";
-    statusPage.handler = HueGatewayModule::pageWebStatus;
-    statusPage.arg = this;
-    openknxWebUI.addPage(statusPage);
+    openknxNetwork.webserver.addSocket("/ws/hue",
+        [this](int id, WebSocketFrame* f) { handleLiveWsMessage(id, f); },
+        [this](int id, bool c) { handleLiveWsConnect(id, c); });
 
-    WebPage pairPage;
-    pairPage.uri = "/hue/pair";
-    pairPage.name = "Hue-Kopplung";
-    pairPage.handler = HueGatewayModule::pageWebPair;
-    pairPage.arg = this;
-    openknxWebUI.addPage(pairPage);
-
-    WebPage resetAuthPage;
-    resetAuthPage.uri = "/hue/reset-auth";
-    resetAuthPage.name = "Hue-Auth zurücksetzen";
-    resetAuthPage.handler = HueGatewayModule::pageWebResetAuth;
-    resetAuthPage.arg = this;
-    openknxWebUI.addPage(resetAuthPage);
-
-    WebPage diagnosePage;
-    diagnosePage.uri = "/hue/diagnose";
-    diagnosePage.name = "Hue-Diagnose";
-    diagnosePage.handler = HueGatewayModule::pageWebDiagnose;
-    diagnosePage.arg = this;
-    openknxWebUI.addPage(diagnosePage);
-
-    WebPage retrySetupPage;
-    retrySetupPage.uri = "/hue/retry-setup";
-    retrySetupPage.name = "Setup-Retry";
-    retrySetupPage.handler = HueGatewayModule::pageWebRetrySetup;
-    retrySetupPage.arg = this;
-    openknxWebUI.addPage(retrySetupPage);
-
-    WebPage rootPage;
-    rootPage.uri = "/hue";
-    rootPage.name = "Hue Gateway";
-    rootPage.handler = HueGatewayModule::pageWebRoot;
-    rootPage.arg = this;
-    openknxWebUI.addPage(rootPage);
-
-    Serial.printf("[HueGatewayModule] WebUI pages registered at %s\n", openknxWebUI.getBaseUri());
+    Serial.println("[HueGatewayModule] WebUI pages registered at /hue");
 }
 
-esp_err_t HueGatewayModule::handleWebRoot(httpd_req_t* req)
+void HueGatewayModule::handleWebRoot(WebRequest& req, WebResponse& res)
 {
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(req->user_ctx);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
+    (void)req;
+    const char* hueBaseUri = "/hue";
 
-    const String hueBaseUri = String(openknxWebUI.getBaseUri()) + "/hue";
-
-    String html;
-    html.reserve(1536);
-    html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-    html += "<title>Open KNX Hue Gateway</title>";
-    html += "<style>body{font-family:Arial,sans-serif;margin:40px;background:#f5f5f5;}";
-    html += "h1{color:#333;}.card{background:white;padding:20px;margin:10px 0;border-radius:5px;box-shadow:0 2px 5px rgba(0,0,0,0.1);}";
-    html += "a{display:inline-block;padding:10px 20px;margin:5px;background:#007bff;color:white;text-decoration:none;border-radius:3px;}";
-    html += "a:hover{background:#0056b3;}</style></head><body>";
-    html += "<h1>🏠 Open KNX Hue Gateway</h1>";
-    html += "<div class='card'><h2>Funktionen</h2>";
-    html += "<a href='" + hueBaseUri + "/pair'>🔗 Pairing starten</a>";
-    html += "<a href='" + hueBaseUri + "/reset-auth'>🗑️ Auth zurücksetzen</a>";
-    html += "<a href='" + hueBaseUri + "/scan'>🔍 Hue-Geräte laden</a>";
-    html += "<a href='" + hueBaseUri + "/status'>📊 Status</a>";
-    html += "<a href='" + hueBaseUri + "/diagnose'>🧰 Diagnose</a>";
-    html += "<a href='" + hueBaseUri + "/retry-setup'>🔄 Setup-Retry</a>";
-    html += "</div>";
-    html += "<div class='card'><h3>Info</h3>";
-    html += "<p><strong>Geräte-IP:</strong> " + getRequestLocalIpString(req) + "</p>";
-    html += "<p><strong>Modulversion:</strong> " + String(self->version().c_str()) + "</p>";
-    if (self->_bridgeStatus == BridgeStatus::WAIT_FOR_BUTTON)
+    String authState;
+    const char* authClass;
+    if (_bridgeStatus == BridgeStatus::WAIT_FOR_BUTTON)
     {
-        html += "<p><strong>Auth:</strong> Warte auf Tastendruck an der Hue Bridge</p>";
+        authState = "Warte auf Tastendruck an der Hue Bridge";
+        authClass = "yellow";
     }
-    else if (self->_bridgeStatus == BridgeStatus::CONNECTED)
+    else if (_bridgeStatus == BridgeStatus::CONNECTED)
     {
-        html += "<p><strong>Auth:</strong> Verbunden</p>";
+        authState = "Verbunden";
+        authClass = "green";
     }
     else
     {
-        html += "<p><strong>Auth:</strong> Nicht verbunden</p>";
+        authState = "Nicht verbunden";
+        authClass = "red";
     }
-    html += "<p><strong>App-Key:</strong> " + maskKey(self->_auth.getAppKey()) + "</p>";
-    html += "<p><strong>Client-Key:</strong> " + maskKey(self->_auth.getClientKey()) + "</p>";
-    html += "</div></body></html>";
 
-    return send_html(req, html, 200);
+    String html;
+    html.reserve(2048);
+    html = "<div class='container'>";
+    html += "<h1>Hue Gateway</h1>";
+
+    html += "<h2>Status</h2><table class='attribute-table'><tbody>";
+    html += "<tr><td>Auth</td><td><span class='";
+    html += authClass;
+    html += "'>";
+    html += authState;
+    html += "</span></td></tr>";
+    html += "<tr><td>Geräte-IP</td><td>" + getDeviceIpString() + "</td></tr>";
+    html += "<tr><td>Modulversion</td><td>" + String(version().c_str()) + "</td></tr>";
+    html += "<tr><td>App-Key</td><td>" + maskKey(_auth.getAppKey()) + "</td></tr>";
+    html += "<tr><td>Client-Key</td><td>" + maskKey(_auth.getClientKey()) + "</td></tr>";
+    html += "</tbody></table>";
+
+    html += "<h2>Aktionen</h2><table class='attribute-table'><tbody>";
+    html += String("<tr><td><a href='") + hueBaseUri + "/pair'>Pairing starten</a></td><td>Verbindung zur Hue Bridge herstellen (Bridge-Taste drücken)</td></tr>";
+    html += String("<tr><td><a href='") + hueBaseUri + "/scan'>Hue-Geräte laden</a></td><td>Lichter, Sensoren und Steckdosen von der Bridge abfragen</td></tr>";
+    html += String("<tr><td><a href='") + hueBaseUri + "/status'>Status</a></td><td>Detaillierte Kanal- und Geräteinformationen</td></tr>";
+    html += String("<tr><td><a href='") + hueBaseUri + "/diagnose'>Diagnose</a></td><td>Erweiterte Laufzeitwerte und Fehlerzähler</td></tr>";
+    html += String("<tr><td><a href='") + hueBaseUri + "/retry-setup'>Setup-Retry</a></td><td>Geräte-Zuordnung im nächsten Loop neu durchführen</td></tr>";
+    html += String("<tr><td><a href='") + hueBaseUri + "/reset-auth'>Auth zurücksetzen</a></td><td>Bridge-Anmeldedaten löschen &mdash; neues Pairing erforderlich</td></tr>";
+    html += "</tbody></table>";
+
+    html += "</div>";
+
+    res.setLayout(true);
+    res.setActiveMenu("/hue");
+    send_html(res, html, 200);
 }
 
-esp_err_t HueGatewayModule::handleWebScan(httpd_req_t* req)
+void HueGatewayModule::handleWebScan(WebRequest& req, WebResponse& res)
 {
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(req->user_ctx);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
+    (void)req;
+    const char* hueBaseUri = "/hue";
 
-    if (!self->_client || !self->_initialized || !self->_client->isInitialized())
+    if (!_client || !_initialized || !_client->isInitialized())
     {
-        const String hueBaseUri = String(openknxWebUI.getBaseUri()) + "/hue";
-
         String html;
         html.reserve(384);
-        html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Hue-Geräte laden</title></head><body>";
-        html += "<h1>ℹ️ Hue-Geräte laden</h1><p>Noch keine aktive Bridge-Verbindung. Bitte zuerst Pairing starten und den Hue-Bridge-Button drücken.</p>";
-        html += "<a href='" + hueBaseUri + "/pair'>🔗 Pairing starten</a> ";
-        html += "<a href='" + hueBaseUri + "'>← Zurück</a></body></html>";
-        return send_html(req, html, 200);
+        html = "<div class='container'>";
+        html += "<h1>Hue-Geräte laden</h1>";
+        html += "<p>Noch keine aktive Bridge-Verbindung. Bitte zuerst Pairing starten und den Hue-Bridge-Button drücken.</p>";
+        html += "<p>";
+        html += String("<a href='") + hueBaseUri + "/pair'>Pairing starten</a>&nbsp;&nbsp;";
+        html += String("<a href='") + hueBaseUri + "'>← Zurück</a>";
+        html += "</p>";
+        html += "</div>";
+        res.setLayout(true);
+        res.setActiveMenu("/hue");
+        send_html(res, html, 200);
+        return;
     }
 
-    if (self->_webScanInProgress)
+    if (_webScanInProgress)
     {
-        const String hueBaseUri = String(openknxWebUI.getBaseUri()) + "/hue";
-        const unsigned long elapsedMs = (self->_webScanStartedMs == 0) ? 0 : (millis() - self->_webScanStartedMs);
+        const unsigned long elapsedMs = (_webScanStartedMs == 0) ? 0 : (millis() - _webScanStartedMs);
 
         if (elapsedMs > kWebScanTimeoutMs)
         {
-            self->_webScanInProgress = false;
-            self->_webScanRequested = false;
-            self->_diagCounterWebScanTimeouts++;
-            self->_lastWebScanDurationMs = elapsedMs;
-            self->_lastWebScanError = "Web-Scan Timeout nach " + String(elapsedMs / 1000UL) + " Sekunden";
-            self->appendDiagnosticLog("WARN", "WEBSCAN", String("timeout after ") + String(elapsedMs) + " ms");
+            _webScanInProgress = false;
+            _webScanRequested = false;
+            _diagCounterWebScanTimeouts++;
+            _lastWebScanDurationMs = elapsedMs;
+            _lastWebScanError = "Web-Scan Timeout nach " + String(elapsedMs / 1000UL) + " Sekunden";
+            appendDiagnosticLog("WARN", "WEBSCAN", String("timeout after ") + String(elapsedMs) + " ms");
 
             String html;
             html.reserve(1024);
-            html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Hue-Geräte laden</title></head><body>";
-            html += "<h1>⚠️ Hue-Scan dauert zu lange</h1>";
+            html = "<div class='container'>";
+            html += "<h1>Hue-Scan dauert zu lange</h1>";
             html += "<p>Der Scan läuft seit " + String(elapsedMs / 1000UL) + " Sekunden. Das überschreitet den Timeout.</p>";
             html += "<p>Bitte Tester-Feedback inkl. Seriellog senden: JSON parse error, Content-Length, HTTP GET failed.</p>";
-            html += "<a href='" + hueBaseUri + "/scan'><button>Erneut versuchen</button></a> ";
-            html += "<a href='" + hueBaseUri + "/scan.txt'><button>TXT Status</button></a> ";
-            html += "<a href='" + hueBaseUri + "'><button>← Zurück</button></a></body></html>";
-            self->_lastWebScanHtml = html;
-            self->_lastWebScanText = "Scan-Timeout nach " + String(elapsedMs / 1000UL) + " Sekunden. Bitte Seriellog mit JSON parse error / Content-Length / HTTP GET failed senden.\n";
-            self->_lastWebScanLightCount = 0;
-            return send_html(req, html, 200);
+            html += String("<a href='") + hueBaseUri + "/scan'><button>Erneut versuchen</button></a> ";
+            html += String("<a href='") + hueBaseUri + "/scan.txt'><button>TXT Status</button></a> ";
+            html += String("<a href='") + hueBaseUri + "'><button>← Zurück</button></a>";
+            html += "</div>";
+            res.setLayout(true);
+            res.setActiveMenu("/hue");
+            _lastWebScanHtml = html;
+            _lastWebScanText = "Scan-Timeout nach " + String(elapsedMs / 1000UL) + " Sekunden. Bitte Seriellog mit JSON parse error / Content-Length / HTTP GET failed senden.\n";
+            _lastWebScanLightCount = 0;
+            send_html(res, html, 200);
+            return;
         }
 
         String html;
         html.reserve(384);
-        html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><meta http-equiv='refresh' content='2'><title>Hue-Geräte laden</title></head><body>";
-        html += "<h1>🔄 Hue-Geräte laden</h1><p>Scan läuft... Seite aktualisiert sich automatisch.</p>";
+        html = "<div class='container'>";
+        html += "<meta http-equiv='refresh' content='2'>";
+        html += "<h1>Hue-Geräte laden</h1><p>Scan läuft... Seite aktualisiert sich automatisch.</p>";
         if (elapsedMs > 0)
         {
             html += "<p>Laufzeit: " + String(elapsedMs / 1000UL) + " Sekunden</p>";
         }
-        html += "<a href='" + hueBaseUri + "'>← Zurück</a></body></html>";
-        return send_html(req, html, 200);
+        html += String("<a href='") + hueBaseUri + "'>← Zurück</a>";
+        html += "</div>";
+        res.setLayout(true);
+        res.setActiveMenu("/hue");
+        send_html(res, html, 200);
+        return;
     }
 
-    const bool noScanYet = (self->_lastWebScanMs == 0);
-    const bool stale = (!noScanYet) && ((millis() - self->_lastWebScanMs) > kWebScanCacheStaleMs);
+    const bool noScanYet = (_lastWebScanMs == 0);
+    const bool stale = (!noScanYet) && ((millis() - _lastWebScanMs) > kWebScanCacheStaleMs);
     if (noScanYet || stale)
     {
-        self->_webScanRequested = true;
-        const String hueBaseUri = String(openknxWebUI.getBaseUri()) + "/hue";
+        _webScanRequested = true;
         String html;
         html.reserve(480);
-        html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><meta http-equiv='refresh' content='2'><title>Hue-Geräte laden</title></head><body>";
-        html += "<h1>🔄 Hue-Geräte laden</h1><p>Scan wurde gestartet... Seite aktualisiert sich automatisch.</p>";
-        html += "<a href='" + hueBaseUri + "'>← Zurück</a></body></html>";
-        return send_html(req, html, 200);
+        html = "<div class='container'>";
+        html += "<meta http-equiv='refresh' content='2'>";
+        html += "<h1>Hue-Geräte laden</h1><p>Scan wurde gestartet... Seite aktualisiert sich automatisch.</p>";
+        html += String("<a href='") + hueBaseUri + "'>← Zurück</a>";
+        html += "</div>";
+        res.setLayout(true);
+        res.setActiveMenu("/hue");
+        send_html(res, html, 200);
+        return;
     }
 
-    const String hueBaseUri = String(openknxWebUI.getBaseUri()) + "/hue";
+    String html;
+    html.reserve(2048);
+    html = "<div class='container'>";
+    html += "<h1>Hue-Geräte von Bridge</h1>";
 
-    if (begin_chunked_html(req) != ESP_OK)
+    if (_lastWebScanLightCount <= 0)
     {
-        return httpd_resp_send_500(req);
-    }
-
-    String chunk;
-    chunk.reserve(768);
-    chunk = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-    chunk += "<title>Hue-Geräte von Bridge</title>";
-    chunk += "<style>body{font-family:'Courier New',monospace;margin:40px;background:#1e1e1e;color:#d4d4d4;}";
-    chunk += "h1{color:#4ec9b0;}";
-    chunk += ".light{background:#252526;padding:15px;margin:10px 0;border-left:4px solid #007acc;border-radius:3px;}";
-    chunk += ".light-id{color:#ce9178;font-size:0.9em;word-break:break-all;}";
-    chunk += ".status{color:#b5cea8;}";
-    chunk += ".error{color:#f48771;background:#3c1f1e;padding:15px;border-left:4px solid #f48771;}";
-    chunk += "button{padding:8px 15px;margin:5px;background:#007acc;color:white;border:none;border-radius:3px;cursor:pointer;}";
-    chunk += "button:hover{background:#005a9e;}</style></head><body>";
-    chunk += "<h1>🔍 Hue-Geräte von Bridge</h1>";
-
-    if (send_html_chunk(req, chunk) != ESP_OK)
-    {
-        return httpd_resp_send_500(req);
-    }
-
-    chunk = "";
-    chunk.reserve(512);
-    if (self->_lastWebScanLightCount <= 0)
-    {
-        chunk += "<div class='error'>❌ Keine Leuchten gefunden! Bitte Bridge-Verbindung prüfen.</div>";
-        if (self->_lastWebScanError.length() > 0)
+        html += "<div class='error'>❌ Keine Leuchten gefunden! Bitte Bridge-Verbindung prüfen.</div>";
+        if (_lastWebScanError.length() > 0)
         {
-            chunk += "<div class='error'>Diagnose: " + self->_lastWebScanError + "</div>";
+            html += "<div class='error'>Diagnose: " + _lastWebScanError + "</div>";
         }
     }
     else
     {
         {
-            String summary = "Es wurden <strong>" + String(self->_lastWebScanLightCount) + "</strong> Leuchte" + String(self->_lastWebScanLightCount == 1 ? "" : "n");
-            if (self->_lastWebScanAccessoryCount > 0)
+            String summary = "Es wurden <strong>" + String(_lastWebScanLightCount) + "</strong> Leuchte" + String(_lastWebScanLightCount == 1 ? "" : "n");
+            if (_lastWebScanAccessoryCount > 0)
             {
-                summary += " und <strong>" + String(self->_lastWebScanAccessoryCount) + "</strong> Schalter/Sensor" + String(self->_lastWebScanAccessoryCount == 1 ? "" : "en");
+                summary += " und <strong>" + String(_lastWebScanAccessoryCount) + "</strong> Schalter/Sensor" + String(_lastWebScanAccessoryCount == 1 ? "" : "en");
             }
             summary += " gefunden:";
-            chunk += "<p>" + summary + "</p>";
+            html += "<p>" + summary + "</p>";
         }
-        if (self->_lastWebScanDurationMs > 0)
+        if (_lastWebScanDurationMs > 0)
         {
-            chunk += "<p>Scan-Dauer: " + String(self->_lastWebScanDurationMs / 1000UL) + " Sekunden</p>";
+            html += "<p>Scan-Dauer: " + String(_lastWebScanDurationMs / 1000UL) + " Sekunden</p>";
         }
-        chunk += "<p><strong>Details:</strong></p><pre style='white-space:pre-wrap;background:#252526;padding:12px;border-radius:3px;'>";
-        chunk += escape_html(self->_lastWebScanText);
-        chunk += "</pre>";
+        html += "<p><strong>Details:</strong></p><pre style='white-space:pre-wrap;'>";
+        html += escape_html(_lastWebScanText);
+        html += "</pre>";
     }
 
-    if (send_html_chunk(req, chunk) != ESP_OK)
-    {
-        return httpd_resp_send_500(req);
-    }
-
-    chunk = "<br><p><strong>Tipp:</strong> Die Leuchten-ID kopieren und in die ETS-Kanalparameter einfügen.</p>";
-    chunk += "<button onclick='location.reload()'>Aktualisieren</button>";
-    chunk += "<a href='" + hueBaseUri + "/scan.txt'><button>TXT herunterladen</button></a>";
-    chunk += "<a href='" + hueBaseUri + "'><button>Zurück</button></a>";
-    chunk += "</body></html>";
-
-    if (send_html_chunk(req, chunk) != ESP_OK)
-    {
-        return httpd_resp_send_500(req);
-    }
-
-    return end_html_chunks(req);
+    html += "<br><p><strong>Tipp:</strong> Die Leuchten-ID kopieren und in die ETS-Kanalparameter einfügen.</p>";
+    html += "<button onclick='location.reload()'>Aktualisieren</button>";
+    html += String("<a href='") + hueBaseUri + "/scan.txt'><button>TXT herunterladen</button></a>";
+    html += String("<a href='") + hueBaseUri + "'><button>Zurück</button></a>";
+    html += "</div>";
+    res.setLayout(true);
+    res.setActiveMenu("/hue");
+    send_html(res, html, 200);
 }
 
-esp_err_t HueGatewayModule::handleWebScanText(httpd_req_t* req)
+void HueGatewayModule::handleWebScanText(WebRequest& req, WebResponse& res)
 {
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(req->user_ctx);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
-
-    if (!self->_client || !self->_initialized || !self->_client->isInitialized())
-        return send_text(req, "Keine aktive Bridge-Verbindung. Bitte zuerst Pairing starten und den Hue-Bridge-Button druecken.\n", 200);
-
-    if (self->_webScanInProgress)
+    (void)req;
+    if (!_client || !_initialized || !_client->isInitialized())
     {
-        const unsigned long elapsedMs = (self->_webScanStartedMs == 0) ? 0 : (millis() - self->_webScanStartedMs);
+        send_text(res, "Keine aktive Bridge-Verbindung. Bitte zuerst Pairing starten und den Hue-Bridge-Button druecken.\n", 200);
+        return;
+    }
+
+    if (_webScanInProgress)
+    {
+        const unsigned long elapsedMs = (_webScanStartedMs == 0) ? 0 : (millis() - _webScanStartedMs);
         if (elapsedMs > kWebScanTimeoutMs)
         {
-            self->_webScanInProgress = false;
-            self->_webScanRequested = false;
-            self->_lastWebScanDurationMs = elapsedMs;
-            self->_lastWebScanError = "Web-Scan Timeout nach " + String(elapsedMs / 1000UL) + " Sekunden";
-            self->_lastWebScanText = "Scan-Timeout nach " + String(elapsedMs / 1000UL) + " Sekunden. Bitte Seriellog mit JSON parse error / Content-Length / HTTP GET failed senden.\n";
-            self->_lastWebScanLightCount = 0;
-            return send_text(req,
-                             "Scan-Timeout: Der Hue-Scan dauert zu lange. Bitte Seriellog mit JSON parse error / Content-Length / HTTP GET failed senden und Scan erneut starten.\n",
-                             200);
+            _webScanInProgress = false;
+            _webScanRequested = false;
+            _lastWebScanDurationMs = elapsedMs;
+            _lastWebScanError = "Web-Scan Timeout nach " + String(elapsedMs / 1000UL) + " Sekunden";
+            _lastWebScanText = "Scan-Timeout nach " + String(elapsedMs / 1000UL) + " Sekunden. Bitte Seriellog mit JSON parse error / Content-Length / HTTP GET failed senden.\n";
+            _lastWebScanLightCount = 0;
+            send_text(res,
+                      "Scan-Timeout: Der Hue-Scan dauert zu lange. Bitte Seriellog mit JSON parse error / Content-Length / HTTP GET failed senden und Scan erneut starten.\n",
+                      200);
+            return;
         }
 
         String text = "Scan läuft, bitte in 2-3 Sekunden erneut abrufen.";
@@ -5859,313 +6035,227 @@ esp_err_t HueGatewayModule::handleWebScanText(httpd_req_t* req)
             text += " Laufzeit=" + String(elapsedMs / 1000UL) + "s.";
         }
         text += "\n";
-        return send_text(req, text, 200);
+        send_text(res, text, 200);
+        return;
     }
 
-    const bool noScanYet = (self->_lastWebScanMs == 0);
-    const bool stale = (!noScanYet) && ((millis() - self->_lastWebScanMs) > kWebScanCacheStaleMs);
+    const bool noScanYet = (_lastWebScanMs == 0);
+    const bool stale = (!noScanYet) && ((millis() - _lastWebScanMs) > kWebScanCacheStaleMs);
     if (noScanYet || stale)
     {
-        self->_webScanRequested = true;
-        return send_text(req, "Scan gestartet, bitte in 2-3 Sekunden erneut abrufen.\n", 200);
+        _webScanRequested = true;
+        send_text(res, "Scan gestartet, bitte in 2-3 Sekunden erneut abrufen.\n", 200);
+        return;
     }
 
-    String text = self->getBridgeScanText();
-    return send_text(req, text, 200);
+    String text = getBridgeScanText();
+    send_text(res, text, 200);
 }
 
-esp_err_t HueGatewayModule::handleWebStatus(httpd_req_t* req)
+void HueGatewayModule::handleWebStatus(WebRequest& req, WebResponse& res)
 {
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(req->user_ctx);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
+    (void)req;
+    const char* hueBaseUri = "/hue";
 
-    const String hueBaseUri = String(openknxWebUI.getBaseUri()) + "/hue";
+    const unsigned long now = millis();
+    auto elapsedText = [&](unsigned long lastMs) -> String
+    {
+        if (lastMs == 0) return "n/a";
+        const unsigned long diff = now - lastMs;
+        if (diff < 60000UL)   return "vor " + String(diff / 1000) + " s";
+        if (diff < 3600000UL) return "vor " + String(diff / 60000) + " min";
+        return "vor " + String(diff / 3600000) + " h";
+    };
 
     String html;
-    html.reserve(8192);
-    html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-    html += "<title>Hue-Status</title>";
-    html += "<style>body{font-family:Arial,sans-serif;margin:40px;background:#f5f5f5;}";
-    html += "table{width:100%;border-collapse:collapse;background:white;border-radius:5px;overflow:hidden;}";
-    html += "th,td{padding:12px;text-align:left;border-bottom:1px solid #ddd;}";
-    html += "th{background:#007bff;color:white;}</style></head><body>";
-    html += "<h1>📊 Modulstatus</h1>";
-    html += "<table><tr><th>Parameter</th><th>Wert</th></tr>";
-    html += "<tr><td>Initialisiert</td><td>" + String(self->_initialized ? "✅ Ja" : "❌ Nein") + "</td></tr>";
-    html += "<tr><td>Geräte-IP</td><td>" + getRequestLocalIpString(req) + "</td></tr>";
-    html += "<tr><td>Aktive Leuchten</td><td>" + String(self->_lightCount) + " / " + String(MAX_LIGHTS) + "</td></tr>";
-    html += "<tr><td>WiFi RSSI</td><td>" + String(WiFi.RSSI()) + " dBm</td></tr>";
-    String bridgeStatusText = "Unbekannt";
-    switch (self->_bridgeStatus)
+    html.reserve(4096);
+    html = "<div class='container'>";
+    html += "<h1>Hue-Gateway Status</h1>";
+
+    // --- VERBINDUNG ---
+    const char* statusClass = "green";
+    String bridgeStatusText;
+    switch (_bridgeStatus)
     {
-        case BridgeStatus::DISCONNECTED: bridgeStatusText = "Getrennt"; break;
-        case BridgeStatus::CONNECTING: bridgeStatusText = "Verbinde"; break;
-        case BridgeStatus::WAIT_FOR_BUTTON: bridgeStatusText = "Warte auf Taster"; break;
-        case BridgeStatus::AUTHENTICATING: bridgeStatusText = "Authentifiziere"; break;
-        case BridgeStatus::CONNECTED: bridgeStatusText = "Verbunden"; break;
-        case BridgeStatus::CONNECTION_LOST: bridgeStatusText = "Verbindung verloren"; break;
-        case BridgeStatus::BRIDGE_UNREACHABLE: bridgeStatusText = "Bridge nicht erreichbar"; break;
-        case BridgeStatus::ERROR: bridgeStatusText = "Fehler"; break;
+        case BridgeStatus::DISCONNECTED:       bridgeStatusText = "Getrennt";               statusClass = "red";    break;
+        case BridgeStatus::CONNECTING:         bridgeStatusText = "Verbinde\u2026";          statusClass = "yellow"; break;
+        case BridgeStatus::WAIT_FOR_BUTTON:    bridgeStatusText = "Warte auf Bridge-Taster"; statusClass = "yellow"; break;
+        case BridgeStatus::AUTHENTICATING:     bridgeStatusText = "Authentifiziere\u2026";   statusClass = "yellow"; break;
+        case BridgeStatus::CONNECTED:          bridgeStatusText = "Verbunden";              statusClass = "green";  break;
+        case BridgeStatus::CONNECTION_LOST:    bridgeStatusText = "Verbindung verloren";    statusClass = "red";    break;
+        case BridgeStatus::BRIDGE_UNREACHABLE: bridgeStatusText = "Bridge nicht erreichbar"; statusClass = "red";    break;
+        case BridgeStatus::ERROR:              bridgeStatusText = "Fehler";                 statusClass = "red";    break;
+        default:                               bridgeStatusText = "Unbekannt";              statusClass = "gray";   break;
     }
-    html += "<tr><td>Bridge-Status</td><td>" + bridgeStatusText + "</td></tr>";
-    html += "<tr><td>App-Key</td><td>" + maskKey(self->_auth.getAppKey()) + "</td></tr>";
-    html += "<tr><td>Client-Key</td><td>" + maskKey(self->_auth.getClientKey()) + "</td></tr>";
-
-    #ifdef ParamHUE_HUEHCLEnable
-    const bool hclEnabled = (ParamHUE_HUEHCLEnable != 0);
-    html += "<tr><td>HCL aktiviert</td><td>" + String(hclEnabled ? "Ja" : "Nein") + "</td></tr>";
-    #else
-    #ifdef ParamHUE_HUEHCLEnable
-    const bool hclEnabled = (ParamHUE_HUEHCLEnable != 0);
-    html += "<tr><td>HCL aktiviert</td><td>" + String(hclEnabled ? "Ja" : "Nein") + "</td></tr>";
-    #else
-    const bool hclEnabled = HCL::masterManager.isEnabled();
-    html += "<tr><td>HCL aktiviert</td><td>" + String(hclEnabled ? "Ja" : "Nein") + "</td></tr>";
-    #endif
-    #endif
-
-    if (hclEnabled)
-    {
-        struct tm statusTimeinfo;
-        memset(&statusTimeinfo, 0, sizeof(statusTimeinfo));
-        const bool hasStatusTime = getLocalTime(&statusTimeinfo, 0);
-        const uint16_t statusCurrentMinutes = hasStatusTime
-            ? static_cast<uint16_t>(statusTimeinfo.tm_hour * 60 + statusTimeinfo.tm_min)
-            : 0;
-        html += "<tr><td>HCL-Zeitbasis</td><td>" + String(hasStatusTime ? formatMinutesToClock(statusCurrentMinutes) : "n/a") + "</td></tr>";
-
-        const uint8_t masterCount = HCL::masterManager.getMasterCount();
-        html += "<tr><td>HCL-Master</td><td>" + String(masterCount) + "</td></tr>";
-        html += "<tr><td>HCL-Aktualisierungsintervall</td><td>pro Kanal</td></tr>";
-        html += "<tr><td>HCL-Überblenddauer</td><td>pro Kanal</td></tr>";
-
-        for (uint8_t masterNumber = 1; masterNumber <= 4; masterNumber++)
-        {
-            if (masterNumber > masterCount)
-            {
-                break;
-            }
-
-            HCL::Master* master = HCL::masterManager.getMaster(masterNumber);
-            if (!master)
-            {
-                continue;
-            }
-
-            LightManagerChannel* ch = openknxLightManagerModule.channel(masterNumber);
-            HCL::InterpolatedValue current = HCL::masterManager.getCurrentValue(masterNumber);
-                html += "<tr><td>HCL M" + String(masterNumber) + " Aktuell</td><td>" +
-                    String(current.kelvin) + " K / " + String(current.brightness) + "%</td></tr>";
-
-            String sunrise = master->hasSunTimes() ? formatMinutesToClock(master->getSunriseMinutes()) : String("--:--");
-            String sunset  = master->hasSunTimes() ? formatMinutesToClock(master->getSunsetMinutes())  : String("--:--");
-
-            const int profileIdx = ch ? ch->activeProfileIndex() : -1;
-            const char* profileName = ch ? ch->activeProfileName() : "";
-            String profileText = (profileIdx < 0)
-                ? String("(kein aktives Profil)")
-                : (String("P") + String(profileIdx + 1) +
-                   ((profileName && profileName[0]) ? (String(" – ") + String(profileName)) : String("")));
-
-            const HCL::AdaptiveConfig& adaptive = master->getAdaptiveConfig();
-            String adaptiveModeText = "Disabled";
-            if (adaptive.mode == HCL::AdaptiveMode::OpenLoop)   adaptiveModeText = "OpenLoop";
-            else if (adaptive.mode == HCL::AdaptiveMode::ClosedLoop) adaptiveModeText = "ClosedLoop";
-
-            html += "<tr><td>HCL M" + String(masterNumber) + " Aktives Profil</td><td>" + profileText + "</td></tr>";
-            html += "<tr><td>HCL M" + String(masterNumber) + " Saison</td><td>" + String(master->isSummer() ? "Sommer" : "Winter") + "</td></tr>";
-            html += "<tr><td>HCL M" + String(masterNumber) + " Sonne</td><td>" + sunrise + " / " + sunset + "</td></tr>";
-            html += "<tr><td>HCL M" + String(masterNumber) + " Adaptive</td><td>" + adaptiveModeText + "</td></tr>";
-            html += "<tr><td>HCL M" + String(masterNumber) + " Resolved SPs</td><td>" + String(ch ? ch->resolvedCount() : 0) + "</td></tr>";
-            html += "<tr><td>HCL M" + String(masterNumber) + " Setpoint-Liste</td><td>" + buildSetpointListDebug(ch) + "</td></tr>";
-
-            if (hasStatusTime)
-            {
-                HclFixedInterpolationDebug interpolationDebug;
-                if (buildFixedInterpolationDebug(ch, statusCurrentMinutes, interpolationDebug) && interpolationDebug.valid)
-                {
-                    html += "<tr><td>HCL M" + String(masterNumber) + " Interpolation</td><td>" +
-                        formatMinutesToClock(interpolationDebug.prevTime) + " (" + String(interpolationDebug.prevKelvin) + " K / " + String(interpolationDebug.prevBrightness) + "%) → " +
-                        formatMinutesToClock(interpolationDebug.nextTime) + " (" + String(interpolationDebug.nextKelvin) + " K / " + String(interpolationDebug.nextBrightness) + "%)" +
-                        (interpolationDebug.wrapsMidnight ? " [Wrap]" : "") +
-                        "</td></tr>";
-
-                    html += "<tr><td>HCL M" + String(masterNumber) + " Interpolation Faktor</td><td>" +
-                        String(interpolationDebug.elapsedMinutes) + " / " + String(interpolationDebug.spanMinutes) + " min (" +
-                        String(interpolationDebug.factor * 100.0f, 1) + "%) → Ziel " +
-                        String(interpolationDebug.targetKelvin) + " K / " + String(interpolationDebug.targetBrightness) + "%</td></tr>";
-                }
-                else
-                {
-                    html += "<tr><td>HCL M" + String(masterNumber) + " Interpolation</td><td>n/a (zu wenig Resolved-Setpoints)</td></tr>";
-                }
-            }
-
-        }
-
-        // HCL lock status — global
-        html += "<tr><th colspan='2'>HCL-Sperre</th></tr>";
-        html += "<tr><td>Globale Sperre</td><td>"
-            + String(self->_hclLockActive ? "🔒 Aktiv" : "🔓 Inaktiv")
-            + " | Richtlinie: " + String(HueGatewayModule::hclFallbackPolicyToText(static_cast<HclLockFallbackPolicy>(self->_hclFallbackPolicy)))
-            + " | Modus: " + String(HueGatewayModule::hclFallbackModeToText(static_cast<HclLockFallbackMode>(self->_hclLockFallbackMode)));
-        if (self->_hclLockActive && self->_hclLockAutoReleaseMs > 0)
-        {
-            const unsigned long nowMs = millis();
-            const long remainMs = static_cast<long>(self->_hclLockAutoReleaseMs) - static_cast<long>(nowMs);
-            html += " | Auto-Freigabe in: " + String(remainMs > 0 ? remainMs / 1000 : 0) + " s";
-        }
-        html += "</td></tr>";
-
-        // HCL lock status — per manager
-        for (uint8_t m = 0; m < HCL::MasterManager::MAX_MASTERS; m++)
-        {
-            if (!self->_hclManagerLockActive[m]) continue;
-            const unsigned long nowMs = millis();
-            String releaseInfo = "";
-            if (self->_hclManagerLockAutoReleaseMs[m] > 0)
-            {
-                const long remainMs = static_cast<long>(self->_hclManagerLockAutoReleaseMs[m]) - static_cast<long>(nowMs);
-                releaseInfo = " | Auto-Freigabe in: " + String(remainMs > 0 ? remainMs / 1000 : 0) + " s";
-            }
-            html += "<tr><td>Manager " + String(m + 1) + " Sperre</td><td>🔒 Aktiv"
-                + " | " + String(HueGatewayModule::hclFallbackPolicyToText(static_cast<HclLockFallbackPolicy>(self->_hclManagerFallbackPolicy[m])))
-                + releaseInfo + "</td></tr>";
-        }
-
-        // HCL lock status — per channel
-        #ifdef ParamHUE_HUEChannelCount
-        {
-            const uint8_t configuredChannels = min(static_cast<uint8_t>(ParamHUE_HUEChannelCount), static_cast<uint8_t>(MAX_LIGHTS));
-            bool anyChannelLock = false;
-            for (uint8_t ch = 0; ch < configuredChannels; ch++)
-            {
-                if (self->_hclChannelLockActive[ch]) { anyChannelLock = true; break; }
-            }
-            if (anyChannelLock)
-            {
-                String lockedList = "";
-                for (uint8_t ch = 0; ch < configuredChannels; ch++)
-                {
-                    if (!self->_hclChannelLockActive[ch]) continue;
-                    if (lockedList.length() > 0) lockedList += ", ";
-                    lockedList += "K" + String(ch + 1);
-                    if (self->_devices[ch] != nullptr)
-                        lockedList += " (" + self->_devices[ch]->getName() + ")";
-                    if (self->_hclChannelLockAutoReleaseMs[ch] > 0)
-                    {
-                        const unsigned long nowMs = millis();
-                        const long remainMs = static_cast<long>(self->_hclChannelLockAutoReleaseMs[ch]) - static_cast<long>(nowMs);
-                        lockedList += " ≤" + String(remainMs > 0 ? remainMs / 1000 : 0) + "s";
-                    }
-                }
-                html += "<tr><td>Kanal-Sperren aktiv</td><td>🔒 " + lockedList + "</td></tr>";
-            }
-            else
-            {
-                html += "<tr><td>Kanal-Sperren</td><td>🔓 Keine</td></tr>";
-            }
-        }
-        #endif
-    }
-
+    html += "<h2>Verbindung</h2>";
+    html += "<table class='attribute-table'>";
+    html += "<tr><td>Bridge-Status</td><td><span class='" + String(statusClass) + "'>" + bridgeStatusText + "</span></td></tr>";
+    html += "<tr><td>Bridge-IP</td><td>" + (_bridgeIP.isEmpty() ? String("n/a") : _bridgeIP) + "</td></tr>";
+    html += "<tr><td>Eigene IP</td><td>" + getDeviceIpString() + "</td></tr>";
+    html += "<tr><td>Letzter Bridge-Kontakt</td><td>" + elapsedText(_lastBridgeHealthOkMs) + "</td></tr>";
+    html += "<tr><td>Letzter Kanal-Sync</td><td>" + elapsedText(_lastChannelSyncOkMs) + "</td></tr>";
+    html += "<tr><td>Aktive Kanäle</td><td>" + String(_lightCount) + " / " + String(MAX_LIGHTS) + "</td></tr>";
     html += "</table>";
-    html += "<br><a href='" + hueBaseUri + "/pair'>🔗 Pairing starten</a> ";
-    html += "<a href='" + hueBaseUri + "/reset-auth'>🗑️ Auth zurücksetzen</a> ";
-    html += "<a href='" + hueBaseUri + "/diagnose'>🧰 Diagnose erstellen</a> ";
-    html += "<a href='" + hueBaseUri + "/retry-setup'>🔄 Setup-Retry</a> ";
-    html += "<a href='" + hueBaseUri + "'>← Zurück</a></body></html>";
 
-    return send_html(req, html, 200);
+    // --- AUTHENTIFIZIERUNG ---
+    const bool hasAppKey    = _auth.getAppKey().length() > 0;
+    const bool hasClientKey = _auth.getClientKey().length() > 0;
+    html += "<h2>Authentifizierung</h2>";
+    html += "<table class='attribute-table'>";
+    html += "<tr><td>App-Key</td><td><span class='" + String(hasAppKey ? "green" : "red") + "'>" + String(hasAppKey ? "Vorhanden" : "Fehlt") + "</span></td></tr>";
+    html += "<tr><td>Client-Key</td><td><span class='" + String(hasClientKey ? "green" : "red") + "'>" + String(hasClientKey ? "Vorhanden" : "Fehlt") + "</span></td></tr>";
+    html += "</table>";
+
+    // --- KANÄLE ---
+    {
+        const uint8_t configuredChannels = (ParamHUE_HUEChannelCount < MAX_LIGHTS) ? ParamHUE_HUEChannelCount : MAX_LIGHTS;
+        static const char* kDevTypeNames[]    = { "Licht", "Bewegungsmelder", "Taster", "Kontakt", "Steckdose" };
+        static const char* kTargetTypeNames[] = { "Licht-ID", "Raum-ID", "Zone-ID" };
+        html += "<h2>Kan\u00e4le</h2>";
+        html += "<table>";
+        html += "<tr><th>Nr</th><th>Bezeichnung</th><th>Typ</th><th>Zieltyp</th><th>Hue-ID</th><th>Lichtmanager</th><th>Status</th></tr>";
+        for (uint8_t ch = 0; ch < configuredChannels; ch++)
+        {
+            uint8_t _channelIndex = ch;
+            const bool disabled = ParamHUE_CHDisabled;
+            uint8_t devType = 0;
+            #ifdef ParamHUE_CHDeviceType
+            devType = ParamHUE_CHDeviceType;
+            #endif
+            const char* devTypeName = (devType <= 4) ? kDevTypeNames[devType] : "-";
+            uint8_t targetType = 0;
+            #ifdef ParamHUE_CHTargetType
+            targetType = ParamHUE_CHTargetType;
+            #endif
+            const char* targetTypeName = (targetType <= 2) ? kTargetTypeNames[targetType] : "-";
+            // Hue-ID: bevorzuge TargetRID (neues Format), Fallback auf LightUUID
+            String ridRaw  = String(ParamHUE_CHTargetRIDStr.c_str());
+            String uuidRaw = String(ParamHUE_CHLightUUIDStr.c_str());
+            String hueId = (ridRaw.length() > 0) ? ridRaw : ((uuidRaw.length() > 0) ? uuidRaw : String("-"));
+            // UUID abkuerzen fuer Anzeige, volle UUID als title-Attribut
+            String hueIdCell;
+            if (hueId.length() > 12)
+                hueIdCell = "<span title='" + hueId + "'>" + hueId.substring(0, 8) + "\u2026" + hueId.substring(hueId.length() - 4) + "</span>";
+            else
+                hueIdCell = hueId;
+            const bool mapped = (_devices[ch] != nullptr);
+            String etsName = latin1ToUtf8(ParamHUE_CHNameStr);
+            String devName = mapped ? _devices[ch]->getName() : String("");
+            if (etsName.length() > 0)
+                devName = etsName;
+            else if (devName.length() == 0)
+                devName = "-";
+            const uint8_t hclMaster = mapped ? _devices[ch]->getHCLMaster() : 0;
+            const String lmText = (hclMaster > 0) ? "LM " + String(hclMaster) : String("-");
+            const char* chanStatusClass;
+            const char* chanStatusLabel;
+            if (disabled)       { chanStatusClass = "gray";   chanStatusLabel = "Deaktiviert"; }
+            else if (mapped)    { chanStatusClass = "green";  chanStatusLabel = "Aktiv"; }
+            else                { chanStatusClass = "yellow"; chanStatusLabel = "Nicht zugeordnet"; }
+            html += "<tr><td>" + String(ch + 1) + "</td>"
+                 + "<td>" + devName + "</td>"
+                 + "<td>" + devTypeName + "</td>"
+                 + "<td>" + targetTypeName + "</td>"
+                 + "<td>" + hueIdCell + "</td>"
+                 + "<td>" + lmText + "</td>"
+                 + "<td><span class='" + chanStatusClass + "'>" + chanStatusLabel + "</span></td></tr>";
+        }
+        html += "</table>";
+        html += "<p><small>Bezeichnung: ETS-Parameter \"Bezeichnung\" (leer = Hue-Name aus der Bridge).</small></p>";
+    }
+
+    // --- Aktionen ---
+    html += "<p>";
+    html += String("<a href='") + hueBaseUri + "/pair'>Pairing starten</a>&nbsp;&nbsp;";
+    html += String("<a href='") + hueBaseUri + "/reset-auth'>Auth zurücksetzen</a>&nbsp;&nbsp;";
+    html += String("<a href='") + hueBaseUri + "/diagnose'>Diagnose</a>&nbsp;&nbsp;";
+    html += String("<a href='") + hueBaseUri + "/retry-setup'>Setup-Retry</a>&nbsp;&nbsp;";
+    html += String("<a href='") + hueBaseUri + "'>← Zurück</a>";
+    html += "</p>";
+    html += "</div>";
+    res.setLayout(true);
+    res.setActiveMenu("/hue");
+    send_html(res, html, 200);
 }
 
-esp_err_t HueGatewayModule::handleWebPair(httpd_req_t* req)
+void HueGatewayModule::handleWebPair(WebRequest& req, WebResponse& res)
 {
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(req->user_ctx);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
+    (void)req;
+    const bool pairingStarted = startPairing();
 
-    const bool pairingStarted = self->startPairing();
-
-    const String hueBaseUri = String(openknxWebUI.getBaseUri()) + "/hue";
+    const char* hueBaseUri = "/hue";
 
     String html;
     html.reserve(1024);
-    html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-    html += "<title>Hue-Kopplung</title>";
+    html = "<div class='container'>";
     if (pairingStarted)
     {
-        html += "<meta http-equiv='refresh' content='3;url=" + hueBaseUri + "/status'>";
+        html += String("<meta http-equiv='refresh' content='3;url=") + hueBaseUri + "/status'>";
     }
-    html += "<style>body{font-family:Arial,sans-serif;margin:40px;background:#f5f5f5;}";
-    html += ".card{background:white;padding:20px;border-radius:5px;box-shadow:0 2px 5px rgba(0,0,0,0.1);}a{display:inline-block;padding:10px 16px;margin:5px;background:#007bff;color:#fff;text-decoration:none;border-radius:3px;}</style></head><body>";
     if (pairingStarted)
     {
-        html += "<div class='card'><h1>🔗 Kopplung gestartet</h1>";
+        html += "<h1>Kopplung gestartet</h1>";
         html += "<p>Bitte jetzt den Link-Button an der Hue Bridge drücken.</p>";
         html += "<p>Weiterleitung auf Statusseite in 3 Sekunden...</p>";
     }
     else
     {
-        html += "<div class='card'><h1>⚠️ Kopplung nicht gestartet</h1>";
+        html += "<h1>Kopplung nicht gestartet</h1>";
         html += "<p>Netzwerk nicht bereit oder Bridge-IP fehlt.</p>";
         html += "<p>Bitte zuerst Netzwerk-/Bridge-Status prüfen und dann erneut starten.</p>";
     }
-    html += "<a href='" + hueBaseUri + "/status'>Status jetzt öffnen</a>";
-    html += "<a href='" + hueBaseUri + "'>Zurück</a></div></body></html>";
-
-    return send_html(req, html, 200);
+    html += "<p>";
+    html += String("<a href='") + hueBaseUri + "/status'>Status jetzt öffnen</a>&nbsp;&nbsp;";
+    html += String("<a href='") + hueBaseUri + "'>← Zurück</a>";
+    html += "</p>";
+    html += "</div>";
+    res.setLayout(true);
+    res.setActiveMenu("/hue");
+    send_html(res, html, 200);
 }
 
-esp_err_t HueGatewayModule::handleWebResetAuth(httpd_req_t* req)
+void HueGatewayModule::handleWebResetAuth(WebRequest& req, WebResponse& res)
 {
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(req->user_ctx);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
-
-    self->resetDevices();
-    if (self->_client)
+    (void)req;
+    resetDevices();
+    if (_client)
     {
-        delete self->_client;
-        self->_client = nullptr;
+        delete _client;
+        _client = nullptr;
     }
 
-    self->_auth.clearAppKey();
-    self->_authPending = false;
-    self->_manualPairingRequired = true;
-    self->_authStartTime = 0;
-    self->_authLastTry = 0;
-    self->_lastReconnectTryMs = 0;
-    self->updateStatus(BridgeStatus::BRIDGE_UNREACHABLE);
-    self->appendDiagnosticLog("INFO", "AUTH", "auth reset via WebUI");
+    _auth.clearAppKey();
+    _authPending = false;
+    _manualPairingRequired = true;
+    _authStartTime = 0;
+    _authLastTry = 0;
+    _lastReconnectTryMs = 0;
+    updateStatus(BridgeStatus::BRIDGE_UNREACHABLE);
+    appendDiagnosticLog("INFO", "AUTH", "auth reset via WebUI");
     Serial.println("[HueGatewayModule] Authentication reset via WebUI route");
 
-    const String hueBaseUri = String(openknxWebUI.getBaseUri()) + "/hue";
+    const char* hueBaseUri = "/hue";
 
     String html;
     html.reserve(1024);
-    html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-    html += "<title>Hue-Authentifizierung zurückgesetzt</title>";
-    html += "<style>body{font-family:Arial,sans-serif;margin:40px;background:#f5f5f5;}";
-    html += ".card{background:white;padding:20px;border-radius:5px;box-shadow:0 2px 5px rgba(0,0,0,0.1);}a{display:inline-block;padding:10px 16px;margin:5px;background:#007bff;color:#fff;text-decoration:none;border-radius:3px;}</style></head><body>";
-    html += "<div class='card'><h1>🗑️ Auth-Daten verworfen</h1>";
+    html = "<div class='container'>";
+    html += "<h1>Auth-Daten verworfen</h1>";
     html += "<p>Gespeicherter App-Key und Client-Key wurden gelöscht.</p>";
     html += "<p>Für den weiteren Betrieb bitte jetzt Pairing neu starten.</p>";
-    html += "<a href='" + hueBaseUri + "/pair'>🔗 Pairing starten</a>";
-    html += "<a href='" + hueBaseUri + "/status'>📊 Status</a>";
-    html += "<a href='" + hueBaseUri + "'>← Zurück</a></div></body></html>";
-
-    return send_html(req, html, 200);
+    html += "<p>";
+    html += String("<a href='") + hueBaseUri + "/pair'>Pairing starten</a>&nbsp;&nbsp;";
+    html += String("<a href='") + hueBaseUri + "/status'>Status</a>&nbsp;&nbsp;";
+    html += String("<a href='") + hueBaseUri + "'>← Zurück</a>";
+    html += "</p>";
+    html += "</div>";
+    res.setLayout(true);
+    res.setActiveMenu("/hue");
+    send_html(res, html, 200);
 }
 
-esp_err_t HueGatewayModule::handleWebDiagnose(httpd_req_t* req)
+void HueGatewayModule::handleWebDiagnose(WebRequest& req, WebResponse& res)
 {
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(req->user_ctx);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
-
-    const String hueBaseUri = String(openknxWebUI.getBaseUri()) + "/hue";
+    const char* hueBaseUri = "/hue";
 
     size_t depth = kDiagDefaultDepth;
     String note;
@@ -6175,28 +6265,21 @@ esp_err_t HueGatewayModule::handleWebDiagnose(httpd_req_t* req)
 
     String html;
     html.reserve(24000);
-    html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-    html += "<title>Hue-Diagnose</title>";
-    html += "<style>body{font-family:Arial,sans-serif;margin:40px;background:#f5f5f5;}";
-    html += ".card{background:#fff;padding:16px;margin:10px 0;border-radius:5px;box-shadow:0 2px 5px rgba(0,0,0,0.08);}";
-    html += "label{display:block;margin:8px 0 4px 0;}select,input,textarea{width:100%;padding:8px;box-sizing:border-box;}";
-    html += "button,a.btn{display:inline-block;padding:10px 14px;margin:6px 6px 6px 0;background:#007bff;color:#fff;text-decoration:none;border:none;border-radius:3px;cursor:pointer;}";
-    html += "pre{white-space:pre-wrap;background:#111;color:#ddd;padding:12px;border-radius:4px;max-height:420px;overflow:auto;}";
-    html += "</style></head><body>";
-    html += "<h1>🧰 Hue-Diagnose</h1>";
+    html = "<div class='container'>";
+    html += "<h1>Hue-Diagnose</h1>";
 
-    html += "<div class='card'><form id='diagForm' method='GET' action='" + hueBaseUri + "/diagnose'>";
+    html += String("<form id='diagForm' method='GET' action='") + hueBaseUri + "/diagnose'>";
     html += "<input type='hidden' name='view' value='1'>";
-    html += "<label>Logtiefe</label>";
-    html += "<select name='depth'>";
+    html += "<table class='attribute-table'>";
+    html += "<tr><td>Logtiefe</td><td><select name='depth'>";
     html += "<option value='120'" + String(depth == 120 ? " selected" : "") + ">120 (Vorschau)</option>";
     html += "<option value='150'" + String(depth == 150 ? " selected" : "") + ">150 (Maximum)</option>";
-    html += "</select>";
-    html += "<label>Tester-Notiz</label>";
-    html += "<textarea name='note' rows='3' placeholder='Was wurde getestet? Welche Gruppenadresse? Erwartet/Passiert?'>" + escape_html(note) + "</textarea>";
-    html += "<label><input type='checkbox' name='net' value='1' style='width:auto;margin-right:8px;'" + String(includeNetworkDetails ? " checked" : "") + ">Vollständige Netzwerkdetails (Device-/Bridge-IP) einfügen</label>";
-    html += "<button type='submit'>Diagnose erstellen</button>";
-    html += "</form></div>";
+    html += "</select></td></tr>";
+    html += "<tr><td>Tester-Notiz</td><td><textarea name='note' rows='4' placeholder='Was wurde getestet? Welche Gruppenadresse? Erwartet/Passiert?'>" + escape_html(note) + "</textarea></td></tr>";
+    html += "<tr><td>Netzwerkdetails</td><td><label><input type='checkbox' name='net' value='1'" + String(includeNetworkDetails ? " checked" : "") + "> Vollständige Device-/Bridge-IP einfügen</label></td></tr>";
+    html += "</table>";
+    html += "<p><button type='submit'>Diagnose erstellen</button></p>";
+    html += "</form>";
 
     String querySuffix = "?depth=" + String(static_cast<unsigned long>(depth));
     if (note.length() > 0)
@@ -6208,25 +6291,27 @@ esp_err_t HueGatewayModule::handleWebDiagnose(httpd_req_t* req)
         querySuffix += "&net=1";
     }
 
-    html += "<div class='card'>";
-    html += "<a class='btn' id='diagDownload' href='" + hueBaseUri + "/diagnose.txt" + querySuffix + "' onclick='return downloadDiag(event)'>Diagnose herunterladen</a>";
-    html += "<button type='button' onclick='copyDiag()'>Diagnose in Zwischenablage</button>";
-    html += "<a class='btn' href='" + hueBaseUri + "'>Zurück</a>";
-    html += "</div>";
+    html += "<p>";
+    html += String("<a id='diagDownload' href='") + hueBaseUri + "/diagnose.txt" + querySuffix + "' onclick='return downloadDiag(event)'>Diagnose herunterladen</a>&nbsp;&nbsp;";
+    html += "<button type='button' onclick='copyDiag()'>In Zwischenablage</button>&nbsp;&nbsp;";
+    html += String("<a href='") + hueBaseUri + "'>← Zurück</a>";
+    html += "</p>";
 
     if (viewMode)
     {
         const size_t previewDepth = min<size_t>(depth, static_cast<size_t>(120));
-        String report = self->buildDiagnosticReport(previewDepth, note, includeNetworkDetails);
-        html += "<div class='card'><h3>Vorschau</h3><pre id='diagText'>" + escape_html(report) + "</pre></div>";
+        String report = buildDiagnosticReport(previewDepth, note, includeNetworkDetails);
+        html += "<h2>Vorschau</h2>";
+        html += "<pre id='diagText'>" + escape_html(report) + "</pre>";
         if (depth > previewDepth)
         {
-            html += "<div class='card'><p>Hinweis: Vorschau zeigt die letzten " + String(static_cast<unsigned long>(previewDepth)) + " Einträge. Vollständiger Export über \"Diagnose herunterladen\".</p></div>";
+            html += "<p>Hinweis: Vorschau zeigt die letzten " + String(static_cast<unsigned long>(previewDepth)) + " Einträge. Vollständiger Export über \"Diagnose herunterladen\".</p>";
         }
     }
     else
     {
-        html += "<div class='card'><p>Diagnose wird beim Klick auf \"Diagnose erstellen\" oder \"Diagnose herunterladen\" erzeugt.</p><pre id='diagText' style='display:none'></pre></div>";
+        html += "<p>Diagnose wird beim Klick auf \"Diagnose erstellen\" oder \"Diagnose herunterladen\" erzeugt.</p>";
+        html += "<pre id='diagText' style='display:none'></pre>";
     }
 
     html += "<script>";
@@ -6239,141 +6324,501 @@ esp_err_t HueGatewayModule::handleWebDiagnose(httpd_req_t* req)
     html += "async function copyDiag(){try{const t=await loadDiagText();const target=document.getElementById('diagText');if(target){target.textContent=t;}if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(t);alert('Diagnose in Zwischenablage kopiert');return;}const ta=document.createElement('textarea');ta.value=t;ta.setAttribute('readonly','readonly');ta.style.position='fixed';ta.style.left='-9999px';document.body.appendChild(ta);ta.focus();ta.select();const ok=document.execCommand('copy');ta.remove();if(!ok){throw new Error('Browser blockiert Kopieren');}alert('Diagnose in Zwischenablage kopiert');}catch(e){alert('Kopieren fehlgeschlagen: '+(e&&e.message?e.message:'unbekannter Fehler')+'\\nBitte Diagnose herunterladen verwenden.');}}";
     html += "</script>";
 
-    html += "</body></html>";
-    return send_html(req, html, 200);
+    html += "</div>";
+    res.setLayout(true);
+    res.setActiveMenu("/hue");
+    send_html(res, html, 200);
 }
 
-esp_err_t HueGatewayModule::handleWebDiagnoseText(httpd_req_t* req)
+void HueGatewayModule::handleWebDiagnoseText(WebRequest& req, WebResponse& res)
 {
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(req->user_ctx);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
-
     size_t depth = kDiagDefaultDepth;
     String note;
     bool viewMode = false;
     bool includeNetworkDetails = false;
     readDiagnoseQuery(req, depth, note, viewMode, includeNetworkDetails);
 
-    self->appendDiagnosticLog("INFO", "DIAG", String("diagnose export depth=") + String(static_cast<unsigned long>(depth)) + String(" net=") + String(includeNetworkDetails ? "1" : "0"));
+    appendDiagnosticLog("INFO", "DIAG", String("diagnose export depth=") + String(static_cast<unsigned long>(depth)) + String(" net=") + String(includeNetworkDetails ? "1" : "0"));
 
-    const String report = self->buildDiagnosticReport(depth, note, includeNetworkDetails);
+    const String report = buildDiagnosticReport(depth, note, includeNetworkDetails);
     String fileName = "hue-diagnose-" + String(millis()) + ".txt";
 
-    httpd_resp_set_type(req, "text/plain; charset=UTF-8");
     String contentDisposition = "attachment; filename=\"" + fileName + "\"";
-    httpd_resp_set_hdr(req, "Content-Disposition", contentDisposition.c_str());
-    return httpd_resp_send(req, report.c_str(), HTTPD_RESP_USE_STRLEN);
+    res.setStatus(200);
+    res.setContentType("text/plain; charset=UTF-8");
+    res.setHeader("Content-Disposition", contentDisposition.c_str());
+    res.send(report.c_str());
 }
 
-esp_err_t HueGatewayModule::pageWebRoot(const char* uri, httpd_req_t* req, void* arg)
+void HueGatewayModule::handleWebLichtmanager(WebRequest& req, WebResponse& res)
 {
-    (void)uri;
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(arg);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
+    (void)req;
+    const char* hueBaseUri = "/hue";
 
-    req->user_ctx = self;
-    return HueGatewayModule::handleWebRoot(req);
+    String html;
+    html.reserve(28672);
+    html = "<div class='container'>";
+    html += "<h1>Lichtmanager</h1>";
+
+    #ifdef ParamHUE_HUEHCLEnable
+    const bool hclEnabled = (ParamHUE_HUEHCLEnable != 0);
+    #else
+    const bool hclEnabled = HCL::masterManager.isEnabled();
+    #endif
+
+    html += "<h2>Status</h2>";
+    html += "<table class='attribute-table'>";
+    html += "<tr><td>HCL aktiviert</td><td>" + String(hclEnabled ? "Ja" : "Nein") + "</td></tr>";
+    if (hclEnabled)
+    {
+        struct tm statusTimeinfo;
+        memset(&statusTimeinfo, 0, sizeof(statusTimeinfo));
+        const bool hasStatusTime = getLocalTime(&statusTimeinfo, 0);
+        const uint16_t statusCurrentMinutes = hasStatusTime
+            ? static_cast<uint16_t>(statusTimeinfo.tm_hour * 60 + statusTimeinfo.tm_min)
+            : 0;
+        const uint8_t masterCount = HCL::masterManager.getMasterCount();
+
+        html += "<tr><td>Zeitbasis (KO Zeit/Datum)</td><td>" + String(hasStatusTime ? formatMinutesToClock(statusCurrentMinutes) : "n/a") + "</td></tr>";
+        html += "<tr><td>Aktive Lichtmanager</td><td>" + String(masterCount) + "</td></tr>";
+        html += "</table>";
+
+        for (uint8_t masterNumber = 1; masterNumber <= 4; masterNumber++)
+        {
+            if (masterNumber > masterCount)
+                break;
+
+            HCL::Master* master = HCL::masterManager.getMaster(masterNumber);
+            if (!master)
+                continue;
+
+            LightManagerChannel* ch = openknxLightManagerModule.channel(masterNumber);
+            HCL::InterpolatedValue current = HCL::masterManager.getCurrentValue(masterNumber);
+
+            const uint8_t astroSrc = ch ? ch->astroSource() : 1;
+            String sunrise, sunset;
+            // AstroSource::Automatic = 0 (Master-Geo), Manual = 1
+            if (astroSrc == 0 && hasStatusTime)
+            {
+                uint16_t geoSunrise = 0, geoSunset = 0;
+                const uint16_t yday = (uint16_t)(statusTimeinfo.tm_yday + 1);
+                if (computeGeoSunriseSunset(master, yday, geoSunrise, geoSunset))
+                {
+                    sunrise = formatMinutesToClock(geoSunrise) + " (geo)";
+                    sunset  = formatMinutesToClock(geoSunset)  + " (geo)";
+                }
+                else
+                {
+                    sunrise = master->hasSunTimes() ? formatMinutesToClock(master->getSunriseMinutes()) : String("--:--");
+                    sunset  = master->hasSunTimes() ? formatMinutesToClock(master->getSunsetMinutes())  : String("--:--");
+                    sunrise += " (konfiguriert, Polarnacht?)";
+                    sunset  += " (konfiguriert, Polarnacht?)";
+                }
+            }
+            else
+            {
+                sunrise = master->hasSunTimes() ? formatMinutesToClock(master->getSunriseMinutes()) : String("--:--");
+                sunset  = master->hasSunTimes() ? formatMinutesToClock(master->getSunsetMinutes())  : String("--:--");
+                if (astroSrc != 0)
+                {
+                    sunrise += " (manuell)";
+                    sunset  += " (manuell)";
+                }
+            }
+
+            const int profileIdx = ch ? ch->activeProfileIndex() : -1;
+            const char* profileName = ch ? ch->activeProfileName() : "";
+            String profileText = (profileIdx < 0)
+                ? String("(kein aktives Profil)")
+                : (String("P") + String(profileIdx + 1) +
+                   ((profileName && profileName[0]) ? (String(" – ") + String(profileName)) : String("")));
+
+            const HCL::AdaptiveConfig& adaptive = master->getAdaptiveConfig();
+            String adaptiveModeText = "Disabled";
+            if (adaptive.mode == HCL::AdaptiveMode::OpenLoop)        adaptiveModeText = "OpenLoop";
+            else if (adaptive.mode == HCL::AdaptiveMode::ClosedLoop) adaptiveModeText = "ClosedLoop";
+
+            {
+                uint8_t _channelIndex = masterNumber - 1;
+                String lmName = latin1ToUtf8(ParamLMG_CHNameStr);
+                html += "<h2>Lichtmanager " + String(masterNumber);
+                if (lmName.length() > 0)
+                    html += " \u2013 " + lmName;
+                html += "</h2>";
+            }
+            html += "<table class='attribute-table'>";
+            html += "<tr><td>Aktueller Wert</td><td>" + String(current.kelvin) + " K / " + String(current.brightness) + "%</td></tr>";
+            html += "<tr><td>Aktives Profil</td><td>" + profileText + "</td></tr>";
+            {
+                const uint8_t intMode = ch ? ch->integrationMode() : 0;
+                const char* bereitText = (intMode == 1) ? "Extern (KNX-Bus)" : (intMode == 2) ? "Intern + Extern" : "Intern (an Hue)";
+                html += "<tr><td>Bereitstellung HCL-Sollwerte</td><td>" + String(bereitText) + "</td></tr>";
+            }
+            html += "<tr><td>Saison</td><td>" + String(master->isSummer() ? "Sommer" : "Winter") + "</td></tr>";
+            html += "<tr><td>Sonnenaufgang / -untergang</td><td>" + sunrise + " / " + sunset + "</td></tr>";
+            html += "<tr><td>Adaptive-Modus</td><td>" + adaptiveModeText + "</td></tr>";
+            html += "<tr><td>Resolved Setpoints</td><td>" + String(ch ? ch->resolvedCount() : 0) + "</td></tr>";
+            html += "<tr><td colspan='2'>" + buildSetpointListHtml(ch) + "</td></tr>";
+
+            if (hasStatusTime)
+            {
+                HclFixedInterpolationDebug interpolationDebug;
+                if (buildFixedInterpolationDebug(ch, statusCurrentMinutes, interpolationDebug) && interpolationDebug.valid)
+                {
+                    html += "<tr><td>Interpolation Bereich</td><td>" +
+                        formatMinutesToClock(interpolationDebug.prevTime) + " (" + String(interpolationDebug.prevKelvin) + " K / " + String(interpolationDebug.prevBrightness) + "%) → " +
+                        formatMinutesToClock(interpolationDebug.nextTime) + " (" + String(interpolationDebug.nextKelvin) + " K / " + String(interpolationDebug.nextBrightness) + "%)" +
+                        (interpolationDebug.wrapsMidnight ? " [Wrap]" : "") +
+                        "</td></tr>";
+                    html += "<tr><td>Interpolation Fortschritt</td><td>" +
+                        String(interpolationDebug.elapsedMinutes) + " / " + String(interpolationDebug.spanMinutes) + " min (" +
+                        String(interpolationDebug.factor * 100.0f, 1) + "%) → " +
+                        String(interpolationDebug.targetKelvin) + " K / " + String(interpolationDebug.targetBrightness) + "%</td></tr>";
+                }
+                else
+                {
+                    html += "<tr><td>Interpolation</td><td>n/a (zu wenig Resolved-Setpoints)</td></tr>";
+                }
+            }
+            html += "</table>";
+
+            // Zugeordnete Hue-Kanäle
+            {
+                const uint8_t hueChCount = (ParamHUE_HUEChannelCount < MAX_LIGHTS) ? ParamHUE_HUEChannelCount : MAX_LIGHTS;
+                bool anyHueCh = false;
+                for (uint8_t hCh = 0; hCh < hueChCount; hCh++)
+                {
+                    if (_devices[hCh] == nullptr) continue;
+                    if (_devices[hCh]->getHCLMaster() != masterNumber) continue;
+                    if (!anyHueCh)
+                    {
+                        html += "<table><tr><th>Kanal</th><th>Name</th><th>HCL-Sperre</th></tr>";
+                        anyHueCh = true;
+                    }
+                    const bool locked = _hclChannelLockActive[hCh];
+                    html += "<tr><td>" + String(hCh + 1) + "</td>"
+                         + "<td>" + _devices[hCh]->getName() + "</td>"
+                         + "<td>" + (locked ? "<span class='red'>Aktiv</span>" : "<span class='green'>Nein</span>") + "</td></tr>";
+                }
+                if (anyHueCh)
+                    html += "</table>";
+            }
+
+            // Tagesprofil-Diagramm
+            html += buildHclSvgChart(ch, statusCurrentMinutes, hasStatusTime);
+        }
+
+        // Sperren
+        html += "<h2>Sperren</h2>";
+        html += "<table class='attribute-table'>";
+
+        // Globale Sperre
+        String globalLockText = String(_hclLockActive ? "<span class='red'>Aktiv</span>" : "<span class='green'>Inaktiv</span>");
+        globalLockText += " | Richtlinie: " + String(HueGatewayModule::hclFallbackPolicyToText(static_cast<HclLockFallbackPolicy>(_hclFallbackPolicy)));
+        globalLockText += " | Modus: " + String(HueGatewayModule::hclFallbackModeToText(static_cast<HclLockFallbackMode>(_hclLockFallbackMode)));
+        if (_hclLockActive && _hclLockAutoReleaseMs > 0)
+        {
+            const unsigned long nowMs = millis();
+            const long remainMs = static_cast<long>(_hclLockAutoReleaseMs) - static_cast<long>(nowMs);
+            globalLockText += " | Auto-Freigabe in: " + String(remainMs > 0 ? remainMs / 1000 : 0) + " s";
+        }
+        html += "<tr><td>Globale Sperre (KO HCL-Sperre)</td><td>" + globalLockText + "</td></tr>";
+
+        // Manager-Sperren
+        for (uint8_t m = 0; m < HCL::MasterManager::MAX_MASTERS; m++)
+        {
+            if (!_hclManagerLockActive[m]) continue;
+            const unsigned long nowMs = millis();
+            String releaseInfo = "";
+            if (_hclManagerLockAutoReleaseMs[m] > 0)
+            {
+                const long remainMs = static_cast<long>(_hclManagerLockAutoReleaseMs[m]) - static_cast<long>(nowMs);
+                releaseInfo = " | Auto-Freigabe in: " + String(remainMs > 0 ? remainMs / 1000 : 0) + " s";
+            }
+            html += "<tr><td>HCL-Master " + String(m + 1) + " Sperre (KO Sperre M" + String(m + 1) + ")</td><td><span class='red'>Aktiv</span> | "
+                + String(HueGatewayModule::hclFallbackPolicyToText(static_cast<HclLockFallbackPolicy>(_hclManagerFallbackPolicy[m])))
+                + releaseInfo + "</td></tr>";
+        }
+
+        // Kanal-Sperren
+        #ifdef ParamHUE_HUEChannelCount
+        {
+            const uint8_t configuredChannels = min(static_cast<uint8_t>(ParamHUE_HUEChannelCount), static_cast<uint8_t>(MAX_LIGHTS));
+            bool anyChannelLock = false;
+            for (uint8_t ch = 0; ch < configuredChannels; ch++)
+            {
+                if (_hclChannelLockActive[ch]) { anyChannelLock = true; break; }
+            }
+            if (anyChannelLock)
+            {
+                String lockedList = "";
+                for (uint8_t ch = 0; ch < configuredChannels; ch++)
+                {
+                    if (!_hclChannelLockActive[ch]) continue;
+                    if (lockedList.length() > 0) lockedList += ", ";
+                    lockedList += "Kanal " + String(ch + 1);
+                    if (_devices[ch] != nullptr)
+                        lockedList += " (" + _devices[ch]->getName() + ")";
+                    if (_hclChannelLockAutoReleaseMs[ch] > 0)
+                    {
+                        const unsigned long nowMs = millis();
+                        const long remainMs = static_cast<long>(_hclChannelLockAutoReleaseMs[ch]) - static_cast<long>(nowMs);
+                        lockedList += " ≤" + String(remainMs > 0 ? remainMs / 1000 : 0) + "s";
+                    }
+                }
+                html += "<tr><td>Kanal-Sperren aktiv (KO Sperre Kx)</td><td><span class='red'>Aktiv:</span> " + lockedList + "</td></tr>";
+            }
+            else
+            {
+                html += "<tr><td>Kanal-Sperren (KO Sperre Kx)</td><td><span class='green'>Keine aktiv</span></td></tr>";
+            }
+        }
+        #endif
+
+        html += "</table>";
+    }
+    else
+    {
+        html += "</table>";
+    }
+
+    html += "<p>";
+    html += String("<a href='") + hueBaseUri + "'>← Zurück</a>";
+    html += "</p>";
+    html += "</div>";
+    res.setLayout(true);
+    res.setActiveMenu("/hue/lichtmanager");
+    send_html(res, html, 200);
 }
 
-esp_err_t HueGatewayModule::pageWebScan(const char* uri, httpd_req_t* req, void* arg)
+void HueGatewayModule::handleWebRetrySetup(WebRequest& req, WebResponse& res)
 {
-    (void)uri;
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(arg);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
+    (void)req;
+    const char* hueBaseUri = "/hue";
 
-    req->user_ctx = self;
-    return HueGatewayModule::handleWebScan(req);
-}
-
-esp_err_t HueGatewayModule::pageWebStatus(const char* uri, httpd_req_t* req, void* arg)
-{
-    (void)uri;
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(arg);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
-
-    req->user_ctx = self;
-    return HueGatewayModule::handleWebStatus(req);
-}
-
-esp_err_t HueGatewayModule::pageWebPair(const char* uri, httpd_req_t* req, void* arg)
-{
-    (void)uri;
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(arg);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
-
-    req->user_ctx = self;
-    return HueGatewayModule::handleWebPair(req);
-}
-
-esp_err_t HueGatewayModule::pageWebResetAuth(const char* uri, httpd_req_t* req, void* arg)
-{
-    (void)uri;
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(arg);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
-
-    req->user_ctx = self;
-    return HueGatewayModule::handleWebResetAuth(req);
-}
-
-esp_err_t HueGatewayModule::pageWebDiagnose(const char* uri, httpd_req_t* req, void* arg)
-{
-    (void)uri;
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(arg);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
-
-    req->user_ctx = self;
-    return HueGatewayModule::handleWebDiagnose(req);
-}
-
-esp_err_t HueGatewayModule::handleWebRetrySetup(httpd_req_t* req)
-{
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(req->user_ctx);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
-
-    const String hueBaseUri = String(openknxWebUI.getBaseUri()) + "/hue";
-
-    self->_deviceSetupNeedsRetry = true;
-    self->_deviceSetupRetryBackoffMs = 0;
-    self->_setupCircuitOpenUntilMs = 0;
-    self->_setupCircuitTrips = 0;
-    self->_consecutiveEmptyLightFetches = 0;
-    self->_lastDeviceSetupRetryMs = 0;
+    _deviceSetupNeedsRetry = true;
+    _deviceSetupRetryBackoffMs = 0;
+    _setupCircuitOpenUntilMs = 0;
+    _setupCircuitTrips = 0;
+    _consecutiveEmptyLightFetches = 0;
+    _lastDeviceSetupRetryMs = 0;
     Serial.println("[HueGatewayModule] Manual setup retry triggered via WebUI");
-    self->appendDiagnosticLog("INFO", "WEBUI", "manual setup retry triggered");
+    appendDiagnosticLog("INFO", "WEBUI", "manual setup retry triggered");
 
     String html;
     html.reserve(512);
-    html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-    html += "<meta http-equiv='refresh' content='5;url=" + hueBaseUri + "/status'>";
-    html += "<title>Setup-Retry</title>";
-    html += "<style>body{font-family:Arial,sans-serif;margin:40px;background:#f5f5f5;}";
-    html += "a{display:inline-block;padding:10px 16px;margin:5px;background:#007bff;color:#fff;text-decoration:none;border-radius:3px;}</style></head><body>";
-    html += "<h1>\xF0\x9F\x94\x84 Setup-Retry ausgelöst</h1>";
+    html = "<div class='container'>";
+    html += String("<meta http-equiv='refresh' content='5;url=") + hueBaseUri + "/status'>";
+    html += "<h1>Setup-Retry ausgelöst</h1>";
     html += "<p>Die Geräte-Zuordnung wird beim nächsten Loop-Durchlauf wiederholt.</p>";
     html += "<p>Weiterleitung auf Statusseite in 5 Sekunden...</p>";
-    html += "<a href='" + hueBaseUri + "/status'>\xF0\x9F\x93\x8A Status</a> ";
-    html += "<a href='" + hueBaseUri + "'>\xE2\x86\x90 Zurück</a></body></html>";
-    return send_html(req, html, 200);
+    html += "<p>";
+    html += String("<a href='") + hueBaseUri + "/status'>Status</a>&nbsp;&nbsp;";
+    html += String("<a href='") + hueBaseUri + "'>← Zurück</a>";
+    html += "</p>";
+    html += "</div>";
+    res.setLayout(true);
+    res.setActiveMenu("/hue");
+    send_html(res, html, 200);
 }
 
-esp_err_t HueGatewayModule::pageWebRetrySetup(const char* uri, httpd_req_t* req, void* arg)
+// ---------------------------------------------------------------------------
+// Phase 4 (Option C): read-only Live telemetry — /hue/live + /ws/hue
+// ---------------------------------------------------------------------------
+
+void HueGatewayModule::markChannelDirty(int channel)
 {
-    (void)uri;
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(arg);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
-
-    req->user_ctx = self;
-    return HueGatewayModule::handleWebRetrySetup(req);
+    if (channel < 0 || channel >= MAX_CHANNELS) return;
+    _liveDirty[channel] = true;
 }
+
+namespace
+{
+    void appendJsonEscaped(String& out, const String& s)
+    {
+        for (size_t k = 0; k < s.length(); k++)
+        {
+            char c = s[k];
+            if (c == '"' || c == '\\') { out += '\\'; out += c; }
+            else if ((uint8_t)c < 0x20) { out += ' '; }
+            else { out += c; }
+        }
+    }
+}
+
+void HueGatewayModule::buildChannelStateJson(int channel, String& out)
+{
+    HueGatewayDevice* dev = _devices[channel];
+    out += "{\"n\":";
+    out += String(channel + 1);
+    if (!dev)
+    {
+        out += ",\"a\":false}";
+        return;
+    }
+    out += ",\"a\":true,\"tp\":";
+    out += String(dev->deviceType());
+    out += ",\"nm\":\"";
+    appendJsonEscaped(out, dev->getName());
+    out += "\",\"on\":";
+    out += dev->isOn() ? "true" : "false";
+    uint8_t bri = dev->getBrightness();
+    uint16_t briPct = (uint16_t)((bri * 100u + 127u) / 254u);
+    if (briPct > 100) briPct = 100;
+    out += ",\"bri\":";
+    out += String(briPct);
+    out += ",\"rch\":";
+    out += dev->isReachable() ? "true" : "false";
+
+    HueGatewayLight* light = lightAt(channel);
+    if (light)
+    {
+        uint16_t ct = light->getColorTempKelvin();
+        if (ct != 0xFFFF)
+        {
+            out += ",\"ct\":";
+            out += String(ct);
+        }
+        uint8_t r = light->getRed(), g = light->getGreen(), b = light->getBlue();
+        if (r || g || b)
+        {
+            char rgb[8];
+            snprintf(rgb, sizeof(rgb), "#%02x%02x%02x", r, g, b);
+            out += ",\"rgb\":\"";
+            out += rgb;
+            out += "\"";
+        }
+    }
+
+    uint8_t hm = dev->getHCLMaster();
+    if (hm > 0)
+    {
+        out += ",\"hm\":";
+        out += String(hm);
+        out += ",\"hl\":";
+        out += dev->isHCLChannelLocked() ? "true" : "false";
+    }
+
+    out += ",\"lkm\":";
+    out += String(_diagLastKoCommandMs[channel]);
+    out += ",\"lwm\":";
+    out += String(_diagLastWriteTraceMs[channel]);
+    out += ",\"lwr\":\"";
+    appendJsonEscaped(out, _diagLastWriteTraceResult[channel]);
+    out += "\"}";
+}
+
+void HueGatewayModule::flushLiveUpdates()
+{
+    if (openknxNetwork.webserver.connectedClientFds("/ws/hue").empty()) return;
+
+    unsigned long now = millis();
+
+    // Periodic forced refresh: mark all active channels dirty every 3 s.
+    if ((now - _livePeriodicRefreshMs) >= 3000UL)
+    {
+        _livePeriodicRefreshMs = now;
+        for (int i = 0; i < MAX_CHANNELS; i++)
+        {
+            if (_devices[i]) _liveDirty[i] = true;
+        }
+    }
+
+    for (int i = 0; i < MAX_CHANNELS; i++)
+    {
+        if (!_liveDirty[i]) continue;
+        if ((now - _liveLastSentMs[i]) < 200UL) continue;
+
+        String j;
+        j.reserve(384);
+        j = "{\"t\":\"d\",\"now\":";
+        j += String(now);
+        j += ",\"c\":";
+        buildChannelStateJson(i, j);
+        j += "}";
+        openknxNetwork.webserver.sendWebsocketMessage("/ws/hue", j.c_str());
+
+        _liveDirty[i] = false;
+        _liveLastSentMs[i] = now;
+    }
+}
+
+void HueGatewayModule::sendLiveSnapshot(int clientFd)
+{
+    String j;
+    j.reserve(3072);
+    j = "{\"t\":\"s\",\"now\":";
+    j += String(millis());
+    j += ",\"ch\":[";
+    bool first = true;
+    for (int i = 0; i < MAX_CHANNELS; i++)
+    {
+        if (!_devices[i]) continue;
+        if (!first) j += ",";
+        first = false;
+        buildChannelStateJson(i, j);
+    }
+    j += "]}";
+    openknxNetwork.webserver.sendToClient("/ws/hue", clientFd, j.c_str(), j.length());
+}
+
+void HueGatewayModule::handleLiveWsConnect(int clientId, bool connected)
+{
+    if (connected) sendLiveSnapshot(clientId);
+}
+
+void HueGatewayModule::handleLiveWsMessage(int clientId, OpenKNX::Network::WebSocketFrame* frame)
+{
+    // Option C: read-only — incoming WS frames are intentionally ignored
+    // to avoid TLS heap competition with Hue HTTPS PUT requests.
+    (void)clientId;
+    (void)frame;
+}
+
+void HueGatewayModule::handleWebLive(WebRequest& req, WebResponse& res)
+{
+    (void)req;
+    String html;
+    html.reserve(4096);
+    html = "<div class='container'>";
+    html += "<h1>Hue Live (read-only)</h1>";
+    html += "<div id='live-status'>Verbinde...</div>";
+    html += "<div id='live-grid'></div>";
+    html += "<script>";
+    html += "const grid=document.getElementById('live-grid'),sEl=document.getElementById('live-status'),cards={};";
+    html += "const TP={0:'Light',1:'Plug',2:'Motion',3:'Contact',4:'Button'};";
+    html += "function fmtAge(ms,now){if(!ms)return '-';const a=Math.max(0,now-ms);if(a<1000)return a+'ms';if(a<60000)return Math.round(a/1000)+'s';if(a<3600000)return Math.round(a/60000)+'min';return Math.round(a/3600000)+'h';}";
+    html += "function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}";
+    html += "function render(c,now){const id='ch'+c.n;let el=cards[id];if(!c.a){if(el){el.remove();delete cards[id];}return;}";
+    html += "if(!el){el=document.createElement('div');el.className='lc';el.id=id;grid.appendChild(el);cards[id]=el;}";
+    html += "el.classList.toggle('off',!c.on);";
+    html += "let h='<h3><span class=ch>K'+c.n+'</span> <span>'+esc(c.nm||'-')+'</span> <span class=\"rch '+(c.rch?'ok':'no')+'\" title=\"'+(c.rch?'reachable':'unreachable')+'\"></span></h3>';";
+    html += "h+='<div class=row><span>Typ</span><b>'+(TP[c.tp]||c.tp)+'</b></div>';";
+    html += "h+='<div class=row><span>Zustand</span><span class=\"sw '+(c.on?'on':'off')+'\">'+(c.on?'EIN':'AUS')+'</span></div>';";
+    html += "if(c.tp===0||c.tp===1)h+='<div class=row><span>Helligkeit</span><b>'+c.bri+'%</b></div>';";
+    html += "if(c.ct)h+='<div class=row><span>Farbtemp.</span><b>'+c.ct+' K</b></div>';";
+    html += "if(c.rgb)h+='<div class=row><span>Farbe</span><b><span class=col style=\"background:'+c.rgb+'\"></span> '+c.rgb+'</b></div>';";
+    html += "if(c.hm)h+='<div class=hcl>HCL Master '+c.hm+(c.hl?' (gesperrt)':'')+'</div>';";
+    html += "h+='<div class=meta>KO '+fmtAge(c.lkm,now)+' • Hue '+fmtAge(c.lwm,now)+(c.lwr&&c.lwr!=='-'?' • '+esc(c.lwr):'')+'</div>';";
+    html += "el.innerHTML=h;}";
+    html += "let ws,reconn=2000;function connect(){ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws/hue');";
+    html += "ws.onopen=()=>{sEl.textContent='Verbunden';reconn=2000;};";
+    html += "ws.onclose=()=>{sEl.textContent='Getrennt - Reconnect...';setTimeout(connect,reconn);reconn=Math.min(reconn*1.5,15000);};";
+    html += "ws.onerror=()=>{sEl.textContent='Fehler';};";
+    html += "ws.onmessage=e=>{try{const m=JSON.parse(e.data),now=m.now||Date.now();";
+    html += "if(m.t==='s'){grid.innerHTML='';Object.keys(cards).forEach(k=>delete cards[k]);m.ch.forEach(c=>render(c,now));sEl.textContent='Verbunden ('+m.ch.length+' Kanal/Kanaele)';}";
+    html += "else if(m.t==='d'){render(m.c,now);}";
+    html += "}catch(err){console.error(err);}};}";
+    html += "connect();";
+    html += "setInterval(()=>{Object.values(cards).forEach(el=>{const m=el.querySelector('.meta');if(m){/* age refreshed on next message */}});},5000);";
+    html += "</script>";
+    html += "</div>";
+    res.setLayout(true);
+    res.setActiveMenu("/hue/live");
+    send_html(res, html, 200);
+}
+
+#endif // OPENKNX_WEBSERVER
 
 String HueGatewayModule::getBridgeScanHTML()
 {

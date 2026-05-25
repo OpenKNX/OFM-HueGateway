@@ -9,13 +9,13 @@
 #include "knxprod.h"
 #include "HueGatewayAuth.h"
 #include "HCL/HCLMasterManager.h"
-#include "WebUI.h"
 #include "Devices/HueGatewayDevice.h"
 
 // Forward Declarations
 class HueGatewayClient;
 class HueGatewayLight;
 class HueGatewayPlug;
+namespace OpenKNX { namespace Network { class WebRequest; class WebResponse; struct WebSocketFrame; } }
 struct HueGatewayEventLightUpdate;
 struct HueGatewayEventSensorUpdate;
 
@@ -70,7 +70,11 @@ public:
         DurationOrTime = 3,
         ExternalOnly = 4
     };
-    
+
+#ifdef OPENKNX_WEBSERVER
+    void markChannelDirty(int channel);
+#endif
+
 private:
     struct DiagnosticLogEntry {
         unsigned long uptimeMs;
@@ -247,33 +251,35 @@ private:
     void refreshLightStatus();
     void applyEventStreamUpdates(const HueGatewayEventLightUpdate* updates, int updateCount);
     void applyEventStreamDeviceUpdates(const HueGatewayEventSensorUpdate* updates, int updateCount);
-    void setupWebUI();
     void setupMDNS();
     void refreshNetworkServices();
     void pollAuthentication();
     bool initClientWithAppKey();
     bool startPairing();
-    
-    // Web UI handlers (absolute URIs)
-    static esp_err_t handleWebRoot(httpd_req_t* req);
-    static esp_err_t handleWebScan(httpd_req_t* req);
-    static esp_err_t handleWebScanText(httpd_req_t* req);
-    static esp_err_t handleWebStatus(httpd_req_t* req);
-    static esp_err_t handleWebPair(httpd_req_t* req);
-    static esp_err_t handleWebResetAuth(httpd_req_t* req);
-    static esp_err_t handleWebDiagnose(httpd_req_t* req);
-    static esp_err_t handleWebDiagnoseText(httpd_req_t* req);
-    static esp_err_t handleWebRetrySetup(httpd_req_t* req);
-    
-    // Web UI pages (under WEBUI_BASE_URI)
-    static esp_err_t pageWebRoot(const char* uri, httpd_req_t* req, void* arg);
-    static esp_err_t pageWebScan(const char* uri, httpd_req_t* req, void* arg);
-    static esp_err_t pageWebStatus(const char* uri, httpd_req_t* req, void* arg);
-    static esp_err_t pageWebPair(const char* uri, httpd_req_t* req, void* arg);
-    static esp_err_t pageWebResetAuth(const char* uri, httpd_req_t* req, void* arg);
-    static esp_err_t pageWebDiagnose(const char* uri, httpd_req_t* req, void* arg);
-    static esp_err_t pageWebRetrySetup(const char* uri, httpd_req_t* req, void* arg);
-    
+
+#ifdef OPENKNX_WEBSERVER
+    void setupWebUI();
+    void handleWebRoot(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebScan(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebScanText(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebStatus(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebPair(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebResetAuth(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebDiagnose(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebDiagnoseText(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebRetrySetup(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebLive(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebLichtmanager(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleLiveWsConnect(int clientId, bool connected);
+    void handleLiveWsMessage(int clientId, OpenKNX::Network::WebSocketFrame* frame);
+    void flushLiveUpdates();
+    void buildChannelStateJson(int channel, String& out);
+    void sendLiveSnapshot(int clientFd);
+    bool _liveDirty[MAX_CHANNELS];
+    unsigned long _liveLastSentMs[MAX_CHANNELS];
+    unsigned long _livePeriodicRefreshMs = 0;
+#endif // OPENKNX_WEBSERVER
+
     // Scan functions
     void performBridgeScan();
     void updateWebScanCache();
