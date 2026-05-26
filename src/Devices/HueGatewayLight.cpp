@@ -154,38 +154,56 @@ void HueGatewayLight::processKnxSwitch(bool value)
         _lastNonZeroBrightnessHue = _brightness;
     }
     
-    // On switch-on with HCL assignment, apply the last pushed HCL value.
-    // Note: the flag is intentionally NOT cleared after consumption, because
-    // LightManagerModule only pushes new values when they CHANGE. For constant
-    // HCL setpoints (e.g. 2400 K / 50 % over the whole day) we would otherwise
-    // miss applying the HCL value on subsequent switch-on events.
+    // On switch-on with HCL assignment, apply the current HCL value immediately.
+    // _pendingHclKelvin/_pendingHclBrightness are only refreshed while _on==true
+    // (the HCL loop skips !_on). Before the first switch-on — or after a long
+    // off period — the cached values are stale or never set (_hclValuePending==false).
+    // Always read fresh values from the LightManager directly so the light snaps
+    // to the correct current value without any visible transition.
     if (value
         && _hclMasterNum > 0
         && _hclMasterNum <= kMaxHclMasters
-        && !_hclChannelLockActive
-        && _hclValuePending) {
-        const uint16_t kelvin = _pendingHclKelvin;
-        const uint8_t brightness = _pendingHclBrightness;
-
-        // Convert brightness percent (0-100) to Hue scale (0-254).
-        _brightness = static_cast<uint8_t>(roundf(brightness * 254.0f / 100.0f));
-
-        _lastHCLUpdate = millis();
-        _lastHCLBrightness = brightness;
-
-        Serial.printf("[HueGatewayLight] %s - Applying HCL Master %d values on switch-on: %dK, %d%% (%d Hue)\n",
-                     _name.c_str(), _hclMasterNum, kelvin, brightness, _brightness);
-
-        if (_lightType >= 2)
+        && !_hclChannelLockActive) {
+#ifdef HUEGATEWAY_LIGHT_HAS_LIGHTMANAGER
         {
-            sendToHueWithColorTemp(kelvin, switchTransitionSec);
+            auto* lmCh = openknxLightManagerModule.channel(_hclMasterNum);
+            if (lmCh && !lmCh->applyBlocked() && !HCL::masterManager.isApplyBlocked()
+                && lmCh->internalOutputEnabled())
+            {
+                const uint8_t validMask = lmCh->internalValidMask();
+                if (validMask & 0x01) _pendingHclKelvin     = lmCh->appliedKelvin();
+                if (validMask & 0x02) _pendingHclBrightness = lmCh->effectiveBrightness();
+                _hclValuePending = true;
+            }
+        }
+#endif
+        if (_hclValuePending) {
+            const uint16_t kelvin = _pendingHclKelvin;
+            const uint8_t brightness = _pendingHclBrightness;
+
+            // Convert brightness percent (0-100) to Hue scale (0-254).
+            _brightness = static_cast<uint8_t>(roundf(brightness * 254.0f / 100.0f));
+
+            _lastHCLUpdate = millis();
+            _lastHCLBrightness = brightness;
+
+            Serial.printf("[HueGatewayLight] %s - Applying HCL Master %d values on switch-on: %dK, %d%% (%d Hue)\n",
+                         _name.c_str(), _hclMasterNum, kelvin, brightness, _brightness);
+
+            if (_lightType >= 2)
+            {
+                // Use the user-configured switch-on transition time.
+                // The correct CT is included in this call, so the bridge animates
+                // TO the right value from the start — no wrong-old-CT artefact.
+                sendToHueWithColorTemp(kelvin, switchTransitionSec);
+                return;
+            }
+
+            sendToHue(switchTransitionSec);
             return;
         }
-
-        sendToHue(switchTransitionSec);
-        return;
     }
-    
+
     sendToHue(switchTransitionSec);
 }
 
