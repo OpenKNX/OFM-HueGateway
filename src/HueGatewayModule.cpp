@@ -1420,7 +1420,7 @@ void HueGatewayModule::loop()
 
 const std::string HueGatewayModule::name()
 {
-    return "HueGatewayModule";
+    return "HueGateway";
 }
 
 const std::string HueGatewayModule::version()
@@ -3613,6 +3613,9 @@ void HueGatewayModule::setupDevices()
         _deviceSetupRetryBackoffMs = kDeviceSetupRetryBaseMs;
         _setupCircuitTrips = 0;
         _setupCircuitOpenUntilMs = 0;
+        // Nach erfolgreichem Device-Setup sofortigen Initial-Poll erzwingen,
+        // damit HueLive den echten Lampenzustand zeigt (z.B. nach ETS-Download).
+        memset(_channelLastPollMs, 0, sizeof(_channelLastPollMs));
     }
     
     Serial.printf("[HueGatewayModule] Initialized %d lights\n", _lightCount);
@@ -6388,7 +6391,7 @@ void HueGatewayModule::handleWebLichtmanager(WebRequest& req, WebResponse& res)
         html += "<tr><td>Aktive Lichtmanager</td><td>" + String(masterCount) + "</td></tr>";
         html += "</table>";
 
-        for (uint8_t masterNumber = 1; masterNumber <= 4; masterNumber++)
+        for (uint8_t masterNumber = 1; masterNumber <= HCL::MasterManager::MAX_MASTERS; masterNumber++)
         {
             if (masterNumber > masterCount)
                 break;
