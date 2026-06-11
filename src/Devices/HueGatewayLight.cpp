@@ -477,15 +477,22 @@ void HueGatewayLight::updateFromHue(bool on, uint8_t brightness, uint16_t colorT
         changed = true;
     }
     
-    if (_brightness != brightness)
+    // Only update brightness (and the restore-value cache) while the light is on.
+    // While off, the Hue bridge reports mid-transition brightness values (fade-out),
+    // which would corrupt _lastNonZeroBrightnessHue and cause the next switch-on
+    // to restore a lower brightness than intended — shrinking with every cycle.
+    if (on)
     {
-        _brightness = brightness;
-        changed = true;
-    }
+        if (_brightness != brightness)
+        {
+            _brightness = brightness;
+            changed = true;
+        }
 
-    if (_brightness > 0)
-    {
-        _lastNonZeroBrightnessHue = _brightness;
+        if (_brightness > 0)
+        {
+            _lastNonZeroBrightnessHue = _brightness;
+        }
     }
 
     if (_lightType >= 2 && colorTempKelvin >= 2000 && colorTempKelvin <= 6500 && _currentKelvin != colorTempKelvin)
