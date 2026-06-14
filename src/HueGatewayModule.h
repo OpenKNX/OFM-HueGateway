@@ -203,6 +203,9 @@ private:
     int16_t _hclManagerLockActivationMinuteOfDay[HCL::MasterManager::MAX_MASTERS];
     bool _hclChannelLockActive[MAX_CHANNELS];
     uint8_t _hclChannelLockFallbackMode[MAX_CHANNELS];
+    uint8_t _hclChannelFallbackPolicy[MAX_CHANNELS];
+    uint32_t _hclChannelFallbackDurationMs[MAX_CHANNELS];
+    uint16_t _hclChannelFallbackReleaseMinuteOfDay[MAX_CHANNELS];
     unsigned long _hclChannelLockActivatedMs[MAX_CHANNELS];
     unsigned long _hclChannelLockAutoReleaseMs[MAX_CHANNELS];
     int16_t _hclChannelLockActivationDayOfYear[MAX_CHANNELS];
@@ -248,7 +251,7 @@ private:
     void setupHCL();
     void processBehaviorInstanceAutoDelete();
     void checkConnection();
-    void refreshLightStatus();
+    void refreshLightStatus(bool fastTrackOnly = false);
     void applyEventStreamUpdates(const HueGatewayEventLightUpdate* updates, int updateCount);
     void applyEventStreamDeviceUpdates(const HueGatewayEventSensorUpdate* updates, int updateCount);
     void setupMDNS();

@@ -2,6 +2,19 @@
 
 Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumentiert.
 
+## [0.7.1] - 2026-06-15
+
+### Behoben (Helligkeit & Status)
+- **Fortschreitendes Abdimmen bei wiederholten Schaltzyklen.** Während des Ausschalt-Fade-outs sendet die Hue-Bridge mehrere `on=true`-Frames mit fallender Helligkeit. Diese Zwischenwerte wurden fälschlich als neue Zielhelligkeit in den Cache übernommen. Ein neues `_switchOffPending`-Flag (gesetzt von `processKnxSwitch(false)`, gelöscht sobald die Bridge `on=false` bestätigt) unterdrückt Cache-Updates während der kommandierten Überblendung.
+- **Lampe startet nach Neustart/Neuprogrammierung auf ~1 %.** `setLightState`/`setGroupedLightState`/`setLightStateWithColorTemp`/`setGroupedLightStateWithColorTemp` sendeten bei unbekannter Helligkeit aktiv `dimming: 0 %` an die Bridge, die das als Minimum (~1 %) interpretiert. Das `dimming`-Feld wird jetzt bei `brightness == 0` weggelassen → die Bridge stellt ihren eigenen zuletzt bekannten An-Wert wieder her.
+- **Aus-Zustands-Poll vergiftete die zwischengespeicherte Helligkeit.** Die Bridge meldet ihren gespeicherten Dimmwert auch im Aus-Zustand. `updateFromHue` aktualisiert `_brightness` jetzt nur noch, wenn die Bridge die Lampe als **an** (`on == true`) meldet, sodass ein Aus-Zustands-Poll den Wert nicht mehr überschreibt und das nächste Einschalten ihn nicht abspielt.
+- **Helligkeits-Status blieb bei manuell gesteuerten Leuchten auf 0 % stehen.** Nach einem reinen Ein-Befehl liefert der EventStream nur ein `on`-Event ohne `dimming`-Feld, sodass der Gateway die tatsächliche Helligkeit nicht erfuhr. `refreshLightStatus(bool fastTrackOnly)` führt den Fast-Track-Verifikationspoll (mit vollem Light-Fetch inkl. Helligkeit) jetzt auch bei aktivem EventStream aus — aber nur für Kanäle mit kürzlich abgesetztem Befehl und ohne die regulären Intervall-Polls anzustoßen. `sendStatusToKnx` überschreibt das Helligkeits-KO nicht mehr mit 0 %, solange der echte Wert noch unbekannt ist (Ein-Zustand, `_brightness == 0`).
+
+### Hinzugefügt (HCL-Rückfallstrategie)
+- Kanal-spezifische **Rückfallstrategie nach Lichtmanager-Sperre** (`CH%C%HCLFallbackPolicy`): Definierte Rückfallzeit, Freie Dauer, Freie Uhrzeit, Dauer oder Uhrzeit, Nur externes Entsperren, Deaktiviert.
+- Zugehörige Parameter **Freie Rückfalldauer** (`CH%C%HCLFallbackDurationSec`, 0–65535 s) und **Rückfall-Uhrzeit** (`CH%C%HCLFallbackReleaseTime`, 0–1439 min), in der ETS abhängig von der gewählten Strategie eingeblendet.
+- Laufzeit-Auswertung über `_hclChannelFallbackPolicy`/`_hclChannelFallbackDurationMs`/`_hclChannelFallbackReleaseMinuteOfDay` und `shouldReleaseByPolicyTime(...)`.
+
 ## [0.7.0] - 2026-05-22 — Partial-Sink-Integration
 
 ### Geändert (kompatibilitätsrelevant)

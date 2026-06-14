@@ -76,6 +76,7 @@ HueGatewayLight::HueGatewayLight(const String& lightId, const String& name, HueG
     , _lastRelativeDimCmdMs(0)
     , _relativeDimCooldownUntilMs(0)
     , _relativeDimErrorStreak(0)
+    , _switchOffPending(false)
     , _relativeDimHoldActive(false)
     , _relativeDimHoldBrighter(false)
     , _relativeDimHoldSteps(0)
@@ -133,6 +134,10 @@ void HueGatewayLight::processKnxSwitch(bool value)
         _hclChannelLockActive = false;
         Serial.printf("[HueGatewayLight] %s - HCL channel lock released by switch-off\n", _name.c_str());
     }
+
+    // Track explicit off-commands so updateFromHue can suppress brightness
+    // cache updates during the bridge's fade-out transition.
+    _switchOffPending = !value;
 
     _on = value;
     uint8_t switchTransitionSec = value ? _switchOnTransitionSec : _switchOffTransitionSec;
@@ -476,24 +481,34 @@ void HueGatewayLight::updateFromHue(bool on, uint8_t brightness, uint16_t colorT
 
     bool changed = false;
 
-    // Capture our commanded intent BEFORE the bridge state is applied.
-    // The Hue v2 bridge reports on=true with decreasing brightness during a
-    // fade-out transition — so checking only the bridge's on-flag is not enough.
-    // We must also verify that WE intended the light to be on.
-    const bool intendedOn = _on;
-
     if (_on != on)
     {
         _on = on;
         changed = true;
     }
 
-    // Only update brightness and the restore-value cache when BOTH the bridge
-    // reports on=true AND we commanded on.  This blocks two corruption paths:
-    //   1. Bridge sends on=false with fading brightness (previous fix covered this).
-    //   2. Bridge sends on=true with decreasing brightness during a running fade-out
-    //      while we already commanded off — this was the remaining bug.
-    if (on && intendedOn)
+    // Clear the pending-off flag once the bridge confirms the light is off.
+    if (!on)
+        _switchOffPending = false;
+
+    // Only update brightness and the restore-value cache when not in the middle
+    // of a commanded fade-out AND the bridge reports the light as ON.
+    // _switchOffPending is set by processKnxSwitch(false) and cleared above when
+    // the bridge finally confirms on=false.
+    // The on==true gate is essential: a Hue bridge keeps reporting its stored
+    // dimming level even while the light is OFF. Without this gate an off-state
+    // poll would write that value into _brightness, and the next plain switch-on
+    // would replay it to the bridge instead of letting the bridge restore its own
+    // last on-brightness. After a gateway restart _brightness stays 0 until the
+    // light is actually on, so processKnxSwitch sends on-only (no dimming) and the
+    // bridge restores its own value.
+    // This blocks three corruption paths without blocking legitimate bridge
+    // updates (e.g. Hue App changes while the gateway has _on==false at startup):
+    //   1. Bridge sends on=false with fading brightness.
+    //   2. Bridge sends on=true with decreasing brightness during fade-out
+    //      while _switchOffPending is still set.
+    //   3. Bridge reports its stored off-state dimming level on a poll while off.
+    if (!_switchOffPending && on)
     {
         if (_brightness != brightness)
         {
@@ -539,15 +554,22 @@ void HueGatewayLight::sendStatusToKnx()
     // Publish status to dedicated feedback KOs.
     // Hue 0-254 -> KNX 0-100%.
     // While switched off, always report 0% brightness on KNX status.
-    uint8_t statusBrightnessHue = _on ? _brightness : 0;
-    uint8_t brightnessPercent = static_cast<uint8_t>(roundf((statusBrightnessHue / 254.0f) * 100.0f));
-    if (brightnessPercent > 100) brightnessPercent = 100;
-    
+
     // KO Status Switch: DPT 1.001 (bool) - On/Off feedback.
     knx.getGroupObject(_koStatusSwitch).value(_on, Dpt(1, 1));
-    
+
     // KO Status Brightness: DPT 5.001 (0-100%) - brightness feedback.
-    knx.getGroupObject(_koStatusBrightness).value(brightnessPercent, Dpt(5, 1));
+    // If the lamp is on but _brightness is still 0 (gateway hasn't heard back from the
+    // bridge yet — cold-start case), skip the brightness update so we don't overwrite a
+    // previously valid value with 0%.  The EventStream/poll will trigger another
+    // sendStatusToKnx() call as soon as the actual brightness is known.
+    if (!_on || _brightness > 0)
+    {
+        uint8_t statusBrightnessHue = _on ? _brightness : 0;
+        uint8_t brightnessPercent = static_cast<uint8_t>(roundf((statusBrightnessHue / 254.0f) * 100.0f));
+        if (brightnessPercent > 100) brightnessPercent = 100;
+        knx.getGroupObject(_koStatusBrightness).value(brightnessPercent, Dpt(5, 1));
+    }
 
     if (_lightType >= 2 && _koStatusColorTemp > 0)
     {
@@ -564,8 +586,10 @@ void HueGatewayLight::sendStatusToKnx()
         rgbKo.objectWritten();
     }
     
-    Serial.printf("[HueGatewayLight] %s - Sent to KNX: On:%d Bri:%d%% (Hue:%d)\n",
-                  _name.c_str(), _on, brightnessPercent, statusBrightnessHue);
+    Serial.printf("[HueGatewayLight] %s - Sent to KNX: On:%d Bri:%s (Hue:%d)\n",
+                  _name.c_str(), _on,
+                  (_on && _brightness == 0) ? "?" : String(static_cast<uint8_t>(roundf((_brightness / 254.0f) * 100.0f))).c_str(),
+                  _brightness);
 }
 
 // ===== Private Methods =====

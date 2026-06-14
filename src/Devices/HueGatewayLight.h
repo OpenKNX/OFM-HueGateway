@@ -209,6 +209,10 @@ private:
     bool     _hclValuePending;
     unsigned long _lastHueWriteSuccessMs;
     
+    // Set by processKnxSwitch(false), cleared when bridge confirms on=false.
+    // Used to suppress brightness-cache updates during a commanded fade-out.
+    bool _switchOffPending;
+
     // Lifecycle flags.
     bool _initialized;
     unsigned long _lastUpdate;

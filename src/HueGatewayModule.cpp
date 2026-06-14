@@ -951,6 +951,9 @@ HueGatewayModule::HueGatewayModule()
         _channelFastTrackRemaining[i] = 0;
         _hclChannelLockActive[i] = false;
         _hclChannelLockFallbackMode[i] = static_cast<uint8_t>(HclLockFallbackMode::None);
+        _hclChannelFallbackPolicy[i] = static_cast<uint8_t>(HclLockFallbackPolicy::Legacy);
+        _hclChannelFallbackDurationMs[i] = 0;
+        _hclChannelFallbackReleaseMinuteOfDay[i] = 0xFFFF;
         _hclChannelLockActivatedMs[i] = 0;
         _hclChannelLockAutoReleaseMs[i] = 0;
         _hclChannelLockActivationDayOfYear[i] = -1;
@@ -1404,6 +1407,32 @@ void HueGatewayModule::loop()
         }
     }
 
+    // While the EventStream is the active sync path it only delivers partial
+    // events: an on=true event after a plain switch-on (where the gateway sent
+    // no dimming value and let the bridge restore its own brightness) carries no
+    // brightness field. Run the fast-track verification poll — which does a full
+    // light fetch including brightness — for channels that just received a
+    // command, so manually controlled lights publish a correct brightness status.
+    if (_client && _client->isEventStreamConnected()
+        && (now >= HueGatewayLight::globalHclWriteNextAllowedMs()))
+    {
+        bool fastTrackPending = false;
+        for (int i = 0; i < MAX_LIGHTS; i++)
+        {
+            if (_channelFastTrackRemaining[i] > 0
+                && _channelFastTrackNextMs[i] != 0
+                && now >= _channelFastTrackNextMs[i])
+            {
+                fastTrackPending = true;
+                break;
+            }
+        }
+        if (fastTrackPending && hasLoopBudget("fastTrack-refresh"))
+        {
+            refreshLightStatus(true);
+        }
+    }
+
     if (_webScanRequested && !_webScanInProgress && _client && _initialized && _client->isInitialized())
     {
         _webScanRequested = false;
@@ -1629,7 +1658,7 @@ void HueGatewayModule::processInputKo(GroupObject& ko)
                 // Status-KO "Adaptive aktiv" nach Lux-Update senden
                 {
                     const uint8_t mn = hclLuxKos[i].master;
-                    const bool active = HCL::masterManager.isMasterAdaptiveActive(mn);
+                    [[maybe_unused]] const bool active = HCL::masterManager.isMasterAdaptiveActive(mn);
                     switch (mn) {
 #ifdef HUE_KoHUEHCLM1AdaptiveActive
                         case 1: knx.getGroupObject(HUE_KoHUEHCLM1AdaptiveActive).value(active, Dpt(1, 11)); break;
@@ -3523,6 +3552,22 @@ void HueGatewayModule::setupDevices()
         _hclChannelLockFallbackMode[ch] = ParamHUE_CHHCLLockFallback;
         #endif
 
+        _hclChannelFallbackPolicy[ch] = static_cast<uint8_t>(HclLockFallbackPolicy::Legacy);
+        _hclChannelFallbackDurationMs[ch] = 0;
+        _hclChannelFallbackReleaseMinuteOfDay[ch] = 0xFFFF;
+        #ifdef ParamHUE_CHHCLFallbackPolicy
+        _hclChannelFallbackPolicy[ch] = ParamHUE_CHHCLFallbackPolicy;
+        #endif
+        #ifdef ParamHUE_CHHCLFallbackDurationSec
+        {
+            const uint64_t durMs = static_cast<uint64_t>(ParamHUE_CHHCLFallbackDurationSec) * 1000ULL;
+            _hclChannelFallbackDurationMs[ch] = (durMs > 0xFFFFFFFFULL) ? 0xFFFFFFFFUL : static_cast<uint32_t>(durMs);
+        }
+        #endif
+        #ifdef ParamHUE_CHHCLFallbackReleaseTime
+        _hclChannelFallbackReleaseMinuteOfDay[ch] = ParamHUE_CHHCLFallbackReleaseTime;
+        #endif
+
         _devices[ch]->setHCLChannelLock(_hclChannelLockActive[ch]);
         publishHclChannelLockStatus(ch);
 
@@ -3863,7 +3908,7 @@ void HueGatewayModule::checkConnection()
     }
 }
 
-void HueGatewayModule::refreshLightStatus()
+void HueGatewayModule::refreshLightStatus(bool fastTrackOnly)
 {
     static bool sPollingModeMarkerLogged = false;
     if (!sPollingModeMarkerLogged)
@@ -3899,6 +3944,13 @@ void HueGatewayModule::refreshLightStatus()
         {
             dueFlags[i] = true;
             dueChannels++;
+            continue;
+        }
+
+        // In fast-track-only mode (called while the EventStream is the active sync
+        // path) skip the regular interval polling so we don't undermine SSE.
+        if (fastTrackOnly)
+        {
             continue;
         }
 
@@ -4610,7 +4662,7 @@ void HueGatewayModule::setHclChannelLock(uint8_t channelIndex, bool active, cons
         _hclChannelLockActivationDayOfYear[channelIndex] = -1;
         _hclChannelLockActivationMinuteOfDay[channelIndex] = -1;
 
-        const HclLockFallbackPolicy fallbackPolicy = static_cast<HclLockFallbackPolicy>(_hclFallbackPolicy);
+        const HclLockFallbackPolicy fallbackPolicy = static_cast<HclLockFallbackPolicy>(_hclChannelFallbackPolicy[channelIndex]);
 
         if (fallbackPolicy == HclLockFallbackPolicy::Legacy)
         {
@@ -4623,9 +4675,9 @@ void HueGatewayModule::setHclChannelLock(uint8_t channelIndex, bool active, cons
         }
         else if (fallbackPolicy == HclLockFallbackPolicy::Duration || fallbackPolicy == HclLockFallbackPolicy::DurationOrTime)
         {
-            if (_hclFallbackDurationMs > 0)
+            if (_hclChannelFallbackDurationMs[channelIndex] > 0)
             {
-                _hclChannelLockAutoReleaseMs[channelIndex] = _hclChannelLockActivatedMs[channelIndex] + _hclFallbackDurationMs;
+                _hclChannelLockAutoReleaseMs[channelIndex] = _hclChannelLockActivatedMs[channelIndex] + _hclChannelFallbackDurationMs[channelIndex];
             }
         }
 
@@ -4774,14 +4826,14 @@ void HueGatewayModule::evaluateHclManagerLockFallback(const tm* timeinfo, bool h
 
 void HueGatewayModule::evaluateHclChannelLockFallback(const tm* timeinfo, bool hasTime)
 {
-    const HclLockFallbackPolicy fallbackPolicy = static_cast<HclLockFallbackPolicy>(_hclFallbackPolicy);
-
     for (uint8_t channelIndex = 0; channelIndex < MAX_LIGHTS; channelIndex++)
     {
         if (!_hclChannelLockActive[channelIndex])
         {
             continue;
         }
+
+        const HclLockFallbackPolicy fallbackPolicy = static_cast<HclLockFallbackPolicy>(_hclChannelFallbackPolicy[channelIndex]);
 
         if (fallbackPolicy == HclLockFallbackPolicy::ExternalOnly)
         {
@@ -4793,7 +4845,7 @@ void HueGatewayModule::evaluateHclChannelLockFallback(const tm* timeinfo, bool h
             const bool releaseByDuration = (_hclChannelLockAutoReleaseMs[channelIndex] != 0)
                 && (static_cast<long>(millis() - _hclChannelLockAutoReleaseMs[channelIndex]) >= 0);
             const bool releaseByTime = (fallbackPolicy == HclLockFallbackPolicy::TimeOfDay || fallbackPolicy == HclLockFallbackPolicy::DurationOrTime)
-                && shouldReleaseByPolicyTime(_hclChannelLockActivationDayOfYear[channelIndex], _hclChannelLockActivationMinuteOfDay[channelIndex], _hclFallbackReleaseMinuteOfDay, timeinfo, hasTime);
+                && shouldReleaseByPolicyTime(_hclChannelLockActivationDayOfYear[channelIndex], _hclChannelLockActivationMinuteOfDay[channelIndex], _hclChannelFallbackReleaseMinuteOfDay[channelIndex], timeinfo, hasTime);
 
             if (releaseByDuration || releaseByTime)
             {

@@ -1,6 +1,6 @@
 {
     "name": "OFM-HueGatewayModule",
-    "version": "0.7.0",
+    "version": "0.7.1",
     "description": "Philips Hue integration module for OpenKNX, can be embedded in an ETS application",
     "homepage": "https://openknx.de",
     "authors": {

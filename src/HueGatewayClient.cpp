@@ -33,6 +33,7 @@ bool hasTlsInternalHeadroom()
 
 void logHeapStats(const char* phase)
 {
+#ifdef OPENKNX_DEBUG
     const uint32_t freeHeap = ESP.getFreeHeap();
     const uint32_t minFreeHeap = ESP.getMinFreeHeap();
     const size_t free8Bit = heap_caps_get_free_size(MALLOC_CAP_8BIT);
@@ -52,6 +53,9 @@ void logHeapStats(const char* phase)
              static_cast<unsigned>(freeInternal),
              static_cast<unsigned>(largestInternal),
              static_cast<unsigned long>(fragPercent));
+#else
+    (void)phase;
+#endif
 }
 
 bool extractResourceRef(JsonVariantConst refVar, String& outRid, String& outType)
@@ -1013,7 +1017,10 @@ bool HueGatewayClient::setLightState(const String& lightId, bool on, uint8_t bri
     
     DynamicJsonDocument doc(512);
     doc["on"]["on"] = on;
-    if (on)
+    // Only send a dimming value when we actually have one (>0). Sending
+    // brightness=0 would make the bridge clamp to its minimum (~1%) instead
+    // of keeping its last-known brightness. Omitting the field = keep last value.
+    if (on && brightness > 0)
     {
         doc["dimming"]["brightness"] = brightnessPct;
     }
@@ -1051,7 +1058,8 @@ bool HueGatewayClient::setGroupedLightState(const String& groupedLightId, bool o
 
     DynamicJsonDocument doc(512);
     doc["on"]["on"] = on;
-    if (on)
+    // See setLightState: omit dimming at brightness=0 to keep last bridge value.
+    if (on && brightness > 0)
     {
         doc["dimming"]["brightness"] = brightnessPct;
     }
@@ -1397,7 +1405,10 @@ bool HueGatewayClient::setLightStateWithColorTemp(const String& lightId, bool on
     doc["on"]["on"] = on;
     if (on)
     {
-        doc["dimming"]["brightness"] = brightnessPct;
+        // Omit dimming at brightness=0 so the bridge keeps its last-known
+        // brightness; still apply the requested color temperature.
+        if (brightness > 0)
+            doc["dimming"]["brightness"] = brightnessPct;
         doc["color_temperature"]["mirek"] = clampedMirek;
     }
     if (fadeDurationSec > 0) {
@@ -1444,7 +1455,10 @@ bool HueGatewayClient::setGroupedLightStateWithColorTemp(const String& groupedLi
     doc["on"]["on"] = on;
     if (on)
     {
-        doc["dimming"]["brightness"] = brightnessPct;
+        // Omit dimming at brightness=0 so the bridge keeps its last-known
+        // brightness; still apply the requested color temperature.
+        if (brightness > 0)
+            doc["dimming"]["brightness"] = brightnessPct;
         doc["color_temperature"]["mirek"] = clampedMirek;
     }
     if (fadeDurationSec > 0)

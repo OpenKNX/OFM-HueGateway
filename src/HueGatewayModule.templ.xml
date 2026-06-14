@@ -28,8 +28,17 @@
               </Parameter>
 
               <!-- Kanal-spezifische Lichtmanager-Sperre -->
+              <Parameter Id="%AID%_P-%TT%5%CC%210" Name="CH%C%HCLFallbackPolicy" ParameterType="%AID%_PT-HUEHCLFallbackPolicy" Text="Rückfallstrategie nach Sperre" Value="0">
+                <Memory CodeSegment="%MID%" Offset="85" BitOffset="0" />
+              </Parameter>
               <Parameter Id="%AID%_P-%TT%5%CC%011" Name="CH%C%HCLLockFallback" ParameterType="%AID%_PT-HUEHCLLockFallback" Text="Rückfallzeit nach Lichtmanager-Sperre" Value="0">
                 <Memory CodeSegment="%MID%" Offset="86" BitOffset="0" />
+              </Parameter>
+              <Parameter Id="%AID%_P-%TT%5%CC%211" Name="CH%C%HCLFallbackDurationSec" ParameterType="%AID%_PT-HUEHCLFallbackDurationSec" Text="Freie Rückfalldauer" Value="1800" SuffixText=" s">
+                <Memory CodeSegment="%MID%" Offset="161" BitOffset="0" />
+              </Parameter>
+              <Parameter Id="%AID%_P-%TT%5%CC%212" Name="CH%C%HCLFallbackReleaseTime" ParameterType="%AID%_PT-HUEHCLFallbackReleaseTime" Text="Rückfall-Uhrzeit" Value="180" SuffixText=" min">
+                <Memory CodeSegment="%MID%" Offset="163" BitOffset="0" />
               </Parameter>
               
               <Union SizeInBit="16">
@@ -358,7 +367,10 @@
               <ParameterRef Id="%AID%_P-%TT%5%CC%001_R-%TT%5%CC%00101" RefId="%AID%_P-%TT%5%CC%001" />
               <ParameterRef Id="%AID%_P-%TT%5%CC%008_R-%TT%5%CC%00801" RefId="%AID%_P-%TT%5%CC%008" />
               <ParameterRef Id="%AID%_P-%TT%5%CC%007_R-%TT%5%CC%00701" RefId="%AID%_P-%TT%5%CC%007" />
+              <ParameterRef Id="%AID%_P-%TT%5%CC%210_R-%TT%5%CC%21001" RefId="%AID%_P-%TT%5%CC%210" />
               <ParameterRef Id="%AID%_P-%TT%5%CC%011_R-%TT%5%CC%01101" RefId="%AID%_P-%TT%5%CC%011" />
+              <ParameterRef Id="%AID%_P-%TT%5%CC%211_R-%TT%5%CC%21101" RefId="%AID%_P-%TT%5%CC%211" />
+              <ParameterRef Id="%AID%_P-%TT%5%CC%212_R-%TT%5%CC%21201" RefId="%AID%_P-%TT%5%CC%212" />
               <ParameterRef Id="%AID%_UP-%TT%5%CC%002_R-%TT%5%CC%00201" RefId="%AID%_UP-%TT%5%CC%002" />
               <ParameterRef Id="%AID%_UP-%TT%5%CC%012_R-%TT%5%CC%01201" RefId="%AID%_UP-%TT%5%CC%012" />
               <ParameterRef Id="%AID%_UP-%TT%5%CC%013_R-%TT%5%CC%01301" RefId="%AID%_UP-%TT%5%CC%013" />
@@ -760,6 +772,24 @@
                               <choose ParamRefId="%AID%_P-%TT%5%CC%007_R-%TT%5%CC%00701">
                                 <when test=">=1">
                                   <ParameterSeparator Id="%AID%_PS-%TT%5%CC%CH%C%_HCLLockHeader" Text="Lichtmanager Sperre (Hue-Kanal)" UIHint="Headline" />
+                                  <ComObjectRefRef RefId="%AID%_O-%TT%5%CC%009_R-%TT%5%CC%00901" />
+                                  <ComObjectRefRef RefId="%AID%_O-%TT%5%CC%010_R-%TT%5%CC%01001" />
+                                  <ParameterRefRef RefId="%AID%_P-%TT%5%CC%210_R-%TT%5%CC%21001" IndentLevel="1" HelpContext="HUE-Sperre-kanal-spezifisch" />
+                                  <choose ParamRefId="%AID%_P-%TT%5%CC%210_R-%TT%5%CC%21001">
+                                    <when test="0">
+                                      <ParameterRefRef RefId="%AID%_P-%TT%5%CC%011_R-%TT%5%CC%01101" IndentLevel="2" HelpContext="HUE-Sperre-kanal-spezifisch" />
+                                    </when>
+                                    <when test="1">
+                                      <ParameterRefRef RefId="%AID%_P-%TT%5%CC%211_R-%TT%5%CC%21101" IndentLevel="2" HelpContext="HUE-Sperre-kanal-spezifisch" />
+                                    </when>
+                                    <when test="2">
+                                      <ParameterRefRef RefId="%AID%_P-%TT%5%CC%212_R-%TT%5%CC%21201" IndentLevel="2" HelpContext="HUE-Sperre-kanal-spezifisch" />
+                                    </when>
+                                    <when test="3">
+                                      <ParameterRefRef RefId="%AID%_P-%TT%5%CC%211_R-%TT%5%CC%21101" IndentLevel="2" HelpContext="HUE-Sperre-kanal-spezifisch" />
+                                      <ParameterRefRef RefId="%AID%_P-%TT%5%CC%212_R-%TT%5%CC%21201" IndentLevel="2" HelpContext="HUE-Sperre-kanal-spezifisch" />
+                                    </when>
+                                  </choose>
                                 </when>
                               </choose>
                             </when>
