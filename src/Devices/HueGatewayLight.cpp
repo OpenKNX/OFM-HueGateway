@@ -139,13 +139,18 @@ void HueGatewayLight::processKnxSwitch(bool value)
 
     if (_on && _brightness == 0)
     {
-        if (_isGroupedTarget && _lastNonZeroBrightnessHue > 0)
+        if (_lastNonZeroBrightnessHue > 0)
         {
+            // Restore the last known brightness (covers grouped and non-grouped).
             _brightness = _lastNonZeroBrightnessHue;
         }
-        else if (_minBrightnessHue > 0)
+        else if (_initialized)
         {
-            _brightness = _minBrightnessHue;
+            // No brightness known yet (first switch-on after power-up/reprogram).
+            // Send on=true with brightness=0: the bridge will restore its own last
+            // value. Do NOT apply _minBrightnessHue here — that would force the
+            // light to 1% every time the gateway restarts.
+            // _brightness stays 0; sendToHue() will pass it to the bridge as-is.
         }
     }
 
@@ -470,18 +475,25 @@ void HueGatewayLight::updateFromHue(bool on, uint8_t brightness, uint16_t colorT
     }
 
     bool changed = false;
-    
+
+    // Capture our commanded intent BEFORE the bridge state is applied.
+    // The Hue v2 bridge reports on=true with decreasing brightness during a
+    // fade-out transition — so checking only the bridge's on-flag is not enough.
+    // We must also verify that WE intended the light to be on.
+    const bool intendedOn = _on;
+
     if (_on != on)
     {
         _on = on;
         changed = true;
     }
-    
-    // Only update brightness (and the restore-value cache) while the light is on.
-    // While off, the Hue bridge reports mid-transition brightness values (fade-out),
-    // which would corrupt _lastNonZeroBrightnessHue and cause the next switch-on
-    // to restore a lower brightness than intended — shrinking with every cycle.
-    if (on)
+
+    // Only update brightness and the restore-value cache when BOTH the bridge
+    // reports on=true AND we commanded on.  This blocks two corruption paths:
+    //   1. Bridge sends on=false with fading brightness (previous fix covered this).
+    //   2. Bridge sends on=true with decreasing brightness during a running fade-out
+    //      while we already commanded off — this was the remaining bug.
+    if (on && intendedOn)
     {
         if (_brightness != brightness)
         {
