@@ -181,9 +181,13 @@ void HueGatewayLight::processKnxSwitch(bool value)
                 && lmCh->internalOutputEnabled())
             {
                 const uint8_t validMask = lmCh->internalValidMask();
-                if (validMask & 0x01) _pendingHclKelvin     = lmCh->appliedKelvin();
-                if (validMask & 0x02) _pendingHclBrightness = lmCh->effectiveBrightness();
-                _hclValuePending = true;
+                const uint8_t relevantMask = (_lightType >= 2) ? validMask : static_cast<uint8_t>(validMask & 0x02);
+                if (relevantMask != 0)
+                {
+                    if (relevantMask & 0x01) _pendingHclKelvin     = lmCh->appliedKelvin();
+                    if (relevantMask & 0x02) _pendingHclBrightness = lmCh->effectiveBrightness();
+                    _hclValuePending = true;
+                }
             }
         }
 #endif
@@ -890,10 +894,12 @@ void HueGatewayLight::loop()
             && lmCh->internalOutputEnabled())
         {
             const uint8_t validMask = lmCh->internalValidMask();
-            if (validMask != 0)
+            // Dimmable lamps only consume the brightness axis; a kelvin-only master must not trigger writes.
+            const uint8_t relevantMask = (_lightType >= 2) ? validMask : static_cast<uint8_t>(validMask & 0x02);
+            if (relevantMask != 0)
             {
-                if (validMask & 0x01) _pendingHclKelvin     = lmCh->appliedKelvin();
-                if (validMask & 0x02) _pendingHclBrightness = lmCh->effectiveBrightness();
+                if (relevantMask & 0x01) _pendingHclKelvin     = lmCh->appliedKelvin();
+                if (relevantMask & 0x02) _pendingHclBrightness = lmCh->effectiveBrightness();
                 _pendingHclFadeDuration = lmCh->fadeDurationSec();
                 _hclValuePending = true;
             }
@@ -923,7 +929,9 @@ void HueGatewayLight::loop()
     static constexpr uint16_t kHclMinKelvinStep = 12;
     const int previousKelvin = static_cast<int>(_currentKelvin);
     const int previousBrightness = static_cast<int>(_lastHCLBrightness);
-    const bool kelvinChanged = abs(static_cast<int>(kelvin) - previousKelvin) >= static_cast<int>(kHclMinKelvinStep);
+    // _currentKelvin is never updated for lamps without colour temperature, so kelvin must not count there.
+    const bool kelvinChanged = _lightType >= 2
+        && abs(static_cast<int>(kelvin) - previousKelvin) >= static_cast<int>(kHclMinKelvinStep);
     const bool brightnessChanged = abs(static_cast<int>(brightness) - previousBrightness) >= static_cast<int>(kHclMinBrightnessStepPercent);
 
     if (!kelvinChanged && !brightnessChanged)

@@ -3549,6 +3549,10 @@ void HueGatewayModule::setupDevices()
             }
             hclMaster = 0;
         }
+        if (effectiveLightType == 0)
+        {
+            hclMaster = 0;  // stale hidden ETS value after a lamp-type change
+        }
         _devices[ch]->setHCLMaster(hclMaster);
 
         _hclChannelLockFallbackMode[ch] = static_cast<uint8_t>(HclLockFallbackMode::None);
