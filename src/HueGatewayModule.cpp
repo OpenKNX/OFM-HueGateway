@@ -626,7 +626,7 @@ String HueGatewayModule::buildDiagnosticReport(size_t requestedDepth, const Stri
     report += "BridgeLightCount=" + String(_diagLastBridgeLightCount) + "\n";
     report += "RoomTargetCount=" + String(_diagLastRoomTargetCount) + "\n";
     report += "ZoneTargetCount=" + String(_diagLastZoneTargetCount) + "\n";
-    report += "HasUnresolvedGroupTarget=" + String(_diagLastHasUnresolvedGroupTarget ? "1" : "0") + "\n\n";
+    report += "HasUnresolvedTarget=" + String(_diagLastHasUnresolvedTarget ? "1" : "0") + "\n\n";
 
     report += "[ChannelSnapshot]\n";
     uint8_t configuredChannels = ParamHUE_HUEChannelCount;
@@ -692,6 +692,7 @@ String HueGatewayModule::buildDiagnosticReport(size_t requestedDepth, const Stri
             + " poll=" + String(pollIntervalSec)
             + " targetType=" + String(targetType)
             + " targetRid=" + (targetRid.length() > 0 ? targetRid : String("-"))
+            + " targetUnresolved=" + String(_diagTargetUnresolved[ch] ? "1" : "0")
             + " legacyUuid=" + (legacyUuid.length() > 0 ? legacyUuid : String("-"))
             + " mappedName=" + mappedName
             + " mappedId=" + mappedId
@@ -939,7 +940,7 @@ HueGatewayModule::HueGatewayModule()
     , _diagLastBridgeLightCount(0)
     , _diagLastRoomTargetCount(0)
     , _diagLastZoneTargetCount(0)
-    , _diagLastHasUnresolvedGroupTarget(false)
+    , _diagLastHasUnresolvedTarget(false)
 {
     // Light-Array initialisieren
     for (int i = 0; i < MAX_CHANNELS; i++)
@@ -968,6 +969,7 @@ HueGatewayModule::HueGatewayModule()
         _diagLastWriteTraceResult[i] = "-";
         _diagLastWriteTraceMethod[i] = "-";
         _diagLastWriteTraceEndpoint[i] = "-";
+        _diagTargetUnresolved[i] = false;
 #ifdef OPENKNX_WEBSERVER
         _liveDirty[i] = false;
         _liveLastSentMs[i] = 0;
@@ -2901,10 +2903,11 @@ void HueGatewayModule::setupDevices()
     bool mappedChannels[MAX_LIGHTS] = {false};
     int mappedCount = 0;
     bool hasIndexMappedChannel = false;
-    bool hasUnresolvedGroupTarget = false;
+    bool hasUnresolvedTarget = false;
     for (uint8_t ch = 0; ch < maxChannels; ch++)
     {
         uint8_t _channelIndex = ch;
+        _diagTargetUnresolved[ch] = false;
 
         if (ParamHUE_CHDisabled)
         {
@@ -3387,7 +3390,8 @@ void HueGatewayModule::setupDevices()
         {
             if (selectedLight == nullptr)
             {
-                hasUnresolvedGroupTarget = true;
+                hasUnresolvedTarget = true;
+                _diagTargetUnresolved[ch] = true;
                 String unresolvedTarget = configuredTargetRid.length() > 0 ? configuredTargetRid : configuredUuid;
                 Serial.printf("[HueGatewayModule] Channel %d: target '%s' unresolved (type=%u, newTarget=%u, legacy=%u), retry pending\n",
                               ch + 1,
@@ -3642,22 +3646,22 @@ void HueGatewayModule::setupDevices()
 
     uint8_t enabledChannels = countEnabledChannels();
     _diagLastEnabledChannels = enabledChannels;
-    _diagLastHasUnresolvedGroupTarget = hasUnresolvedGroupTarget;
-    if (enabledChannels > 0 && (_lightCount == 0 || (bridgeLightCount <= 0 && hasIndexMappedChannel) || hasUnresolvedGroupTarget))
+    _diagLastHasUnresolvedTarget = hasUnresolvedTarget;
+    if (enabledChannels > 0 && (_lightCount == 0 || (bridgeLightCount <= 0 && hasIndexMappedChannel) || hasUnresolvedTarget))
     {
         _deviceSetupNeedsRetry = true;
         _diagCounterSetupIncomplete++;
-        if (hasUnresolvedGroupTarget)
+        if (hasUnresolvedTarget)
         {
             _diagCounterUnresolvedTargets++;
         }
         _deviceSetupRetryBackoffMs = min<unsigned long>(_deviceSetupRetryBackoffMs * 2UL, kDeviceSetupRetryMaxMs);
         registerSetupFailure("mapping-incomplete");
-        Serial.printf("[HueGatewayModule] setupDevices incomplete (enabled=%u, mapped=%d, bridgeLights=%d, unresolvedGroup=%u), retry scheduled\n",
+        Serial.printf("[HueGatewayModule] setupDevices incomplete (enabled=%u, mapped=%d, bridgeLights=%d, unresolvedTarget=%u), retry scheduled\n",
                       static_cast<unsigned>(enabledChannels),
                       _lightCount,
                       bridgeLightCount,
-                      hasUnresolvedGroupTarget ? 1 : 0);
+                      hasUnresolvedTarget ? 1 : 0);
         appendDiagnosticLog("WARN", "MAP", "setupDevices incomplete: mapping unresolved or empty");
     }
     else

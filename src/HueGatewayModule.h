@@ -238,13 +238,14 @@ private:
     String _diagLastWriteTraceResult[MAX_CHANNELS];
     String _diagLastWriteTraceMethod[MAX_CHANNELS];
     String _diagLastWriteTraceEndpoint[MAX_CHANNELS];
+    bool _diagTargetUnresolved[MAX_CHANNELS];
 
     // Last setup snapshot for diagnostics.
     uint8_t _diagLastEnabledChannels;
     int _diagLastBridgeLightCount;
     int _diagLastRoomTargetCount;
     int _diagLastZoneTargetCount;
-    bool _diagLastHasUnresolvedGroupTarget;
+    bool _diagLastHasUnresolvedTarget;
     
     void setupBridge();
     void setupDevices();
