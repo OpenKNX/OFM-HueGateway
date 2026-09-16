@@ -924,9 +924,13 @@ void HueGatewayLight::loop()
     const uint8_t fadeDuration = _pendingHclFadeDuration;
     _hclValuePending = false;
 
-    // Update when at least a small effective step changed.
+    // Update when at least a small effective step changed. The kelvin step is not
+    // about visibility alone: every write is a blocking HTTPS request, and while the
+    // EventStream holds the only TLS context that fits, the write tears it down. At
+    // 12 K a slow HCL ramp triggered a write per channel per minute for a change
+    // nobody can see.
     static constexpr uint8_t kHclMinBrightnessStepPercent = 2;
-    static constexpr uint16_t kHclMinKelvinStep = 12;
+    static constexpr uint16_t kHclMinKelvinStep = 30;
     const int previousKelvin = static_cast<int>(_currentKelvin);
     const int previousBrightness = static_cast<int>(_lastHCLBrightness);
     // _currentKelvin is never updated for lamps without colour temperature, so kelvin must not count there.
