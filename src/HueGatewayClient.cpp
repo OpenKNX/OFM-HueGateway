@@ -1906,6 +1906,19 @@ bool HueGatewayClient::pingBridgeApiV2()
     return false;
 }
 
+bool HueGatewayClient::releaseEventStreamForRetry(const char* method, bool eventWasActive)
+{
+    if (!eventWasActive || !_eventAutoRestartEnabled) return false;
+    if (hasTlsInternalHeadroom()) return false;
+
+    logWarning("HueGatewayClient", "Pausing EventStream after failed HTTPS %s (internal TLS headroom low)", method);
+    _http.end();
+    stopEventStream();
+    _secureClient.stop();
+    delay(25);
+    return true;
+}
+
 void HueGatewayClient::loopIdleDisconnect()
 {
     static constexpr unsigned long kHttpIdleCloseMs = 3000UL;
@@ -2424,18 +2437,7 @@ int HueGatewayClient::httpGet(const String& endpoint, JsonDocument& doc, JsonDoc
     _diagStats.lastContentLength = -1;
     _http.setTimeout(timeoutMs);
     const bool eventWasActive = (_eventHandshakePending || _eventStreamConnected || _eventConnectPending);
-    bool eventPausedForGet = false;
 
-    if (eventWasActive && _eventAutoRestartEnabled && !hasTlsInternalHeadroom())
-    {
-        logWarning("HueGatewayClient", "Pausing EventStream for HTTPS GET (internal TLS headroom low)");
-        _http.end();
-        stopEventStream();
-        _secureClient.stop();
-        delay(25);
-        eventPausedForGet = true;
-    }
-    
     // Timing probe, see httpPut. useHTTP10(true) below turns keep-alive off for good,
     // so a GET normally pays a fresh handshake unless a PUT left a connection open.
     const unsigned long timingStartMs = millis();
@@ -2446,13 +2448,35 @@ int HueGatewayClient::httpGet(const String& endpoint, JsonDocument& doc, JsonDoc
     _http.addHeader("hue-application-key", _appKey);
 
     int statusCode = _http.GET();
+
+    uint8_t retryReason = 0; // 1 = stale kept-alive connection, 2 = EventStream released
+    if (statusCode < 0 && connectionReused)
+    {
+        retryReason = 1;
+        _http.end();
+        _secureClient.stop();
+        _http.useHTTP10(true);
+        _http.begin(_secureClient, url);
+        _http.addHeader("hue-application-key", _appKey);
+        statusCode = _http.GET();
+    }
+    if (statusCode < 0 && releaseEventStreamForRetry("GET", eventWasActive))
+    {
+        retryReason = 2;
+        _http.useHTTP10(true);
+        _http.begin(_secureClient, url);
+        _http.addHeader("hue-application-key", _appKey);
+        statusCode = _http.GET();
+    }
+
     _diagStats.lastHttpStatusCode = statusCode;
 
-    logInfo("HueGatewayClient", "TIMING GET %s start=%lu dur=%lums reused=%d status=%d internalFree=%u internalLargest=%u",
+    logInfo("HueGatewayClient", "TIMING GET %s start=%lu dur=%lums reused=%d retry=%u status=%d internalFree=%u internalLargest=%u",
             endpoint.c_str(),
             timingStartMs,
             millis() - timingStartMs,
             connectionReused ? 1 : 0,
+            static_cast<unsigned>(retryReason),
             statusCode,
             static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
             static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)));
@@ -2527,7 +2551,6 @@ int HueGatewayClient::httpGet(const String& endpoint, JsonDocument& doc, JsonDoc
     _http.end();
 
     // EventStream restart is handled by the module loop via startEventStream()/checkEventStreamConnect().
-    (void)eventPausedForGet;
 
     return statusCode;
 }
@@ -2541,18 +2564,7 @@ int HueGatewayClient::httpPut(const String& endpoint, const String& payload)
     _diagStats.lastHttpEndpoint = endpoint;
     _http.setTimeout(2000);
     const bool eventWasActive = (_eventHandshakePending || _eventStreamConnected || _eventConnectPending);
-    bool eventPausedForPut = false;
 
-    if (eventWasActive && _eventAutoRestartEnabled && !hasTlsInternalHeadroom())
-    {
-        logWarning("HueGatewayClient", "Pausing EventStream for HTTPS PUT (internal TLS headroom low)");
-        _http.end();
-        stopEventStream();
-        _secureClient.stop();
-        delay(25);
-        eventPausedForPut = true;
-    }
-    
     // httpGet() puts the client into HTTP/1.0 for good via useHTTP10(true), and that
     // also clears _reuse. Switch both back on here: without it every command pays a
     // full TLS handshake, which measured ~1 s per command on this hardware.
@@ -2571,12 +2583,22 @@ int HueGatewayClient::httpPut(const String& endpoint, const String& payload)
 
     // A kept-alive connection the bridge closed while idle only shows up on the next
     // send. Reconnect once and repeat -- the PUT is idempotent.
-    bool retriedAfterStaleConnection = false;
+    uint8_t retryReason = 0; // 1 = stale kept-alive connection, 2 = EventStream released
     if (statusCode < 0 && connectionReused)
     {
-        retriedAfterStaleConnection = true;
+        retryReason = 1;
         _http.end();
         _secureClient.stop();
+        _http.useHTTP10(false);
+        _http.setReuse(true);
+        _http.begin(_secureClient, url);
+        _http.addHeader("Content-Type", "application/json");
+        _http.addHeader("hue-application-key", _appKey);
+        statusCode = _http.PUT(payload);
+    }
+    if (statusCode < 0 && releaseEventStreamForRetry("PUT", eventWasActive))
+    {
+        retryReason = 2;
         _http.useHTTP10(false);
         _http.setReuse(true);
         _http.begin(_secureClient, url);
@@ -2588,12 +2610,12 @@ int HueGatewayClient::httpPut(const String& endpoint, const String& payload)
     _diagStats.lastHttpStatusCode = statusCode;
     _lastHttpActivityMs = millis();
 
-    logInfo("HueGatewayClient", "TIMING PUT %s start=%lu dur=%lums reused=%d retry=%d status=%d internalFree=%u internalLargest=%u",
+    logInfo("HueGatewayClient", "TIMING PUT %s start=%lu dur=%lums reused=%d retry=%u status=%d internalFree=%u internalLargest=%u",
             endpoint.c_str(),
             timingStartMs,
             millis() - timingStartMs,
             connectionReused ? 1 : 0,
-            retriedAfterStaleConnection ? 1 : 0,
+            static_cast<unsigned>(retryReason),
             statusCode,
             static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
             static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)));
@@ -2635,7 +2657,6 @@ int HueGatewayClient::httpPut(const String& endpoint, const String& payload)
     _http.end();
 
     // EventStream restart is handled by the module loop via startEventStream()/checkEventStreamConnect().
-    (void)eventPausedForPut;
 
     return statusCode;
 }
@@ -2648,22 +2669,19 @@ int HueGatewayClient::httpDelete(const String& endpoint)
     _diagStats.lastHttpEndpoint = endpoint;
     _http.setTimeout(2000);
     const bool eventWasActive = (_eventHandshakePending || _eventStreamConnected || _eventConnectPending);
-    bool eventPausedForDelete = false;
-
-    if (eventWasActive && _eventAutoRestartEnabled && !hasTlsInternalHeadroom())
-    {
-        logWarning("HueGatewayClient", "Pausing EventStream for HTTPS DELETE (internal TLS headroom low)");
-        _http.end();
-        stopEventStream();
-        _secureClient.stop();
-        delay(25);
-        eventPausedForDelete = true;
-    }
 
     _http.begin(_secureClient, url);
     _http.addHeader("hue-application-key", _appKey);
 
     int statusCode = _http.sendRequest("DELETE");
+
+    if (statusCode < 0 && releaseEventStreamForRetry("DELETE", eventWasActive))
+    {
+        _http.begin(_secureClient, url);
+        _http.addHeader("hue-application-key", _appKey);
+        statusCode = _http.sendRequest("DELETE");
+    }
+
     _diagStats.lastHttpStatusCode = statusCode;
 
     if (statusCode < 0)
@@ -2684,7 +2702,6 @@ int HueGatewayClient::httpDelete(const String& endpoint)
     _http.end();
 
     // EventStream restart is handled by the module loop via startEventStream()/checkEventStreamConnect().
-    (void)eventPausedForDelete;
 
     return statusCode;
 }

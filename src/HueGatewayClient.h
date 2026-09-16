@@ -281,6 +281,15 @@ public:
     void loopIdleDisconnect();
 
     /**
+    * @brief Frees the EventStream's TLS context so a failed request can be retried.
+    * Only worth doing once a request has actually failed: internal RAM fits one TLS
+    * context at a time, but giving the EventStream up in advance cost it on every
+    * single request.
+    * @return true when the context was freed, i.e. a retry makes sense
+     */
+    bool releaseEventStreamForRetry(const char* method, bool eventWasActive);
+
+    /**
     * @brief Diagnostics only: sends a raw payload to a resource (fade test).
     * @param resourceType "light" or "grouped_light"
     */
