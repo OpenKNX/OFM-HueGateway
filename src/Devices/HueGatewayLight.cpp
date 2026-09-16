@@ -559,8 +559,13 @@ void HueGatewayLight::sendStatusToKnx()
     // Hue 0-254 -> KNX 0-100%.
     // While switched off, always report 0% brightness on KNX status.
 
+    // valueCompare() instead of value(): value() calls objectWritten() unconditionally,
+    // so every caller put all status objects on the bus even when only one of them had
+    // changed. A poll confirming a value the gateway had just sent itself, or an event
+    // whose only difference is a few kelvin, then produced a full set of telegrams.
+
     // KO Status Switch: DPT 1.001 (bool) - On/Off feedback.
-    knx.getGroupObject(_koStatusSwitch).value(_on, Dpt(1, 1));
+    knx.getGroupObject(_koStatusSwitch).valueCompare(_on, Dpt(1, 1));
 
     // KO Status Brightness: DPT 5.001 (0-100%) - brightness feedback.
     // If the lamp is on but _brightness is still 0 (gateway hasn't heard back from the
@@ -572,22 +577,27 @@ void HueGatewayLight::sendStatusToKnx()
         uint8_t statusBrightnessHue = _on ? _brightness : 0;
         uint8_t brightnessPercent = static_cast<uint8_t>(roundf((statusBrightnessHue / 254.0f) * 100.0f));
         if (brightnessPercent > 100) brightnessPercent = 100;
-        knx.getGroupObject(_koStatusBrightness).value(brightnessPercent, Dpt(5, 1));
+        knx.getGroupObject(_koStatusBrightness).valueCompare(brightnessPercent, Dpt(5, 1));
     }
 
     if (_lightType >= 2 && _koStatusColorTemp > 0)
     {
-        knx.getGroupObject(_koStatusColorTemp).value(_currentKelvin, Dpt(7, 600));
+        knx.getGroupObject(_koStatusColorTemp).valueCompare(_currentKelvin, Dpt(7, 600));
     }
 
     if (_lightType >= 3 && _koStatusColorRGB > 0)
     {
+        // DPT 232.600 is written through valueRef(), so there is no valueCompare() for
+        // it -- compare by hand for the same reason as above.
         GroupObject& rgbKo = knx.getGroupObject(_koStatusColorRGB);
         uint8_t* rgb = rgbKo.valueRef();
-        rgb[0] = _currentRed;
-        rgb[1] = _currentGreen;
-        rgb[2] = _currentBlue;
-        rgbKo.objectWritten();
+        if (rgb[0] != _currentRed || rgb[1] != _currentGreen || rgb[2] != _currentBlue)
+        {
+            rgb[0] = _currentRed;
+            rgb[1] = _currentGreen;
+            rgb[2] = _currentBlue;
+            rgbKo.objectWritten();
+        }
     }
     
     Serial.printf("[HueGatewayLight] %s - Sent to KNX: On:%d Bri:%s (Hue:%d)\n",
