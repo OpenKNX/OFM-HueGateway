@@ -594,7 +594,7 @@ void HueGatewayLight::sendStatusToKnx()
 
 // ===== Private Methods =====
 
-void HueGatewayLight::sendToHue(uint8_t fadeDurationSec)
+void HueGatewayLight::sendToHue(uint8_t fadeDurationSec, bool includeOnState)
 {
     if (!_client || !_client->isInitialized())
     {
@@ -603,8 +603,8 @@ void HueGatewayLight::sendToHue(uint8_t fadeDurationSec)
     }
     
     bool success = _isGroupedTarget
-        ? _client->setGroupedLightState(_lightId, _on, _brightness, fadeDurationSec)
-        : _client->setLightState(_lightId, _on, _brightness, fadeDurationSec);
+        ? _client->setGroupedLightState(_lightId, _on, _brightness, fadeDurationSec, includeOnState)
+        : _client->setLightState(_lightId, _on, _brightness, fadeDurationSec, includeOnState);
     
     if (success)
     {
@@ -705,7 +705,7 @@ void HueGatewayLight::rgbToXy(uint8_t red, uint8_t green, uint8_t blue, float& x
     y = Y / sum;
 }
 
-void HueGatewayLight::sendToHueWithColorTemp(uint16_t kelvin, uint8_t fadeDuration)
+void HueGatewayLight::sendToHueWithColorTemp(uint16_t kelvin, uint8_t fadeDuration, bool includeOnState)
 {
     if (!_initialized || !_client)
         return;
@@ -723,13 +723,13 @@ void HueGatewayLight::sendToHueWithColorTemp(uint16_t kelvin, uint8_t fadeDurati
                   fadeDuration);
     
     bool success = _isGroupedTarget
-        ? _client->setGroupedLightStateWithColorTemp(_lightId, _on, _brightness, mirek, fadeDuration)
-        : _client->setLightStateWithColorTemp(_lightId, _on, _brightness, mirek, fadeDuration);
+        ? _client->setGroupedLightStateWithColorTemp(_lightId, _on, _brightness, mirek, fadeDuration, includeOnState)
+        : _client->setLightStateWithColorTemp(_lightId, _on, _brightness, mirek, fadeDuration, includeOnState);
 
     if (!success && _isGroupedTarget)
     {
         Serial.printf("[HueGatewayLight] %s - grouped CT update failed, fallback to state-only\n", _name.c_str());
-        success = _client->setGroupedLightState(_lightId, _on, _brightness, fadeDuration);
+        success = _client->setGroupedLightState(_lightId, _on, _brightness, fadeDuration, includeOnState);
     }
 
     if (success)
@@ -942,13 +942,16 @@ void HueGatewayLight::loop()
                  _name.c_str(), previousKelvin, kelvin,
                  previousBrightness, brightness);
 
+    // Periodic follow-up must never switch anything on: on a grouped target it
+    // would re-activate members an overlapping zone had switched off, and on a
+    // single light it would revive one that was switched off outside KNX.
     if (_lightType >= 2)
     {
-        sendToHueWithColorTemp(kelvin, fadeDuration);
+        sendToHueWithColorTemp(kelvin, fadeDuration, false);
     }
     else
     {
-        sendToHue();
+        sendToHue(fadeDuration, false);
     }
 
     // Set spacing gate AFTER the blocking PUT so the gate covers the full

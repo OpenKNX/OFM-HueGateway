@@ -229,14 +229,15 @@ private:
     /**
     * @brief Sends current on/brightness state to Hue Bridge.
      */
-    void sendToHue(uint8_t fadeDurationSec = 0);
+    void sendToHue(uint8_t fadeDurationSec = 0, bool includeOnState = true);
     
     /**
     * @brief Sends current state including color temperature to Hue Bridge.
     * @param kelvin Color temperature in Kelvin (2000-6500)
     * @param fadeDuration Transition duration in seconds (0 = immediate)
+    * @param includeOnState false omits the on-state so the write cannot switch anything on
      */
-    void sendToHueWithColorTemp(uint16_t kelvin, uint8_t fadeDuration = 0);
+    void sendToHueWithColorTemp(uint16_t kelvin, uint8_t fadeDuration = 0, bool includeOnState = true);
     void applyRelativeDimmingLegacy(bool brighter, uint8_t steps);
     void applyRelativeDimmingCache(bool brighter, uint8_t steps);
     
