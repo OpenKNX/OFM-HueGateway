@@ -1,13 +1,18 @@
 #include "HueGatewayLight.h"
 #include "../HueGatewayClient.h"
-#include "../HCL/HCLMasterManager.h"
 #include <knx.h>
 #include <math.h>
+
+#if __has_include("LightManagerModule.h")
+#include "LightManagerModule.h"
+#define HUEGATEWAY_LIGHT_HAS_LIGHTMANAGER 1
+#endif
 
 namespace
 {
 static constexpr unsigned long kGlobalHclWriteSpacingMs = 220UL;
 static unsigned long sGlobalHclWriteNextAllowedMs = 0UL;
+static constexpr uint8_t kMaxHclMasters = 16;
 
 static unsigned long relativeDimRepeatMs()
 {
@@ -61,12 +66,17 @@ HueGatewayLight::HueGatewayLight(const String& lightId, const String& name, HueG
     , _lastHCLBrightness(0)
     , _hclPhaseOffsetMs(0)
     , _nextHCLDueMs(0)
+    , _pendingHclKelvin(4000)
+    , _pendingHclBrightness(0)
+    , _pendingHclFadeDuration(10)
+    , _hclValuePending(false)
     , _lastHueWriteSuccessMs(0)
     , _initialized(false)
     , _lastUpdate(0)
     , _lastRelativeDimCmdMs(0)
     , _relativeDimCooldownUntilMs(0)
     , _relativeDimErrorStreak(0)
+    , _switchOffPending(false)
     , _relativeDimHoldActive(false)
     , _relativeDimHoldBrighter(false)
     , _relativeDimHoldSteps(0)
@@ -125,18 +135,27 @@ void HueGatewayLight::processKnxSwitch(bool value)
         Serial.printf("[HueGatewayLight] %s - HCL channel lock released by switch-off\n", _name.c_str());
     }
 
+    // Track explicit off-commands so updateFromHue can suppress brightness
+    // cache updates during the bridge's fade-out transition.
+    _switchOffPending = !value;
+
     _on = value;
     uint8_t switchTransitionSec = value ? _switchOnTransitionSec : _switchOffTransitionSec;
 
     if (_on && _brightness == 0)
     {
-        if (_isGroupedTarget && _lastNonZeroBrightnessHue > 0)
+        if (_lastNonZeroBrightnessHue > 0)
         {
+            // Restore the last known brightness (covers grouped and non-grouped).
             _brightness = _lastNonZeroBrightnessHue;
         }
-        else if (_minBrightnessHue > 0)
+        else if (_initialized)
         {
-            _brightness = _minBrightnessHue;
+            // No brightness known yet (first switch-on after power-up/reprogram).
+            // Send on=true with brightness=0: the bridge will restore its own last
+            // value. Do NOT apply _minBrightnessHue here — that would force the
+            // light to 1% every time the gateway restarts.
+            // _brightness stays 0; sendToHue() will pass it to the bridge as-is.
         }
     }
 
@@ -145,37 +164,60 @@ void HueGatewayLight::processKnxSwitch(bool value)
         _lastNonZeroBrightnessHue = _brightness;
     }
     
-    // On switch-on with HCL assignment, apply the current interpolated HCL target.
+    // On switch-on with HCL assignment, apply the current HCL value immediately.
+    // _pendingHclKelvin/_pendingHclBrightness are only refreshed while _on==true
+    // (the HCL loop skips !_on). Before the first switch-on — or after a long
+    // off period — the cached values are stale or never set (_hclValuePending==false).
+    // Always read fresh values from the LightManager directly so the light snaps
+    // to the correct current value without any visible transition.
     if (value
         && _hclMasterNum > 0
-        && _hclMasterNum <= 8
-        && !_hclChannelLockActive
-        && !HCL::masterManager.isApplyBlocked()
-        && !HCL::masterManager.isMasterApplyBlocked(_hclMasterNum)) {
-        HCL::InterpolatedValue hclValue = HCL::masterManager.getCurrentValue(_hclMasterNum);
-        
-        // Convert brightness percent (0-100) to Hue scale (0-254).
-        _brightness = static_cast<uint8_t>(roundf(hclValue.brightness * 254.0f / 100.0f));
-        
-        // Prime loop state for continuous HCL updates.
-        _lastHCLUpdate = millis();
-        const uint32_t updateIntervalSec = HCL::masterManager.getUpdateInterval();
-        _nextHCLDueMs = _lastHCLUpdate + (updateIntervalSec * 1000UL);
-        _lastHCLBrightness = hclValue.brightness;
-        
-        Serial.printf("[HueGatewayLight] %s - Applying HCL Master %d values: %dK, %d%% (%d Hue)\n",
-                     _name.c_str(), _hclMasterNum, hclValue.kelvin, hclValue.brightness, _brightness);
-        
-        if (_lightType >= 2)
+        && _hclMasterNum <= kMaxHclMasters
+        && !_hclChannelLockActive) {
+#ifdef HUEGATEWAY_LIGHT_HAS_LIGHTMANAGER
         {
-            sendToHueWithColorTemp(hclValue.kelvin, switchTransitionSec);
+            auto* lmCh = openknxLightManagerModule.channel(_hclMasterNum);
+            if (lmCh && !lmCh->applyBlocked() && !HCL::masterManager.isApplyBlocked()
+                && lmCh->internalOutputEnabled())
+            {
+                const uint8_t validMask = lmCh->internalValidMask();
+                const uint8_t relevantMask = (_lightType >= 2) ? validMask : static_cast<uint8_t>(validMask & 0x02);
+                if (relevantMask != 0)
+                {
+                    if (relevantMask & 0x01) _pendingHclKelvin     = lmCh->appliedKelvin();
+                    if (relevantMask & 0x02) _pendingHclBrightness = lmCh->effectiveBrightness();
+                    _hclValuePending = true;
+                }
+            }
+        }
+#endif
+        if (_hclValuePending) {
+            const uint16_t kelvin = _pendingHclKelvin;
+            const uint8_t brightness = _pendingHclBrightness;
+
+            // Convert brightness percent (0-100) to Hue scale (0-254).
+            _brightness = static_cast<uint8_t>(roundf(brightness * 254.0f / 100.0f));
+
+            _lastHCLUpdate = millis();
+            _lastHCLBrightness = brightness;
+
+            Serial.printf("[HueGatewayLight] %s - Applying HCL Master %d values on switch-on: %dK, %d%% (%d Hue)\n",
+                         _name.c_str(), _hclMasterNum, kelvin, brightness, _brightness);
+
+            if (_lightType >= 2)
+            {
+                // Use the user-configured switch-on transition time.
+                // The correct CT is included in this call, so the bridge animates
+                // TO the right value from the start — no wrong-old-CT artefact.
+                sendToHueWithColorTemp(kelvin, switchTransitionSec);
+                return;
+            }
+
+            sendToHue(switchTransitionSec);
             return;
         }
-
-        sendToHue(switchTransitionSec);
-        return;
     }
-    
+
     sendToHue(switchTransitionSec);
 }
 
@@ -442,22 +484,46 @@ void HueGatewayLight::updateFromHue(bool on, uint8_t brightness, uint16_t colorT
     }
 
     bool changed = false;
-    
+
     if (_on != on)
     {
         _on = on;
         changed = true;
     }
-    
-    if (_brightness != brightness)
-    {
-        _brightness = brightness;
-        changed = true;
-    }
 
-    if (_brightness > 0)
+    // Clear the pending-off flag once the bridge confirms the light is off.
+    if (!on)
+        _switchOffPending = false;
+
+    // Only update brightness and the restore-value cache when not in the middle
+    // of a commanded fade-out AND the bridge reports the light as ON.
+    // _switchOffPending is set by processKnxSwitch(false) and cleared above when
+    // the bridge finally confirms on=false.
+    // The on==true gate is essential: a Hue bridge keeps reporting its stored
+    // dimming level even while the light is OFF. Without this gate an off-state
+    // poll would write that value into _brightness, and the next plain switch-on
+    // would replay it to the bridge instead of letting the bridge restore its own
+    // last on-brightness. After a gateway restart _brightness stays 0 until the
+    // light is actually on, so processKnxSwitch sends on-only (no dimming) and the
+    // bridge restores its own value.
+    // This blocks three corruption paths without blocking legitimate bridge
+    // updates (e.g. Hue App changes while the gateway has _on==false at startup):
+    //   1. Bridge sends on=false with fading brightness.
+    //   2. Bridge sends on=true with decreasing brightness during fade-out
+    //      while _switchOffPending is still set.
+    //   3. Bridge reports its stored off-state dimming level on a poll while off.
+    if (!_switchOffPending && on)
     {
-        _lastNonZeroBrightnessHue = _brightness;
+        if (_brightness != brightness)
+        {
+            _brightness = brightness;
+            changed = true;
+        }
+
+        if (_brightness > 0)
+        {
+            _lastNonZeroBrightnessHue = _brightness;
+        }
     }
 
     if (_lightType >= 2 && colorTempKelvin >= 2000 && colorTempKelvin <= 6500 && _currentKelvin != colorTempKelvin)
@@ -492,15 +558,22 @@ void HueGatewayLight::sendStatusToKnx()
     // Publish status to dedicated feedback KOs.
     // Hue 0-254 -> KNX 0-100%.
     // While switched off, always report 0% brightness on KNX status.
-    uint8_t statusBrightnessHue = _on ? _brightness : 0;
-    uint8_t brightnessPercent = static_cast<uint8_t>(roundf((statusBrightnessHue / 254.0f) * 100.0f));
-    if (brightnessPercent > 100) brightnessPercent = 100;
-    
+
     // KO Status Switch: DPT 1.001 (bool) - On/Off feedback.
     knx.getGroupObject(_koStatusSwitch).value(_on, Dpt(1, 1));
-    
+
     // KO Status Brightness: DPT 5.001 (0-100%) - brightness feedback.
-    knx.getGroupObject(_koStatusBrightness).value(brightnessPercent, Dpt(5, 1));
+    // If the lamp is on but _brightness is still 0 (gateway hasn't heard back from the
+    // bridge yet — cold-start case), skip the brightness update so we don't overwrite a
+    // previously valid value with 0%.  The EventStream/poll will trigger another
+    // sendStatusToKnx() call as soon as the actual brightness is known.
+    if (!_on || _brightness > 0)
+    {
+        uint8_t statusBrightnessHue = _on ? _brightness : 0;
+        uint8_t brightnessPercent = static_cast<uint8_t>(roundf((statusBrightnessHue / 254.0f) * 100.0f));
+        if (brightnessPercent > 100) brightnessPercent = 100;
+        knx.getGroupObject(_koStatusBrightness).value(brightnessPercent, Dpt(5, 1));
+    }
 
     if (_lightType >= 2 && _koStatusColorTemp > 0)
     {
@@ -517,13 +590,15 @@ void HueGatewayLight::sendStatusToKnx()
         rgbKo.objectWritten();
     }
     
-    Serial.printf("[HueGatewayLight] %s - Sent to KNX: On:%d Bri:%d%% (Hue:%d)\n",
-                  _name.c_str(), _on, brightnessPercent, statusBrightnessHue);
+    Serial.printf("[HueGatewayLight] %s - Sent to KNX: On:%d Bri:%s (Hue:%d)\n",
+                  _name.c_str(), _on,
+                  (_on && _brightness == 0) ? "?" : String(static_cast<uint8_t>(roundf((_brightness / 254.0f) * 100.0f))).c_str(),
+                  _brightness);
 }
 
 // ===== Private Methods =====
 
-void HueGatewayLight::sendToHue(uint8_t fadeDurationSec)
+void HueGatewayLight::sendToHue(uint8_t fadeDurationSec, bool includeOnState)
 {
     if (!_client || !_client->isInitialized())
     {
@@ -532,8 +607,8 @@ void HueGatewayLight::sendToHue(uint8_t fadeDurationSec)
     }
     
     bool success = _isGroupedTarget
-        ? _client->setGroupedLightState(_lightId, _on, _brightness, fadeDurationSec)
-        : _client->setLightState(_lightId, _on, _brightness, fadeDurationSec);
+        ? _client->setGroupedLightState(_lightId, _on, _brightness, fadeDurationSec, includeOnState)
+        : _client->setLightState(_lightId, _on, _brightness, fadeDurationSec, includeOnState);
     
     if (success)
     {
@@ -634,7 +709,7 @@ void HueGatewayLight::rgbToXy(uint8_t red, uint8_t green, uint8_t blue, float& x
     y = Y / sum;
 }
 
-void HueGatewayLight::sendToHueWithColorTemp(uint16_t kelvin, uint8_t fadeDuration)
+void HueGatewayLight::sendToHueWithColorTemp(uint16_t kelvin, uint8_t fadeDuration, bool includeOnState)
 {
     if (!_initialized || !_client)
         return;
@@ -652,13 +727,13 @@ void HueGatewayLight::sendToHueWithColorTemp(uint16_t kelvin, uint8_t fadeDurati
                   fadeDuration);
     
     bool success = _isGroupedTarget
-        ? _client->setGroupedLightStateWithColorTemp(_lightId, _on, _brightness, mirek, fadeDuration)
-        : _client->setLightStateWithColorTemp(_lightId, _on, _brightness, mirek, fadeDuration);
+        ? _client->setGroupedLightStateWithColorTemp(_lightId, _on, _brightness, mirek, fadeDuration, includeOnState)
+        : _client->setLightStateWithColorTemp(_lightId, _on, _brightness, mirek, fadeDuration, includeOnState);
 
     if (!success && _isGroupedTarget)
     {
         Serial.printf("[HueGatewayLight] %s - grouped CT update failed, fallback to state-only\n", _name.c_str());
-        success = _client->setGroupedLightState(_lightId, _on, _brightness, fadeDuration);
+        success = _client->setGroupedLightState(_lightId, _on, _brightness, fadeDuration, includeOnState);
     }
 
     if (success)
@@ -752,8 +827,6 @@ void HueGatewayLight::processKnxSceneRecall(bool on,
     {
         _lastUpdate = millis();
         _lastHueWriteSuccessMs = _lastUpdate;
-        if (_hclMasterNum > 0)
-            _hclChannelLockActive = true;
         sendStatusToKnx();
         Serial.printf("[HueGatewayLight] %s - Scene recall: On:%d Bri:%u%% (Hue:%u)\n",
                       _name.c_str(), static_cast<int>(on),
@@ -810,82 +883,81 @@ void HueGatewayLight::loop()
     if (!_initialized
         || !_on
         || _hclMasterNum == 0
-        || _hclMasterNum > 8
-        || _hclChannelLockActive
-        || HCL::masterManager.isApplyBlocked()
-        || HCL::masterManager.isMasterApplyBlocked(_hclMasterNum))
+        || _hclMasterNum > kMaxHclMasters
+        || _hclChannelLockActive)
         return;
-    
-    // Read update interval from HCL manager (seconds).
-    uint32_t updateIntervalSec = HCL::masterManager.getUpdateInterval();
-    unsigned long updateIntervalMs = updateIntervalSec * 1000UL;
-    if (updateIntervalMs == 0)
+
+#ifdef HUEGATEWAY_LIGHT_HAS_LIGHTMANAGER
     {
-        updateIntervalMs = 1000UL;
-    }
-    
-    unsigned long now = millis();
-    if (_nextHCLDueMs == 0)
-    {
-        unsigned long phase = _hclPhaseOffsetMs;
-        if (phase > updateIntervalMs)
+        auto* lmCh = openknxLightManagerModule.channel(_hclMasterNum);
+        if (lmCh && !lmCh->applyBlocked() && !HCL::masterManager.isApplyBlocked()
+            && lmCh->internalOutputEnabled())
         {
-            phase = phase % updateIntervalMs;
+            const uint8_t validMask = lmCh->internalValidMask();
+            // Dimmable lamps only consume the brightness axis; a kelvin-only master must not trigger writes.
+            const uint8_t relevantMask = (_lightType >= 2) ? validMask : static_cast<uint8_t>(validMask & 0x02);
+            if (relevantMask != 0)
+            {
+                if (relevantMask & 0x01) _pendingHclKelvin     = lmCh->appliedKelvin();
+                if (relevantMask & 0x02) _pendingHclBrightness = lmCh->effectiveBrightness();
+                _pendingHclFadeDuration = lmCh->fadeDurationSec();
+                _hclValuePending = true;
+            }
         }
-        _nextHCLDueMs = now + phase;
     }
+#endif
 
-    if (now < _nextHCLDueMs)
+    if (!_hclValuePending)
         return;
 
-    _nextHCLDueMs = now + updateIntervalMs;
-    
-    // Fetch current interpolated HCL target values.
-    HCL::InterpolatedValue hclValue = HCL::masterManager.getCurrentValue(_hclMasterNum);
-    
+    unsigned long now = millis();
+
+    if (now < sGlobalHclWriteNextAllowedMs)
+    {
+        // Pending value is retained; retry in next loop cycle.
+        return;
+    }
+
+    // Consume the pending pushed value from LightManagerModule.
+    const uint16_t kelvin = _pendingHclKelvin;
+    const uint8_t brightness = _pendingHclBrightness;
+    const uint8_t fadeDuration = _pendingHclFadeDuration;
+    _hclValuePending = false;
+
     // Update when at least a small effective step changed.
-    // Use practical thresholds to reduce API pressure and loop blocking.
     static constexpr uint8_t kHclMinBrightnessStepPercent = 2;
     static constexpr uint16_t kHclMinKelvinStep = 12;
     const int previousKelvin = static_cast<int>(_currentKelvin);
     const int previousBrightness = static_cast<int>(_lastHCLBrightness);
-    bool kelvinChanged = abs(static_cast<int>(hclValue.kelvin) - previousKelvin) >= static_cast<int>(kHclMinKelvinStep);
-    bool brightnessChanged = abs(static_cast<int>(hclValue.brightness) - previousBrightness) >= static_cast<int>(kHclMinBrightnessStepPercent);
-    
+    // _currentKelvin is never updated for lamps without colour temperature, so kelvin must not count there.
+    const bool kelvinChanged = _lightType >= 2
+        && abs(static_cast<int>(kelvin) - previousKelvin) >= static_cast<int>(kHclMinKelvinStep);
+    const bool brightnessChanged = abs(static_cast<int>(brightness) - previousBrightness) >= static_cast<int>(kHclMinBrightnessStepPercent);
+
     if (!kelvinChanged && !brightnessChanged)
         return;
 
-    if (now < sGlobalHclWriteNextAllowedMs)
-    {
-        unsigned long retryAt = sGlobalHclWriteNextAllowedMs;
-        if (_nextHCLDueMs == 0 || retryAt < _nextHCLDueMs)
-        {
-            _nextHCLDueMs = retryAt;
-        }
-        return;
-    }
-
-    // Apply changed values and publish update.
+    // Apply changed values.
     _lastHCLUpdate = now;
-    _lastHCLBrightness = hclValue.brightness;
-    
+    _lastHCLBrightness = brightness;
+
     // Convert brightness percent (0-100) to Hue scale (0-254).
-    _brightness = static_cast<uint8_t>(roundf(hclValue.brightness * 254.0f / 100.0f));
-    
-    Serial.printf("[HueGatewayLight] %s - HCL Update: %dK → %dK, %d%% → %d%%\n",
-                 _name.c_str(), previousKelvin, hclValue.kelvin,
-                 previousBrightness, hclValue.brightness);
-    
-    // Read transition duration from HCL manager.
-    uint8_t fadeDuration = HCL::masterManager.getFadeDuration();
-    
+    _brightness = static_cast<uint8_t>(roundf(brightness * 254.0f / 100.0f));
+
+    Serial.printf("[HueGatewayLight] %s - HCL Update: %dK -> %dK, %d%% -> %d%%\n",
+                 _name.c_str(), previousKelvin, kelvin,
+                 previousBrightness, brightness);
+
+    // Periodic follow-up must never switch anything on: on a grouped target it
+    // would re-activate members an overlapping zone had switched off, and on a
+    // single light it would revive one that was switched off outside KNX.
     if (_lightType >= 2)
     {
-        sendToHueWithColorTemp(hclValue.kelvin, fadeDuration);
+        sendToHueWithColorTemp(kelvin, fadeDuration, false);
     }
     else
     {
-        sendToHue();
+        sendToHue(fadeDuration, false);
     }
 
     // Set spacing gate AFTER the blocking PUT so the gate covers the full

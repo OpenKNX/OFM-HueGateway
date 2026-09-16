@@ -1,4 +1,4 @@
-#include "HueGatewayModule.h"
+﻿#include "HueGatewayModule.h"
 #include "versions.h"
 #include "HueGatewayDiscovery.h"
 #include "HueGatewayAuth.h"
@@ -21,6 +21,18 @@
 #if __has_include("NetworkModule.h")
 #include "NetworkModule.h"
 #define HUEGATEWAY_HAS_OPENKNX_NETWORK 1
+#endif
+
+#ifdef OPENKNX_WEBSERVER
+#include "OpenKNX/Network/Module.h"
+#include "OpenKNX/Network/Webserver/WebRequest.h"
+#include "OpenKNX/Network/Webserver/WebResponse.h"
+#include "OpenKNX/Network/Webserver/Webserver.h"
+#endif
+
+#if __has_include("LightManagerModule.h")
+#include "LightManagerModule.h"
+#define HUEGATEWAY_HAS_LIGHTMANAGER 1
 #endif
 
 namespace
@@ -88,18 +100,6 @@ static void logSetupTlsHeadroom(const char* phase)
                   static_cast<unsigned>(kSetupMinInternalLargestBlockBytes));
 }
 
-static String readFixedTimeParam(const uint8_t* rawTime)
-{
-    if (rawTime == nullptr || rawTime[0] == '\0')
-    {
-        return String("");
-    }
-
-    char buffer[6] = {0, 0, 0, 0, 0, 0};
-    memcpy(buffer, rawTime, 5);
-    return String(buffer);
-}
-
 struct HclFixedInterpolationDebug
 {
     bool valid = false;
@@ -120,8 +120,9 @@ struct HclFixedInterpolationDebug
 
 static String formatMinutesToClock(uint16_t minutes)
 {
-    char timeBuffer[6] = {0};
-    HCL::Setpoint::formatTime(minutes % 1440, timeBuffer);
+    const uint16_t m = minutes % 1440;
+    char timeBuffer[6];
+    snprintf(timeBuffer, sizeof(timeBuffer), "%02u:%02u", m / 60, m % 60);
     return String(timeBuffer);
 }
 
@@ -152,53 +153,30 @@ static bool isDateInSummerRange(uint8_t month, uint8_t day,
     }
 }
 
-static bool buildFixedInterpolationDebug(const HCL::Master* master, uint16_t currentMinutes, HclFixedInterpolationDebug& debug)
+static bool buildFixedInterpolationDebug(const LightManagerChannel* channel, uint16_t currentMinutes, HclFixedInterpolationDebug& debug)
 {
     debug = HclFixedInterpolationDebug();
-    if (master == nullptr)
+    if (channel == nullptr)
     {
         return false;
     }
 
-    uint8_t firstValid = 0xFF;
-    uint8_t lastValid = 0xFF;
-    uint8_t validCount = 0;
-
-    for (uint8_t i = 0; i < HCL::Master::MAX_SETPOINTS; i++)
-    {
-        const HCL::Setpoint* setpoint = master->getSetpoint(i);
-        if (setpoint == nullptr || setpoint->timeMinutes >= 1440)
-        {
-            continue;
-        }
-
-        if (firstValid == 0xFF)
-        {
-            firstValid = i;
-        }
-        lastValid = i;
-        validCount++;
-    }
-
-    if (validCount < 2 || firstValid == 0xFF || lastValid == 0xFF)
+    const uint8_t count = channel->resolvedCount();
+    if (count < 2)
     {
         return false;
     }
 
-    uint8_t prevIndex = lastValid;
-    uint8_t nextIndex = firstValid;
-
-    for (uint8_t i = firstValid; i < HCL::Master::MAX_SETPOINTS; i++)
+    // _resolvedSetpoints[] is sorted ascending by timeMinutes (Phase 2.I).
+    uint8_t prevIndex = static_cast<uint8_t>(count - 1);
+    uint8_t nextIndex = 0;
+    for (uint8_t i = 0; i < count; ++i)
     {
-        const HCL::Setpoint* setpoint = master->getSetpoint(i);
-        if (setpoint == nullptr || setpoint->timeMinutes >= 1440)
-        {
-            continue;
-        }
-
-        if (setpoint->timeMinutes <= currentMinutes)
+        const HCL::ResolvedSetpoint& sp = channel->resolvedAt(i);
+        if (sp.timeMinutes <= currentMinutes)
         {
             prevIndex = i;
+            nextIndex = static_cast<uint8_t>((i + 1) % count);
         }
         else
         {
@@ -207,38 +185,27 @@ static bool buildFixedInterpolationDebug(const HCL::Master* master, uint16_t cur
         }
     }
 
-    const HCL::Setpoint* lastSetpoint = master->getSetpoint(lastValid);
-    if (lastSetpoint != nullptr && currentMinutes > lastSetpoint->timeMinutes)
-    {
-        prevIndex = lastValid;
-        nextIndex = firstValid;
-    }
-
-    const HCL::Setpoint* prev = master->getSetpoint(prevIndex);
-    const HCL::Setpoint* next = master->getSetpoint(nextIndex);
-    if (prev == nullptr || next == nullptr)
-    {
-        return false;
-    }
+    const HCL::ResolvedSetpoint& prev = channel->resolvedAt(prevIndex);
+    const HCL::ResolvedSetpoint& next = channel->resolvedAt(nextIndex);
 
     int32_t span = 0;
     int32_t elapsed = 0;
-    const bool wraps = (next->timeMinutes <= prev->timeMinutes);
+    const bool wraps = (next.timeMinutes <= prev.timeMinutes);
     if (!wraps)
     {
-        span = static_cast<int32_t>(next->timeMinutes) - static_cast<int32_t>(prev->timeMinutes);
-        elapsed = static_cast<int32_t>(currentMinutes) - static_cast<int32_t>(prev->timeMinutes);
+        span = static_cast<int32_t>(next.timeMinutes) - static_cast<int32_t>(prev.timeMinutes);
+        elapsed = static_cast<int32_t>(currentMinutes) - static_cast<int32_t>(prev.timeMinutes);
     }
     else
     {
-        span = (1440 - static_cast<int32_t>(prev->timeMinutes)) + static_cast<int32_t>(next->timeMinutes);
-        if (currentMinutes >= prev->timeMinutes)
+        span = (1440 - static_cast<int32_t>(prev.timeMinutes)) + static_cast<int32_t>(next.timeMinutes);
+        if (currentMinutes >= prev.timeMinutes)
         {
-            elapsed = static_cast<int32_t>(currentMinutes) - static_cast<int32_t>(prev->timeMinutes);
+            elapsed = static_cast<int32_t>(currentMinutes) - static_cast<int32_t>(prev.timeMinutes);
         }
         else
         {
-            elapsed = (1440 - static_cast<int32_t>(prev->timeMinutes)) + static_cast<int32_t>(currentMinutes);
+            elapsed = (1440 - static_cast<int32_t>(prev.timeMinutes)) + static_cast<int32_t>(currentMinutes);
         }
     }
 
@@ -252,63 +219,246 @@ static bool buildFixedInterpolationDebug(const HCL::Master* master, uint16_t cur
     debug.valid = true;
     debug.wrapsMidnight = wraps;
     debug.currentMinutes = currentMinutes;
-    debug.prevTime = prev->timeMinutes;
-    debug.nextTime = next->timeMinutes;
-    debug.prevKelvin = prev->kelvin;
-    debug.nextKelvin = next->kelvin;
-    debug.prevBrightness = prev->brightness;
-    debug.nextBrightness = next->brightness;
+    debug.prevTime = prev.timeMinutes;
+    debug.nextTime = next.timeMinutes;
+    debug.prevKelvin = prev.kelvin;
+    debug.nextKelvin = next.kelvin;
+    debug.prevBrightness = prev.brightness;
+    debug.nextBrightness = next.brightness;
     debug.spanMinutes = static_cast<uint16_t>((span < 0) ? 0 : span);
     debug.elapsedMinutes = static_cast<uint16_t>((elapsed < 0) ? 0 : elapsed);
     debug.factor = factor;
-    const float targetKelvinFloat = static_cast<float>(prev->kelvin) +
-        (static_cast<float>(next->kelvin) - static_cast<float>(prev->kelvin)) * factor;
-    const float targetBrightnessFloat = static_cast<float>(prev->brightness) +
-        (static_cast<float>(next->brightness) - static_cast<float>(prev->brightness)) * factor;
-    debug.targetKelvin = static_cast<uint16_t>(constrain(static_cast<int32_t>(targetKelvinFloat), static_cast<int32_t>(2000), static_cast<int32_t>(6500)));
+    const float targetKelvinFloat = static_cast<float>(prev.kelvin) +
+        (static_cast<float>(next.kelvin) - static_cast<float>(prev.kelvin)) * factor;
+    const float targetBrightnessFloat = static_cast<float>(prev.brightness) +
+        (static_cast<float>(next.brightness) - static_cast<float>(prev.brightness)) * factor;
+    debug.targetKelvin = static_cast<uint16_t>(constrain(static_cast<int32_t>(targetKelvinFloat), static_cast<int32_t>(1500), static_cast<int32_t>(10000)));
     debug.targetBrightness = static_cast<uint8_t>(constrain(static_cast<int32_t>(targetBrightnessFloat), static_cast<int32_t>(0), static_cast<int32_t>(100)));
     return true;
 }
 
-static String buildSetpointListDebug(const HCL::Master* master)
+static String buildHclSvgChart(const LightManagerChannel* ch, uint16_t currentMinutes, bool hasCurrentTime)
 {
-    if (master == nullptr)
+    if (ch == nullptr)
+        return String();
+    const uint8_t count = ch->resolvedCount();
+    if (count < 2)
+        return String("<p><span class='gray'>Keine Setpoints f\xc3\xbcr Diagramm verf\xc3\xbcgbar.</span></p>");
+
+    // Plot margins: Left, Right, Top, Bottom
+    const int mLeft = 52, mRight = 58, mTop = 22, mBot = 38;
+    const int plotW = 590, plotH = 220;
+    const int x0 = mLeft;
+    const int y0 = mTop;
+    const int xE = mLeft + plotW;
+    const int yE = mTop + plotH;
+    (void)mRight; (void)mBot;
+
+    // --- Kelvin range: snap to 500K boundaries ---
+    uint16_t kMin = 65535u, kMax = 0;
+    for (uint8_t i = 0; i < count; i++)
+    {
+        const HCL::ResolvedSetpoint& sp = ch->resolvedAt(i);
+        if (sp.kelvin < kMin) kMin = sp.kelvin;
+        if (sp.kelvin > kMax) kMax = sp.kelvin;
+    }
+    // Snap to 500K boundaries — gives clean round labels (2000, 2500, 3000 ...)
+    kMin = (kMin / 500u) * 500u;
+    kMax = ((kMax + 500u) / 500u) * 500u;  // ceil + one extra step for headroom
+    const int kRange = (int)kMax - (int)kMin;
+
+    // --- Coordinate helpers (integer arithmetic only) ---
+    // briPadTop: headroom above 100% / kMax so curves are clearly visible below the top border
+    const int briPadTop = 10;
+    const int effH = plotH - briPadTop;  // effective pixel height for the 0-100% / kMin-kMax range
+    auto xP   = [&](int t) -> int { return x0 + (int)((long)t * plotW / 1440); };
+    auto yBri = [&](int b) -> int { return y0 + briPadTop + effH - (int)((long)b * effH / 100); };
+    auto yKel = [&](int k) -> int { return y0 + briPadTop + effH - (int)((long)(k - (int)kMin) * effH / kRange); };
+
+    // --- Polyline point strings, with virtual wrap-around endpoints ---
+    const HCL::ResolvedSetpoint& first = ch->resolvedAt(0);
+    const HCL::ResolvedSetpoint& last  = ch->resolvedAt(count - 1);
+    String ptsBri, ptsKel;
+    ptsBri.reserve((count + 2) * 12);
+    ptsKel.reserve((count + 2) * 12);
+    if (first.timeMinutes > 0)
+    {
+        ptsBri += String(xP(0)) + "," + String(yBri(last.brightness)) + " ";
+        ptsKel += String(xP(0)) + "," + String(yKel(last.kelvin))     + " ";
+    }
+    for (uint8_t i = 0; i < count; i++)
+    {
+        const HCL::ResolvedSetpoint& sp = ch->resolvedAt(i);
+        ptsBri += String(xP(sp.timeMinutes)) + "," + String(yBri(sp.brightness)) + " ";
+        ptsKel += String(xP(sp.timeMinutes)) + "," + String(yKel(sp.kelvin))     + " ";
+    }
+    if (last.timeMinutes < 1440)
+    {
+        ptsBri += String(xP(1440)) + "," + String(yBri(first.brightness));
+        ptsKel += String(xP(1440)) + "," + String(yKel(first.kelvin));
+    }
+
+    // --- Build SVG ---
+    String svg;
+    svg.reserve(3200);
+    svg += "<svg viewBox='0 0 700 280' width='100%' preserveAspectRatio='xMinYMid meet'>";
+
+    // Horizontal grid + Y-left labels (brightness 0/25/50/75/100%)
+    const int briTicks[] = {0, 25, 50, 75, 100};
+    for (int i = 0; i < 5; i++)
+    {
+        const int b = briTicks[i];
+        const int y = yBri(b);
+        svg += "<line x1='" + String(x0) + "' y1='" + String(y) + "' x2='" + String(xE) + "' y2='" + String(y) + "' stroke='#eee'/>";
+        svg += "<text x='" + String(x0 - 4) + "' y='" + String(y + 4) + "' text-anchor='end' font-size='10' fill='#449841'>" + String(b) + "%</text>";
+    }
+
+    // Vertical grid + X-axis labels (every 2 hours)
+    for (int h = 0; h <= 22; h += 2)
+    {
+        const int x = xP(h * 60);
+        svg += "<line x1='" + String(x) + "' y1='" + String(y0) + "' x2='" + String(x) + "' y2='" + String(yE) + "' stroke='#eee'/>";
+        char lbl[6];
+        snprintf(lbl, sizeof(lbl), "%02d:00", h);
+        svg += "<text x='" + String(x) + "' y='" + String(yE + 14) + "' text-anchor='middle' font-size='10' fill='#888'>" + String(lbl) + "</text>";
+    }
+
+    // Y-right labels (Kelvin, 500K steps)
+    for (int k = (int)kMin; k <= (int)kMax; k += 500)
+    {
+        const int y = yKel(k);
+        svg += "<text x='" + String(xE + 4) + "' y='" + String(y + 4) + "' text-anchor='start' font-size='10' fill='#5b9bd5'>" + String(k) + "K</text>";
+    }
+
+    // Kelvin polyline (drawn first, behind brightness)
+    svg += "<polyline points='" + ptsKel + "' stroke='#5b9bd5' stroke-width='2' fill='none'/>";
+    // Brightness polyline
+    svg += "<polyline points='" + ptsBri + "' stroke='#449841' stroke-width='2' fill='none'/>";
+
+    // "Jetzt"-Marker (red dashed vertical)
+    if (hasCurrentTime)
+    {
+        const int xNow = xP((int)currentMinutes);
+        svg += "<line x1='" + String(xNow) + "' y1='" + String(y0) + "' x2='" + String(xNow) + "' y2='" + String(yE) + "' stroke='#ff5555' stroke-width='1' stroke-dasharray='4 3'/>";
+    }
+
+    // Plot area border (drawn on top)
+    svg += "<rect x='" + String(x0) + "' y='" + String(y0) + "' width='" + String(plotW) + "' height='" + String(plotH) + "' fill='none' stroke='#bbb'/>";
+
+    // Legend
+    svg += "<rect x='" + String(x0 + 4) + "' y='" + String(y0 + 5) + "' width='14' height='3' fill='#449841'/>";
+    svg += "<text x='" + String(x0 + 22) + "' y='" + String(y0 + 10) + "' font-size='10' fill='#888'>Helligkeit</text>";
+    svg += "<rect x='" + String(x0 + 90) + "' y='" + String(y0 + 5) + "' width='14' height='3' fill='#5b9bd5'/>";
+    svg += "<text x='" + String(x0 + 108) + "' y='" + String(y0 + 10) + "' font-size='10' fill='#888'>Farbtemperatur</text>";
+
+    svg += "</svg>";
+    return svg;
+}
+
+// Berechnet Sonnenaufgang und -untergang aus Geo-Daten des Masters per Bisektion.
+// Gibt false zurueck wenn keine gueltige Loesung (Polarnacht).
+// outSunrise / outSunset: Minuten seit Mitternacht (0..1439).
+static bool computeGeoSunriseSunset(const HCL::Master* m, uint16_t dayOfYear,
+                                     int16_t dstOffsetMin,
+                                     uint16_t& outSunrise, uint16_t& outSunset)
+{
+    if (!m) return false;
+    // Effektiver UTC-Offset = Basis-Zeitzone + Sommerzeitkorrektur
+    const int16_t tzOffset = m->getTimezoneOffsetMin() + dstOffsetMin;
+    const float lat = m->getLatitudeDeg();
+    const float lon = m->getLongitudeDeg();
+    // Polarnacht: Altitude um Mittag < 0 → keine Sonne.
+    {
+        int16_t d, a;
+        HCL::Master::computeSolarPosition(dayOfYear, 720, lat, lon, tzOffset, d, a);
+        if (a < 0) return false;
+    }
+    // Sonnenaufgang: erstes Minute in [0..720] mit altitude >= 0.
+    {
+        int lo = 0, hi = 720;
+        for (int i = 0; i < 14; i++)
+        {
+            const int mid = (lo + hi) / 2;
+            int16_t d, a;
+            HCL::Master::computeSolarPosition(dayOfYear, (uint16_t)mid, lat, lon, tzOffset, d, a);
+            if (a < 0) lo = mid + 1;
+            else hi = mid;
+        }
+        outSunrise = (uint16_t)lo;
+    }
+    // Sonnenuntergang: erstes Minute in [720..1439] mit altitude <= 0.
+    {
+        int lo = 720, hi = 1439;
+        for (int i = 0; i < 14; i++)
+        {
+            const int mid = (lo + hi) / 2;
+            int16_t d, a;
+            HCL::Master::computeSolarPosition(dayOfYear, (uint16_t)mid, lat, lon, tzOffset, d, a);
+            if (a > 0) lo = mid + 1;
+            else hi = mid;
+        }
+        outSunset = (uint16_t)hi;
+    }
+    return true;
+}
+
+static String buildSetpointListHtml(const LightManagerChannel* channel)
+{
+    if (channel == nullptr)
+        return String("<em>n/a</em>");
+
+    const uint8_t count = channel->resolvedCount();
+    if (count == 0)
+        return String("<em>(keine aufgel\xC3\xB6sten Setpoints)</em>");
+
+    String html;
+    html.reserve(count * 80 + 80);
+    html += "<table><tr><th>#</th><th>Zeit</th><th>Kelvin</th><th>Helligkeit</th></tr>";
+    for (uint8_t i = 0; i < count; ++i)
+    {
+        const HCL::ResolvedSetpoint& sp = channel->resolvedAt(i);
+        html += "<tr><td>";
+        html += String(i + 1);
+        html += "</td><td>";
+        html += formatMinutesToClock(sp.timeMinutes);
+        html += "</td><td>";
+        html += String(sp.kelvin);
+        html += " K</td><td>";
+        html += String(sp.brightness);
+        html += "%</td></tr>";
+    }
+    html += "</table>";
+    return html;
+}
+
+static String buildSetpointListDebug(const LightManagerChannel* channel)
+{
+    if (channel == nullptr)
     {
         return String("n/a");
     }
 
+    const uint8_t count = channel->resolvedCount();
+    if (count == 0)
+    {
+        return String("(keine aufgel\xC3\xB6sten Setpoints)");
+    }
+
     String details;
     details.reserve(448);
-    bool first = true;
-    for (uint8_t i = 0; i < HCL::Master::MAX_SETPOINTS; i++)
+    for (uint8_t i = 0; i < count; ++i)
     {
-        const HCL::Setpoint* setpoint = master->getSetpoint(i);
-        if (setpoint == nullptr || setpoint->timeMinutes >= 1440)
-        {
-            continue;
-        }
-
-        if (!first)
-        {
-            details += " | ";
-        }
-
+        const HCL::ResolvedSetpoint& sp = channel->resolvedAt(i);
+        if (i > 0) details += " | ";
         details += String(i + 1);
         details += ": ";
-        details += formatMinutesToClock(setpoint->timeMinutes);
+        details += formatMinutesToClock(sp.timeMinutes);
         details += " ";
-        details += String(setpoint->kelvin);
+        details += String(sp.kelvin);
         details += "K/";
-        details += String(setpoint->brightness);
+        details += String(sp.brightness);
         details += "%";
-        first = false;
     }
-
-    if (first)
-    {
-        return String("(keine gültigen Setpoints)");
-    }
-
     return details;
 }
 
@@ -334,35 +484,6 @@ static String getDeviceIpString()
     }
 
     return String("n/a");
-}
-
-static String getRequestLocalIpString(httpd_req_t* req)
-{
-    if (req != nullptr)
-    {
-        const int socketFd = httpd_req_to_sockfd(req);
-        if (socketFd >= 0)
-        {
-            struct sockaddr_storage localAddr;
-            socklen_t localAddrLen = sizeof(localAddr);
-            memset(&localAddr, 0, sizeof(localAddr));
-
-            if (getsockname(socketFd, reinterpret_cast<struct sockaddr*>(&localAddr), &localAddrLen) == 0)
-            {
-                if (localAddr.ss_family == AF_INET)
-                {
-                    const struct sockaddr_in* localAddrV4 = reinterpret_cast<const struct sockaddr_in*>(&localAddr);
-                    char ipBuffer[INET_ADDRSTRLEN] = {0};
-                    if (inet_ntop(AF_INET, &(localAddrV4->sin_addr), ipBuffer, sizeof(ipBuffer)) != nullptr)
-                    {
-                        return String(ipBuffer);
-                    }
-                }
-            }
-        }
-    }
-
-    return getDeviceIpString();
 }
 
 void HueGatewayModule::appendDiagnosticLog(const char* level, const char* category, const String& message)
@@ -505,7 +626,7 @@ String HueGatewayModule::buildDiagnosticReport(size_t requestedDepth, const Stri
     report += "BridgeLightCount=" + String(_diagLastBridgeLightCount) + "\n";
     report += "RoomTargetCount=" + String(_diagLastRoomTargetCount) + "\n";
     report += "ZoneTargetCount=" + String(_diagLastZoneTargetCount) + "\n";
-    report += "HasUnresolvedGroupTarget=" + String(_diagLastHasUnresolvedGroupTarget ? "1" : "0") + "\n\n";
+    report += "HasUnresolvedTarget=" + String(_diagLastHasUnresolvedTarget ? "1" : "0") + "\n\n";
 
     report += "[ChannelSnapshot]\n";
     uint8_t configuredChannels = ParamHUE_HUEChannelCount;
@@ -571,6 +692,7 @@ String HueGatewayModule::buildDiagnosticReport(size_t requestedDepth, const Stri
             + " poll=" + String(pollIntervalSec)
             + " targetType=" + String(targetType)
             + " targetRid=" + (targetRid.length() > 0 ? targetRid : String("-"))
+            + " targetUnresolved=" + String(_diagTargetUnresolved[ch] ? "1" : "0")
             + " legacyUuid=" + (legacyUuid.length() > 0 ? legacyUuid : String("-"))
             + " mappedName=" + mappedName
             + " mappedId=" + mappedId
@@ -645,6 +767,18 @@ String HueGatewayModule::buildDiagnosticReport(size_t requestedDepth, const Stri
             }
             report += "\n";
         }
+    }
+    report += "\n";
+
+    report += "[FadeTest]\n";
+    if (_fadeTestReport.length() == 0)
+    {
+        report += "NotRun=1 (Start über /hue/fadetest?ch=<n> oder Konsole 'hue fadetest <n>')\n";
+    }
+    else
+    {
+        report += String("Running=") + (_fadeTestChannel >= 0 ? "1" : "0") + "\n";
+        report += _fadeTestReport;
     }
     report += "\n";
 
@@ -818,7 +952,7 @@ HueGatewayModule::HueGatewayModule()
     , _diagLastBridgeLightCount(0)
     , _diagLastRoomTargetCount(0)
     , _diagLastZoneTargetCount(0)
-    , _diagLastHasUnresolvedGroupTarget(false)
+    , _diagLastHasUnresolvedTarget(false)
 {
     // Light-Array initialisieren
     for (int i = 0; i < MAX_CHANNELS; i++)
@@ -830,6 +964,10 @@ HueGatewayModule::HueGatewayModule()
         _channelFastTrackRemaining[i] = 0;
         _hclChannelLockActive[i] = false;
         _hclChannelLockFallbackMode[i] = static_cast<uint8_t>(HclLockFallbackMode::None);
+        _hclChannelAutoStandby[i] = 0;
+        _hclChannelFallbackPolicy[i] = static_cast<uint8_t>(HclLockFallbackPolicy::Legacy);
+        _hclChannelFallbackDurationMs[i] = 0;
+        _hclChannelFallbackReleaseMinuteOfDay[i] = 0xFFFF;
         _hclChannelLockActivatedMs[i] = 0;
         _hclChannelLockAutoReleaseMs[i] = 0;
         _hclChannelLockActivationDayOfYear[i] = -1;
@@ -844,6 +982,11 @@ HueGatewayModule::HueGatewayModule()
         _diagLastWriteTraceResult[i] = "-";
         _diagLastWriteTraceMethod[i] = "-";
         _diagLastWriteTraceEndpoint[i] = "-";
+        _diagTargetUnresolved[i] = false;
+#ifdef OPENKNX_WEBSERVER
+        _liveDirty[i] = false;
+        _liveLastSentMs[i] = 0;
+#endif
         for (int s = 0; s < SCENE_SLOTS; s++)
             _sceneStore[i][s] = { SCENE_STORE_EMPTY, 0, 0, 0, 0, 0, 0 };
     }
@@ -906,7 +1049,9 @@ void HueGatewayModule::setup()
     setupBridge();
     setupDevices();
     setupHCL();
+#ifdef OPENKNX_WEBSERVER
     setupWebUI();
+#endif
     setupMDNS();
     _networkConnectedLast = hasNetworkConnectivity();
     
@@ -933,134 +1078,22 @@ void HueGatewayModule::loop()
 
     esp_task_wdt_reset();
 
+#ifdef OPENKNX_WEBSERVER
+    flushLiveUpdates();
+#endif
+
     // Update Info-LED pattern
     updateInfoLED();
 
     // Non-blocking authentication polling
     pollAuthentication();
     
-    // Update HCL Manager with current time
     struct tm timeinfo;
     const bool hasTime = getLocalTime(&timeinfo, 0);
-    if (hasTime) {
-        uint16_t currentMinutes = timeinfo.tm_hour * 60 + timeinfo.tm_min;
-        int16_t currentDayOfYear = static_cast<int16_t>(timeinfo.tm_yday + 1);
-
-        // Update isSummer for each HCL master based on configured season mode
-        auto updateMasterSeason = [&](uint8_t masterNumber, uint8_t seasonMode, int8_t dstOffsetDays,
-                                      uint8_t summerStartMonth, uint8_t summerStartDay,
-                                      uint8_t summerEndMonth, uint8_t summerEndDay) {
-            HCL::Master* master = HCL::masterManager.getMaster(masterNumber);
-            if (!master) return;
-            if (seasonMode == 0) {
-                master->setIsSummer(false);
-            } else if (seasonMode == 1) {
-                if (dstOffsetDays != 0) {
-                    struct tm timeCopy = timeinfo;
-                    time_t shifted = mktime(&timeCopy) - (static_cast<int64_t>(dstOffsetDays) * 86400LL);
-                    struct tm shiftedTm;
-                    localtime_r(&shifted, &shiftedTm);
-                    master->setIsSummer(shiftedTm.tm_isdst == 1);
-                } else {
-                    master->setIsSummer(timeinfo.tm_isdst == 1);
-                }
-            } else if (seasonMode == 2) {
-                master->setIsSummer(isDateInSummerRange(
-                    static_cast<uint8_t>(timeinfo.tm_mon + 1), static_cast<uint8_t>(timeinfo.tm_mday),
-                    summerStartMonth, summerStartDay, summerEndMonth, summerEndDay));
-            }
-            // Mode 3: KO handler calls master->setIsSummer() directly, nothing to do here
-        };
-
-        #if defined(ParamHUE_HCLM1SeasonMode) && defined(ParamHUE_HCLM1SummerStartMonth)
-        updateMasterSeason(1, ParamHUE_HCLM1SeasonMode,
-            #ifdef ParamHUE_HCLM1DSTOffsetDays
-            static_cast<int8_t>(ParamHUE_HCLM1DSTOffsetDays),
-            #else
-            0,
-            #endif
-            ParamHUE_HCLM1SummerStartMonth, ParamHUE_HCLM1SummerStartDay,
-            ParamHUE_HCLM1SummerEndMonth, ParamHUE_HCLM1SummerEndDay);
-        #endif
-        #if defined(ParamHUE_HCLM2SeasonMode) && defined(ParamHUE_HCLM2SummerStartMonth)
-        updateMasterSeason(2, ParamHUE_HCLM2SeasonMode,
-            #ifdef ParamHUE_HCLM2DSTOffsetDays
-            static_cast<int8_t>(ParamHUE_HCLM2DSTOffsetDays),
-            #else
-            0,
-            #endif
-            ParamHUE_HCLM2SummerStartMonth, ParamHUE_HCLM2SummerStartDay,
-            ParamHUE_HCLM2SummerEndMonth, ParamHUE_HCLM2SummerEndDay);
-        #endif
-        #if defined(ParamHUE_HCLM3SeasonMode) && defined(ParamHUE_HCLM3SummerStartMonth)
-        updateMasterSeason(3, ParamHUE_HCLM3SeasonMode,
-            #ifdef ParamHUE_HCLM3DSTOffsetDays
-            static_cast<int8_t>(ParamHUE_HCLM3DSTOffsetDays),
-            #else
-            0,
-            #endif
-            ParamHUE_HCLM3SummerStartMonth, ParamHUE_HCLM3SummerStartDay,
-            ParamHUE_HCLM3SummerEndMonth, ParamHUE_HCLM3SummerEndDay);
-        #endif
-        #if defined(ParamHUE_HCLM4SeasonMode) && defined(ParamHUE_HCLM4SummerStartMonth)
-        updateMasterSeason(4, ParamHUE_HCLM4SeasonMode,
-            #ifdef ParamHUE_HCLM4DSTOffsetDays
-            static_cast<int8_t>(ParamHUE_HCLM4DSTOffsetDays),
-            #else
-            0,
-            #endif
-            ParamHUE_HCLM4SummerStartMonth, ParamHUE_HCLM4SummerStartDay,
-            ParamHUE_HCLM4SummerEndMonth, ParamHUE_HCLM4SummerEndDay);
-        #endif
-        #if defined(ParamHUE_HCLM5SeasonMode) && defined(ParamHUE_HCLM5SummerStartMonth)
-        updateMasterSeason(5, ParamHUE_HCLM5SeasonMode,
-            #ifdef ParamHUE_HCLM5DSTOffsetDays
-            static_cast<int8_t>(ParamHUE_HCLM5DSTOffsetDays),
-            #else
-            0,
-            #endif
-            ParamHUE_HCLM5SummerStartMonth, ParamHUE_HCLM5SummerStartDay,
-            ParamHUE_HCLM5SummerEndMonth, ParamHUE_HCLM5SummerEndDay);
-        #endif
-        #if defined(ParamHUE_HCLM6SeasonMode) && defined(ParamHUE_HCLM6SummerStartMonth)
-        updateMasterSeason(6, ParamHUE_HCLM6SeasonMode,
-            #ifdef ParamHUE_HCLM6DSTOffsetDays
-            static_cast<int8_t>(ParamHUE_HCLM6DSTOffsetDays),
-            #else
-            0,
-            #endif
-            ParamHUE_HCLM6SummerStartMonth, ParamHUE_HCLM6SummerStartDay,
-            ParamHUE_HCLM6SummerEndMonth, ParamHUE_HCLM6SummerEndDay);
-        #endif
-        #if defined(ParamHUE_HCLM7SeasonMode) && defined(ParamHUE_HCLM7SummerStartMonth)
-        updateMasterSeason(7, ParamHUE_HCLM7SeasonMode,
-            #ifdef ParamHUE_HCLM7DSTOffsetDays
-            static_cast<int8_t>(ParamHUE_HCLM7DSTOffsetDays),
-            #else
-            0,
-            #endif
-            ParamHUE_HCLM7SummerStartMonth, ParamHUE_HCLM7SummerStartDay,
-            ParamHUE_HCLM7SummerEndMonth, ParamHUE_HCLM7SummerEndDay);
-        #endif
-        #if defined(ParamHUE_HCLM8SeasonMode) && defined(ParamHUE_HCLM8SummerStartMonth)
-        updateMasterSeason(8, ParamHUE_HCLM8SeasonMode,
-            #ifdef ParamHUE_HCLM8DSTOffsetDays
-            static_cast<int8_t>(ParamHUE_HCLM8DSTOffsetDays),
-            #else
-            0,
-            #endif
-            ParamHUE_HCLM8SummerStartMonth, ParamHUE_HCLM8SummerStartDay,
-            ParamHUE_HCLM8SummerEndMonth, ParamHUE_HCLM8SummerEndDay);
-        #endif
-
-        HCL::masterManager.loop(currentMinutes, currentDayOfYear);
-    }
-
-    evaluateHclLockFallback(hasTime ? &timeinfo : nullptr, hasTime);
-    evaluateHclManagerLockFallback(hasTime ? &timeinfo : nullptr, hasTime);
     evaluateHclChannelLockFallback(hasTime ? &timeinfo : nullptr, hasTime);
-    publishHclMasterValues();
-    
+
+    loopFadeTest();
+
     // Call loop on all active device channels
     for (int i = 0; i < MAX_CHANNELS; i++)
     {
@@ -1391,6 +1424,32 @@ void HueGatewayModule::loop()
         }
     }
 
+    // While the EventStream is the active sync path it only delivers partial
+    // events: an on=true event after a plain switch-on (where the gateway sent
+    // no dimming value and let the bridge restore its own brightness) carries no
+    // brightness field. Run the fast-track verification poll — which does a full
+    // light fetch including brightness — for channels that just received a
+    // command, so manually controlled lights publish a correct brightness status.
+    if (_client && _client->isEventStreamConnected()
+        && (now >= HueGatewayLight::globalHclWriteNextAllowedMs()))
+    {
+        bool fastTrackPending = false;
+        for (int i = 0; i < MAX_LIGHTS; i++)
+        {
+            if (_channelFastTrackRemaining[i] > 0
+                && _channelFastTrackNextMs[i] != 0
+                && now >= _channelFastTrackNextMs[i])
+            {
+                fastTrackPending = true;
+                break;
+            }
+        }
+        if (fastTrackPending && hasLoopBudget("fastTrack-refresh"))
+        {
+            refreshLightStatus(true);
+        }
+    }
+
     if (_webScanRequested && !_webScanInProgress && _client && _initialized && _client->isInitialized())
     {
         _webScanRequested = false;
@@ -1407,7 +1466,7 @@ void HueGatewayModule::loop()
 
 const std::string HueGatewayModule::name()
 {
-    return "HueGatewayModule";
+    return "HueGateway";
 }
 
 const std::string HueGatewayModule::version()
@@ -1616,7 +1675,7 @@ void HueGatewayModule::processInputKo(GroupObject& ko)
                 // Status-KO "Adaptive aktiv" nach Lux-Update senden
                 {
                     const uint8_t mn = hclLuxKos[i].master;
-                    const bool active = HCL::masterManager.isMasterAdaptiveActive(mn);
+                    [[maybe_unused]] const bool active = HCL::masterManager.isMasterAdaptiveActive(mn);
                     switch (mn) {
 #ifdef HUE_KoHUEHCLM1AdaptiveActive
                         case 1: knx.getGroupObject(HUE_KoHUEHCLM1AdaptiveActive).value(active, Dpt(1, 11)); break;
@@ -1732,6 +1791,9 @@ void HueGatewayModule::processInputKo(GroupObject& ko)
         _diagLastKoCommandMs[channel] = nowMs;
         _diagLastKoType[channel] = koType;
         _diagLastKoBlockReason[channel] = "ok";
+#ifdef OPENKNX_WEBSERVER
+        markChannelDirty(channel);
+#endif
     }
 
     if (isCommandKo && !(syncDir == 0 || syncDir == 2))
@@ -1946,6 +2008,8 @@ void HueGatewayModule::processInputKo(GroupObject& ko)
                             light->processKnxSceneRecall(onOff, true, sd.brightness, true, sd.colorTemp, true, sd.red, sd.green, sd.blue);
                         else if (auto* plug = plugAt(channel))
                             plug->processKnxSceneRecall(onOff);
+                        if (onOff && _devices[channel] != nullptr && _devices[channel]->getHCLMaster() > 0)
+                            setHclChannelLock(static_cast<uint8_t>(channel), true, "scene preset");
                         commandValue = String("store-recall:") + String(static_cast<unsigned>(sceneNumber));
                         break;
                     }
@@ -1996,6 +2060,8 @@ void HueGatewayModule::processInputKo(GroupObject& ko)
                         light->processKnxSceneRecall(onOff, applyBri, bri, applyCT, ct, applyColor, red, green, blue);
                     else if (auto* plug = plugAt(channel))
                         plug->processKnxSceneRecall(onOff);
+                    if (onOff && _devices[channel] != nullptr && _devices[channel]->getHCLMaster() > 0)
+                        setHclChannelLock(static_cast<uint8_t>(channel), true, "scene preset");
                 }
                 break;  // First matching slot wins.
             }
@@ -2003,6 +2069,21 @@ void HueGatewayModule::processInputKo(GroupObject& ko)
         }
         default:
             break;
+    }
+
+    // Auto-standby: a manual adjustment puts the light manager on hold for this
+    // channel. Release follows the channel's configured fallback strategy.
+    // koType 0 (switch) is excluded: off already releases the lock, on applies HCL.
+    if (_devices[channel] != nullptr && _devices[channel]->getHCLMaster() > 0)
+    {
+        const uint8_t autoStandby = _hclChannelAutoStandby[channel];
+        const bool brightnessCommand = (koType == 1 || koType == 2);
+        const bool colorCommand = (koType == 5 || koType == 7);
+        if ((autoStandby == 1 && brightnessCommand) ||
+            (autoStandby == 2 && (brightnessCommand || colorCommand)))
+        {
+            setHclChannelLock(static_cast<uint8_t>(channel), true, "manual override");
+        }
     }
 
     if (isCommandKo)
@@ -2160,6 +2241,19 @@ bool HueGatewayModule::processCommand(const std::string cmd, bool diagnoseKo)
         openknx.console.printHelpLine("hue status", "Show current module status");
         openknx.console.printHelpLine("hue hcl", "Show HCL runtime and advanced master settings");
         openknx.console.printHelpLine("hue retry", "Force setupDevices retry (reset backoff/circuit)");
+        openknx.console.printHelpLine("hue fadetest <ch>", "Run bridge fade diagnostic on a channel");
+        return true;
+    }
+
+    if (cmd.rfind("hue fadetest", 0) == 0)
+    {
+        const std::string arg = cmd.substr(strlen("hue fadetest"));
+        const int channel = atoi(arg.c_str()) - 1;
+        String error;
+        if (startFadeTest(channel, error))
+            Serial.println("[HueGatewayModule] Fade test running, result appears in 'hue diagnose' under [FadeTest]");
+        else
+            Serial.printf("[HueGatewayModule] Fade test rejected: %s\n", error.c_str());
         return true;
     }
 
@@ -2338,29 +2432,14 @@ bool HueGatewayModule::processCommand(const std::string cmd, bool diagnoseKo)
         Serial.println("\nHCL Status:");
         Serial.println("---------------------------------");
 
-        #ifdef ParamHUE_HUEHCLEnable
-        const bool hclEnabled = (ParamHUE_HUEHCLEnable != 0);
+        const bool hclEnabled = HCL::masterManager.isEnabled();
         Serial.printf("Enabled: %s\n", hclEnabled ? "Yes" : "No");
-        #else
-        const bool hclEnabled = false;
-        Serial.println("Enabled: No");
-        #endif
 
         if (hclEnabled)
         {
-            #ifdef ParamHUE_HUEHCLMasterCount
-            const uint8_t masterCount = ParamHUE_HUEHCLMasterCount;
-            #else
-            const uint8_t masterCount = 0;
-            #endif
-
-            #ifdef ParamHUE_HUEHCLUpdateInterval
-            Serial.printf("Update interval: %us\n", static_cast<unsigned>(ParamHUE_HUEHCLUpdateInterval));
-            #endif
-
-            #ifdef ParamHUE_HUEHCLFadeDuration
-            Serial.printf("Fade duration: %us\n", static_cast<unsigned>(ParamHUE_HUEHCLFadeDuration));
-            #endif
+            const uint8_t masterCount = HCL::masterManager.getMasterCount();
+            Serial.printf("Update interval: per channel (see master list)\n");
+            Serial.printf("Fade duration: per channel (see master list)\n");
 
             for (uint8_t masterNumber = 1; masterNumber <= HCL::MasterManager::MAX_MASTERS; masterNumber++)
             {
@@ -2375,138 +2454,31 @@ bool HueGatewayModule::processCommand(const std::string cmd, bool diagnoseKo)
                     continue;
                 }
 
+                LightManagerChannel* ch = openknxLightManagerModule.channel(masterNumber);
                 HCL::InterpolatedValue current = HCL::masterManager.getCurrentValue(masterNumber);
-                Serial.printf("M%u: current=%uK/%u%% setpoints=%u\n",
+                const uint8_t resolvedCount = ch ? ch->resolvedCount() : 0;
+                const char* profileName = ch ? ch->activeProfileName() : "";
+                const int profileIdx = ch ? ch->activeProfileIndex() : -1;
+                Serial.printf("M%u: current=%uK/%u%% resolvedSP=%u profile=%d(%s)\n",
                               static_cast<unsigned>(masterNumber),
                               static_cast<unsigned>(current.kelvin),
                               static_cast<unsigned>(current.brightness),
-                              static_cast<unsigned>(master->getValidSetpointCount()));
+                              static_cast<unsigned>(resolvedCount),
+                              profileIdx,
+                              (profileName && profileName[0]) ? profileName : "-");
 
-                uint8_t curveTypeValue = 0;
-                uint16_t slewRate = 0;
-                uint16_t manualKelvin = 4000;
-                String sunrise = "";
-                String sunset = "";
-                int16_t sunriseOffset = 0;
-                int16_t sunsetOffset = 0;
+                String sunrise = master->hasSunTimes() ? formatMinutesToClock(master->getSunriseMinutes()) : String("--:--");
+                String sunset  = master->hasSunTimes() ? formatMinutesToClock(master->getSunsetMinutes())  : String("--:--");
+                const HCL::AdaptiveConfig& adaptive = master->getAdaptiveConfig();
+                const char* adaptiveModeText = "Disabled";
+                if (adaptive.mode == HCL::AdaptiveMode::OpenLoop)   adaptiveModeText = "OpenLoop";
+                else if (adaptive.mode == HCL::AdaptiveMode::ClosedLoop) adaptiveModeText = "ClosedLoop";
 
-                switch (masterNumber)
-                {
-                    case 1:
-                        #ifdef ParamHUE_HCLM1CurveType
-                        curveTypeValue = ParamHUE_HCLM1CurveType;
-                        slewRate = ParamHUE_HCLM1SlewRate;
-                        manualKelvin = ParamHUE_HCLM1ManualKelvin;
-                        sunrise = readFixedTimeParam(ParamHUE_HCLM1Sunrise);
-                        sunset = readFixedTimeParam(ParamHUE_HCLM1Sunset);
-                        sunriseOffset = static_cast<int16_t>(ParamHUE_HCLM1SunriseOffset);
-                        sunsetOffset = static_cast<int16_t>(ParamHUE_HCLM1SunsetOffset);
-                        #endif
-                        break;
-                    case 2:
-                        #ifdef ParamHUE_HCLM2CurveType
-                        curveTypeValue = ParamHUE_HCLM2CurveType;
-                        slewRate = ParamHUE_HCLM2SlewRate;
-                        manualKelvin = ParamHUE_HCLM2ManualKelvin;
-                        sunrise = readFixedTimeParam(ParamHUE_HCLM2Sunrise);
-                        sunset = readFixedTimeParam(ParamHUE_HCLM2Sunset);
-                        sunriseOffset = static_cast<int16_t>(ParamHUE_HCLM2SunriseOffset);
-                        sunsetOffset = static_cast<int16_t>(ParamHUE_HCLM2SunsetOffset);
-                        #endif
-                        break;
-                    case 3:
-                        #ifdef ParamHUE_HCLM3CurveType
-                        curveTypeValue = ParamHUE_HCLM3CurveType;
-                        slewRate = ParamHUE_HCLM3SlewRate;
-                        manualKelvin = ParamHUE_HCLM3ManualKelvin;
-                        sunrise = readFixedTimeParam(ParamHUE_HCLM3Sunrise);
-                        sunset = readFixedTimeParam(ParamHUE_HCLM3Sunset);
-                        sunriseOffset = static_cast<int16_t>(ParamHUE_HCLM3SunriseOffset);
-                        sunsetOffset = static_cast<int16_t>(ParamHUE_HCLM3SunsetOffset);
-                        #endif
-                        break;
-                    case 4:
-                        #ifdef ParamHUE_HCLM4CurveType
-                        curveTypeValue = ParamHUE_HCLM4CurveType;
-                        slewRate = ParamHUE_HCLM4SlewRate;
-                        manualKelvin = ParamHUE_HCLM4ManualKelvin;
-                        sunrise = readFixedTimeParam(ParamHUE_HCLM4Sunrise);
-                        sunset = readFixedTimeParam(ParamHUE_HCLM4Sunset);
-                        sunriseOffset = static_cast<int16_t>(ParamHUE_HCLM4SunriseOffset);
-                        sunsetOffset = static_cast<int16_t>(ParamHUE_HCLM4SunsetOffset);
-                        #endif
-                        break;
-                    case 5:
-                        #ifdef ParamHUE_HCLM5CurveType
-                        curveTypeValue = ParamHUE_HCLM5CurveType;
-                        slewRate = ParamHUE_HCLM5SlewRate;
-                        manualKelvin = ParamHUE_HCLM5ManualKelvin;
-                        sunrise = reinterpret_cast<const char*>(ParamHUE_HCLM5Sunrise);
-                        sunset = reinterpret_cast<const char*>(ParamHUE_HCLM5Sunset);
-                        sunriseOffset = static_cast<int16_t>(ParamHUE_HCLM5SunriseOffset);
-                        sunsetOffset = static_cast<int16_t>(ParamHUE_HCLM5SunsetOffset);
-                        #endif
-                        break;
-                    case 6:
-                        #ifdef ParamHUE_HCLM6CurveType
-                        curveTypeValue = ParamHUE_HCLM6CurveType;
-                        slewRate = ParamHUE_HCLM6SlewRate;
-                        manualKelvin = ParamHUE_HCLM6ManualKelvin;
-                        sunrise = reinterpret_cast<const char*>(ParamHUE_HCLM6Sunrise);
-                        sunset = reinterpret_cast<const char*>(ParamHUE_HCLM6Sunset);
-                        sunriseOffset = static_cast<int16_t>(ParamHUE_HCLM6SunriseOffset);
-                        sunsetOffset = static_cast<int16_t>(ParamHUE_HCLM6SunsetOffset);
-                        #endif
-                        break;
-                    case 7:
-                        #ifdef ParamHUE_HCLM7CurveType
-                        curveTypeValue = ParamHUE_HCLM7CurveType;
-                        slewRate = ParamHUE_HCLM7SlewRate;
-                        manualKelvin = ParamHUE_HCLM7ManualKelvin;
-                        sunrise = reinterpret_cast<const char*>(ParamHUE_HCLM7Sunrise);
-                        sunset = reinterpret_cast<const char*>(ParamHUE_HCLM7Sunset);
-                        sunriseOffset = static_cast<int16_t>(ParamHUE_HCLM7SunriseOffset);
-                        sunsetOffset = static_cast<int16_t>(ParamHUE_HCLM7SunsetOffset);
-                        #endif
-                        break;
-                    case 8:
-                        #ifdef ParamHUE_HCLM8CurveType
-                        curveTypeValue = ParamHUE_HCLM8CurveType;
-                        slewRate = ParamHUE_HCLM8SlewRate;
-                        manualKelvin = ParamHUE_HCLM8ManualKelvin;
-                        sunrise = reinterpret_cast<const char*>(ParamHUE_HCLM8Sunrise);
-                        sunset = reinterpret_cast<const char*>(ParamHUE_HCLM8Sunset);
-                        sunriseOffset = static_cast<int16_t>(ParamHUE_HCLM8SunriseOffset);
-                        sunsetOffset = static_cast<int16_t>(ParamHUE_HCLM8SunsetOffset);
-                        #endif
-                        break;
-                    default:
-                        break;
-                }
-
-                const char* curveText = "FixedTime";
-                if (curveTypeValue == 1)
-                {
-                    curveText = "SunWindow";
-                }
-                else if (curveTypeValue == 2)
-                {
-                    curveText = "Manual";
-                }
-                else if (curveTypeValue == 3)
-                {
-                    curveText = "Astronomical";
-                }
-
-                Serial.printf("    curve=%s slew=%uK/min manual=%uK sun=%s/%s offset=%d/%d applied=%uK\n",
-                              curveText,
-                              static_cast<unsigned>(slewRate),
-                              static_cast<unsigned>(manualKelvin),
+                Serial.printf("    sun=%s/%s summer=%s adaptive=%s\n",
                               sunrise.c_str(),
                               sunset.c_str(),
-                              static_cast<int>(sunriseOffset),
-                              static_cast<int>(sunsetOffset),
-                              static_cast<unsigned>(master->getAppliedKelvin()));
+                              master->isSummer() ? "yes" : "no",
+                              adaptiveModeText);
             }
         }
         
@@ -2521,13 +2493,8 @@ bool HueGatewayModule::processCommand(const std::string cmd, bool diagnoseKo)
         Serial.println("Hue HCL Diagnostics");
         Serial.println("=================================");
 
-        #ifdef ParamHUE_HUEHCLEnable
-        const bool hclEnabled = (ParamHUE_HUEHCLEnable != 0);
+        const bool hclEnabled = HCL::masterManager.isEnabled();
         Serial.printf("Enabled: %s\n", hclEnabled ? "Yes" : "No");
-        #else
-        const bool hclEnabled = false;
-        Serial.println("Enabled: No");
-        #endif
 
         if (!hclEnabled)
         {
@@ -2536,21 +2503,10 @@ bool HueGatewayModule::processCommand(const std::string cmd, bool diagnoseKo)
             return true;
         }
 
-        #ifdef ParamHUE_HUEHCLMasterCount
-        const uint8_t masterCount = ParamHUE_HUEHCLMasterCount;
+        const uint8_t masterCount = HCL::masterManager.getMasterCount();
         Serial.printf("Master count: %u\n", static_cast<unsigned>(masterCount));
-        #else
-        const uint8_t masterCount = 0;
-        Serial.println("Master count: 0");
-        #endif
-
-        #ifdef ParamHUE_HUEHCLUpdateInterval
-        Serial.printf("Update interval: %us\n", static_cast<unsigned>(ParamHUE_HUEHCLUpdateInterval));
-        #endif
-
-        #ifdef ParamHUE_HUEHCLFadeDuration
-        Serial.printf("Fade duration: %us\n", static_cast<unsigned>(ParamHUE_HUEHCLFadeDuration));
-        #endif
+        Serial.printf("Update interval: per channel (see master list)\n");
+        Serial.printf("Fade duration: per channel (see master list)\n");
 
         for (uint8_t masterNumber = 1; masterNumber <= HCL::MasterManager::MAX_MASTERS; masterNumber++)
         {
@@ -2565,138 +2521,31 @@ bool HueGatewayModule::processCommand(const std::string cmd, bool diagnoseKo)
                 continue;
             }
 
+            LightManagerChannel* ch = openknxLightManagerModule.channel(masterNumber);
             HCL::InterpolatedValue current = HCL::masterManager.getCurrentValue(masterNumber);
-            Serial.printf("M%u: current=%uK/%u%% setpoints=%u applied=%uK\n",
+            const uint8_t resolvedCount = ch ? ch->resolvedCount() : 0;
+            const int profileIdx = ch ? ch->activeProfileIndex() : -1;
+            const char* profileName = ch ? ch->activeProfileName() : "";
+            Serial.printf("M%u: current=%uK/%u%% resolvedSP=%u profile=%d(%s)\n",
                           static_cast<unsigned>(masterNumber),
                           static_cast<unsigned>(current.kelvin),
                           static_cast<unsigned>(current.brightness),
-                          static_cast<unsigned>(master->getValidSetpointCount()),
-                          static_cast<unsigned>(master->getAppliedKelvin()));
+                          static_cast<unsigned>(resolvedCount),
+                          profileIdx,
+                          (profileName && profileName[0]) ? profileName : "-");
 
-            uint8_t curveTypeValue = 0;
-            uint16_t slewRate = 0;
-            uint16_t manualKelvin = 4000;
-            String sunrise = "";
-            String sunset = "";
-            int16_t sunriseOffset = 0;
-            int16_t sunsetOffset = 0;
+            String sunrise = master->hasSunTimes() ? formatMinutesToClock(master->getSunriseMinutes()) : String("--:--");
+            String sunset  = master->hasSunTimes() ? formatMinutesToClock(master->getSunsetMinutes())  : String("--:--");
+            const HCL::AdaptiveConfig& adaptive = master->getAdaptiveConfig();
+            const char* adaptiveModeText = "Disabled";
+            if (adaptive.mode == HCL::AdaptiveMode::OpenLoop)   adaptiveModeText = "OpenLoop";
+            else if (adaptive.mode == HCL::AdaptiveMode::ClosedLoop) adaptiveModeText = "ClosedLoop";
 
-            switch (masterNumber)
-            {
-                case 1:
-                    #ifdef ParamHUE_HCLM1CurveType
-                    curveTypeValue = ParamHUE_HCLM1CurveType;
-                    slewRate = ParamHUE_HCLM1SlewRate;
-                    manualKelvin = ParamHUE_HCLM1ManualKelvin;
-                    sunrise = readFixedTimeParam(ParamHUE_HCLM1Sunrise);
-                    sunset = readFixedTimeParam(ParamHUE_HCLM1Sunset);
-                    sunriseOffset = static_cast<int16_t>(ParamHUE_HCLM1SunriseOffset);
-                    sunsetOffset = static_cast<int16_t>(ParamHUE_HCLM1SunsetOffset);
-                    #endif
-                    break;
-                case 2:
-                    #ifdef ParamHUE_HCLM2CurveType
-                    curveTypeValue = ParamHUE_HCLM2CurveType;
-                    slewRate = ParamHUE_HCLM2SlewRate;
-                    manualKelvin = ParamHUE_HCLM2ManualKelvin;
-                    sunrise = readFixedTimeParam(ParamHUE_HCLM2Sunrise);
-                    sunset = readFixedTimeParam(ParamHUE_HCLM2Sunset);
-                    sunriseOffset = static_cast<int16_t>(ParamHUE_HCLM2SunriseOffset);
-                    sunsetOffset = static_cast<int16_t>(ParamHUE_HCLM2SunsetOffset);
-                    #endif
-                    break;
-                case 3:
-                    #ifdef ParamHUE_HCLM3CurveType
-                    curveTypeValue = ParamHUE_HCLM3CurveType;
-                    slewRate = ParamHUE_HCLM3SlewRate;
-                    manualKelvin = ParamHUE_HCLM3ManualKelvin;
-                    sunrise = readFixedTimeParam(ParamHUE_HCLM3Sunrise);
-                    sunset = readFixedTimeParam(ParamHUE_HCLM3Sunset);
-                    sunriseOffset = static_cast<int16_t>(ParamHUE_HCLM3SunriseOffset);
-                    sunsetOffset = static_cast<int16_t>(ParamHUE_HCLM3SunsetOffset);
-                    #endif
-                    break;
-                case 4:
-                    #ifdef ParamHUE_HCLM4CurveType
-                    curveTypeValue = ParamHUE_HCLM4CurveType;
-                    slewRate = ParamHUE_HCLM4SlewRate;
-                    manualKelvin = ParamHUE_HCLM4ManualKelvin;
-                    sunrise = readFixedTimeParam(ParamHUE_HCLM4Sunrise);
-                    sunset = readFixedTimeParam(ParamHUE_HCLM4Sunset);
-                    sunriseOffset = static_cast<int16_t>(ParamHUE_HCLM4SunriseOffset);
-                    sunsetOffset = static_cast<int16_t>(ParamHUE_HCLM4SunsetOffset);
-                    #endif
-                    break;
-                case 5:
-                    #ifdef ParamHUE_HCLM5CurveType
-                    curveTypeValue = ParamHUE_HCLM5CurveType;
-                    slewRate = ParamHUE_HCLM5SlewRate;
-                    manualKelvin = ParamHUE_HCLM5ManualKelvin;
-                    sunrise = reinterpret_cast<const char*>(ParamHUE_HCLM5Sunrise);
-                    sunset = reinterpret_cast<const char*>(ParamHUE_HCLM5Sunset);
-                    sunriseOffset = static_cast<int16_t>(ParamHUE_HCLM5SunriseOffset);
-                    sunsetOffset = static_cast<int16_t>(ParamHUE_HCLM5SunsetOffset);
-                    #endif
-                    break;
-                case 6:
-                    #ifdef ParamHUE_HCLM6CurveType
-                    curveTypeValue = ParamHUE_HCLM6CurveType;
-                    slewRate = ParamHUE_HCLM6SlewRate;
-                    manualKelvin = ParamHUE_HCLM6ManualKelvin;
-                    sunrise = reinterpret_cast<const char*>(ParamHUE_HCLM6Sunrise);
-                    sunset = reinterpret_cast<const char*>(ParamHUE_HCLM6Sunset);
-                    sunriseOffset = static_cast<int16_t>(ParamHUE_HCLM6SunriseOffset);
-                    sunsetOffset = static_cast<int16_t>(ParamHUE_HCLM6SunsetOffset);
-                    #endif
-                    break;
-                case 7:
-                    #ifdef ParamHUE_HCLM7CurveType
-                    curveTypeValue = ParamHUE_HCLM7CurveType;
-                    slewRate = ParamHUE_HCLM7SlewRate;
-                    manualKelvin = ParamHUE_HCLM7ManualKelvin;
-                    sunrise = reinterpret_cast<const char*>(ParamHUE_HCLM7Sunrise);
-                    sunset = reinterpret_cast<const char*>(ParamHUE_HCLM7Sunset);
-                    sunriseOffset = static_cast<int16_t>(ParamHUE_HCLM7SunriseOffset);
-                    sunsetOffset = static_cast<int16_t>(ParamHUE_HCLM7SunsetOffset);
-                    #endif
-                    break;
-                case 8:
-                    #ifdef ParamHUE_HCLM8CurveType
-                    curveTypeValue = ParamHUE_HCLM8CurveType;
-                    slewRate = ParamHUE_HCLM8SlewRate;
-                    manualKelvin = ParamHUE_HCLM8ManualKelvin;
-                    sunrise = reinterpret_cast<const char*>(ParamHUE_HCLM8Sunrise);
-                    sunset = reinterpret_cast<const char*>(ParamHUE_HCLM8Sunset);
-                    sunriseOffset = static_cast<int16_t>(ParamHUE_HCLM8SunriseOffset);
-                    sunsetOffset = static_cast<int16_t>(ParamHUE_HCLM8SunsetOffset);
-                    #endif
-                    break;
-                default:
-                    break;
-            }
-
-            const char* curveText = "FixedTime";
-            if (curveTypeValue == 1)
-            {
-                curveText = "SunWindow";
-            }
-            else if (curveTypeValue == 2)
-            {
-                curveText = "Manual";
-            }
-            else if (curveTypeValue == 3)
-            {
-                curveText = "Astronomical";
-            }
-
-            Serial.printf("    curve=%s slew=%uK/min manual=%uK sun=%s/%s offset=%d/%d\n",
-                          curveText,
-                          static_cast<unsigned>(slewRate),
-                          static_cast<unsigned>(manualKelvin),
+            Serial.printf("    sun=%s/%s summer=%s adaptive=%s\n",
                           sunrise.c_str(),
                           sunset.c_str(),
-                          static_cast<int>(sunriseOffset),
-                          static_cast<int>(sunsetOffset));
+                          master->isSummer() ? "yes" : "no",
+                          adaptiveModeText);
         }
 
         Serial.println("=================================");
@@ -3097,10 +2946,11 @@ void HueGatewayModule::setupDevices()
     bool mappedChannels[MAX_LIGHTS] = {false};
     int mappedCount = 0;
     bool hasIndexMappedChannel = false;
-    bool hasUnresolvedGroupTarget = false;
+    bool hasUnresolvedTarget = false;
     for (uint8_t ch = 0; ch < maxChannels; ch++)
     {
         uint8_t _channelIndex = ch;
+        _diagTargetUnresolved[ch] = false;
 
         if (ParamHUE_CHDisabled)
         {
@@ -3220,7 +3070,7 @@ void HueGatewayModule::setupDevices()
                         using RF = HueGatewayButton::RotaryFunction;
 
                         // Read per-button KurzTyp/LangTyp + sub-values from ETS parameters.
-                        // Sub-values are union members — values for non-active types are unused
+                        // Sub-values are union members ÔÇö values for non-active types are unused
                         // (dispatch selects the right field based on kurzTyp/langTyp).
                         #define MAP_BTN_PARAMS(N, IDX)                                              \
                         {                                                                            \
@@ -3583,7 +3433,8 @@ void HueGatewayModule::setupDevices()
         {
             if (selectedLight == nullptr)
             {
-                hasUnresolvedGroupTarget = true;
+                hasUnresolvedTarget = true;
+                _diagTargetUnresolved[ch] = true;
                 String unresolvedTarget = configuredTargetRid.length() > 0 ? configuredTargetRid : configuredUuid;
                 Serial.printf("[HueGatewayModule] Channel %d: target '%s' unresolved (type=%u, newTarget=%u, legacy=%u), retry pending\n",
                               ch + 1,
@@ -3732,15 +3583,49 @@ void HueGatewayModule::setupDevices()
         setupLight->setLightType(effectiveLightType);
 
         uint8_t hclMaster = ParamHUE_CHHCLMaster;
-        if (hclMaster > 8)
+        // Clamp dynamically against the actually configured master count in
+        // LightManagerModule. The ETS param range is 0..16 (PT-HUEHCLMasterSelect)
+        // but only 0..LMGHCLMasterCount are valid at runtime.
+        const uint8_t dynMax = HCL::masterManager.getMasterCount();
+        if (hclMaster > dynMax)
         {
+            if (hclMaster != 0)
+            {
+                logErrorP("Channel %u: HCL master %u out of range (max=%u) - reset to 0",
+                          ch + 1, hclMaster, dynMax);
+            }
             hclMaster = 0;
+        }
+        if (effectiveLightType == 0)
+        {
+            hclMaster = 0;  // stale hidden ETS value after a lamp-type change
         }
         _devices[ch]->setHCLMaster(hclMaster);
 
         _hclChannelLockFallbackMode[ch] = static_cast<uint8_t>(HclLockFallbackMode::None);
         #ifdef ParamHUE_CHHCLLockFallback
         _hclChannelLockFallbackMode[ch] = ParamHUE_CHHCLLockFallback;
+        #endif
+
+        _hclChannelAutoStandby[ch] = 0;
+        #ifdef ParamHUE_CHHCLAutoStandby
+        _hclChannelAutoStandby[ch] = ParamHUE_CHHCLAutoStandby;
+        #endif
+
+        _hclChannelFallbackPolicy[ch] = static_cast<uint8_t>(HclLockFallbackPolicy::Legacy);
+        _hclChannelFallbackDurationMs[ch] = 0;
+        _hclChannelFallbackReleaseMinuteOfDay[ch] = 0xFFFF;
+        #ifdef ParamHUE_CHHCLFallbackPolicy
+        _hclChannelFallbackPolicy[ch] = ParamHUE_CHHCLFallbackPolicy;
+        #endif
+        #ifdef ParamHUE_CHHCLFallbackDurationSec
+        {
+            const uint64_t durMs = static_cast<uint64_t>(ParamHUE_CHHCLFallbackDurationSec) * 1000ULL;
+            _hclChannelFallbackDurationMs[ch] = (durMs > 0xFFFFFFFFULL) ? 0xFFFFFFFFUL : static_cast<uint32_t>(durMs);
+        }
+        #endif
+        #ifdef ParamHUE_CHHCLFallbackReleaseTime
+        _hclChannelFallbackReleaseMinuteOfDay[ch] = ParamHUE_CHHCLFallbackReleaseTime;
         #endif
 
         _devices[ch]->setHCLChannelLock(_hclChannelLockActive[ch]);
@@ -3809,22 +3694,22 @@ void HueGatewayModule::setupDevices()
 
     uint8_t enabledChannels = countEnabledChannels();
     _diagLastEnabledChannels = enabledChannels;
-    _diagLastHasUnresolvedGroupTarget = hasUnresolvedGroupTarget;
-    if (enabledChannels > 0 && (_lightCount == 0 || (bridgeLightCount <= 0 && hasIndexMappedChannel) || hasUnresolvedGroupTarget))
+    _diagLastHasUnresolvedTarget = hasUnresolvedTarget;
+    if (enabledChannels > 0 && (_lightCount == 0 || (bridgeLightCount <= 0 && hasIndexMappedChannel) || hasUnresolvedTarget))
     {
         _deviceSetupNeedsRetry = true;
         _diagCounterSetupIncomplete++;
-        if (hasUnresolvedGroupTarget)
+        if (hasUnresolvedTarget)
         {
             _diagCounterUnresolvedTargets++;
         }
         _deviceSetupRetryBackoffMs = min<unsigned long>(_deviceSetupRetryBackoffMs * 2UL, kDeviceSetupRetryMaxMs);
         registerSetupFailure("mapping-incomplete");
-        Serial.printf("[HueGatewayModule] setupDevices incomplete (enabled=%u, mapped=%d, bridgeLights=%d, unresolvedGroup=%u), retry scheduled\n",
+        Serial.printf("[HueGatewayModule] setupDevices incomplete (enabled=%u, mapped=%d, bridgeLights=%d, unresolvedTarget=%u), retry scheduled\n",
                       static_cast<unsigned>(enabledChannels),
                       _lightCount,
                       bridgeLightCount,
-                      hasUnresolvedGroupTarget ? 1 : 0);
+                      hasUnresolvedTarget ? 1 : 0);
         appendDiagnosticLog("WARN", "MAP", "setupDevices incomplete: mapping unresolved or empty");
     }
     else
@@ -3833,6 +3718,9 @@ void HueGatewayModule::setupDevices()
         _deviceSetupRetryBackoffMs = kDeviceSetupRetryBaseMs;
         _setupCircuitTrips = 0;
         _setupCircuitOpenUntilMs = 0;
+        // Nach erfolgreichem Device-Setup sofortigen Initial-Poll erzwingen,
+        // damit HueLive den echten Lampenzustand zeigt (z.B. nach ETS-Download).
+        memset(_channelLastPollMs, 0, sizeof(_channelLastPollMs));
     }
     
     Serial.printf("[HueGatewayModule] Initialized %d lights\n", _lightCount);
@@ -3846,9 +3734,7 @@ void HueGatewayModule::setupDevices()
         #ifdef ParamHUE_HUESwitchOffTransitionSec
         offFade = ParamHUE_HUESwitchOffTransitionSec;
         #endif
-        #ifdef ParamHUE_HUEHCLFadeDuration
-        hclFade = ParamHUE_HUEHCLFadeDuration;
-        #endif
+        hclFade = openknxLightManagerModule.channelFadeDurationSec(1);
         appendDiagnosticLog("INFO", "SETUP", String("setupDevices done: mapped=") + String(_lightCount)
             + " onFade=" + String(static_cast<unsigned>(onFade)) + "s"
             + " offFade=" + String(static_cast<unsigned>(offFade)) + "s"
@@ -3918,1312 +3804,13 @@ void HueGatewayModule::setupHCL()
     {
         setHclManagerLock(manager, false, "setup");
     }
-    
-    // Check if HCL is enabled
-    #ifdef ParamHUE_HUEHCLEnable
-    bool hclEnabled = ParamHUE_HUEHCLEnable != 0;
-    #else
-    bool hclEnabled = false;
-    #endif
-    
-    if (!hclEnabled) {
-        Serial.println("[HueGatewayModule] HCL disabled");
-        HCL::masterManager.setEnabled(false);
-        return;
-    }
-    
-    Serial.println("[HueGatewayModule] HCL enabled");
-    HCL::masterManager.setEnabled(true);
-
-    #ifdef ParamHUE_HUEHCLLockFallback
-    _hclLockFallbackMode = ParamHUE_HUEHCLLockFallback;
-    #else
-    _hclLockFallbackMode = static_cast<uint8_t>(HclLockFallbackMode::None);
-    #endif
-
-    #ifdef ParamHUE_HUEHCLFallbackPolicy
-    _hclFallbackPolicy = ParamHUE_HUEHCLFallbackPolicy;
-    if (_hclFallbackPolicy > static_cast<uint8_t>(HclLockFallbackPolicy::ExternalOnly))
+    for (uint8_t channel = 0; channel < MAX_LIGHTS; channel++)
     {
-        _hclFallbackPolicy = static_cast<uint8_t>(HclLockFallbackPolicy::Legacy);
-    }
-    #else
-    _hclFallbackPolicy = static_cast<uint8_t>(HclLockFallbackPolicy::Legacy);
-    #endif
-
-    _hclFallbackDurationMs = 0;
-    {
-        uint32_t fallbackDurationSec = 0;
-        #if defined(HUE_HUEHCLFallbackDurationSec)
-        // TypeTime currently generates an empty Param macro, so read by offset.
-        fallbackDurationSec = static_cast<uint32_t>(knx.paramInt(HUE_HUEHCLFallbackDurationSec));
-        #elif defined(ParamHUE_HUEHCLFallbackDurationSec)
-        fallbackDurationSec = static_cast<uint32_t>(ParamHUE_HUEHCLFallbackDurationSec);
-        #endif
-
-        const uint64_t durationMs = static_cast<uint64_t>(fallbackDurationSec) * 1000ULL;
-        _hclFallbackDurationMs = (durationMs > 0xFFFFFFFFULL) ? 0xFFFFFFFFUL : static_cast<uint32_t>(durationMs);
-    }
-    _hclFallbackReleaseMinuteOfDay = 0xFFFF;
-    #ifdef ParamHUE_HUEHCLFallbackReleaseTime
-    {
-        const String releaseTime = readFixedTimeParam(ParamHUE_HUEHCLFallbackReleaseTime);
-        _hclFallbackReleaseMinuteOfDay = HCL::Setpoint::parseTime(releaseTime.c_str());
-    }
-    #endif
-
-    for (uint8_t i = 0; i < HCL::MasterManager::MAX_MASTERS; i++)
-    {
-        _hclManagerLockFallbackMode[i] = static_cast<uint8_t>(HclLockFallbackMode::None);
+        setHclChannelLock(channel, false, "setup");
     }
 
-    #ifdef ParamHUE_HUEHCLM1LockFallback
-    _hclManagerLockFallbackMode[0] = ParamHUE_HUEHCLM1LockFallback;
-    #endif
-    #ifdef ParamHUE_HUEHCLM2LockFallback
-    _hclManagerLockFallbackMode[1] = ParamHUE_HUEHCLM2LockFallback;
-    #endif
-    #ifdef ParamHUE_HUEHCLM3LockFallback
-    _hclManagerLockFallbackMode[2] = ParamHUE_HUEHCLM3LockFallback;
-    #endif
-    #ifdef ParamHUE_HUEHCLM4LockFallback
-    _hclManagerLockFallbackMode[3] = ParamHUE_HUEHCLM4LockFallback;
-    #endif
-    #ifdef ParamHUE_HUEHCLM5LockFallback
-    _hclManagerLockFallbackMode[4] = ParamHUE_HUEHCLM5LockFallback;
-    #endif
-    #ifdef ParamHUE_HUEHCLM6LockFallback
-    _hclManagerLockFallbackMode[5] = ParamHUE_HUEHCLM6LockFallback;
-    #endif
-    #ifdef ParamHUE_HUEHCLM7LockFallback
-    _hclManagerLockFallbackMode[6] = ParamHUE_HUEHCLM7LockFallback;
-    #endif
-    #ifdef ParamHUE_HUEHCLM8LockFallback
-    _hclManagerLockFallbackMode[7] = ParamHUE_HUEHCLM8LockFallback;
-    #endif
-
-    // Per-manager fallback policy, duration, release time
-    for (uint8_t i = 0; i < HCL::MasterManager::MAX_MASTERS; i++)
-    {
-        _hclManagerFallbackPolicy[i] = static_cast<uint8_t>(HclLockFallbackPolicy::Legacy);
-        _hclManagerFallbackDurationMs[i] = 0;
-        _hclManagerFallbackReleaseMinuteOfDay[i] = 0xFFFF;
-    }
-
-    {
-        // Helper lambda to read per-manager fallback policy
-        auto readManagerPolicy = [this](uint8_t idx, uint8_t policyVal) {
-            _hclManagerFallbackPolicy[idx] = policyVal;
-            if (_hclManagerFallbackPolicy[idx] > static_cast<uint8_t>(HclLockFallbackPolicy::ExternalOnly))
-            {
-                _hclManagerFallbackPolicy[idx] = static_cast<uint8_t>(HclLockFallbackPolicy::Legacy);
-            }
-        };
-        #ifdef ParamHUE_HUEHCLM1FallbackPolicy
-        readManagerPolicy(0, ParamHUE_HUEHCLM1FallbackPolicy);
-        #endif
-        #ifdef ParamHUE_HUEHCLM2FallbackPolicy
-        readManagerPolicy(1, ParamHUE_HUEHCLM2FallbackPolicy);
-        #endif
-        #ifdef ParamHUE_HUEHCLM3FallbackPolicy
-        readManagerPolicy(2, ParamHUE_HUEHCLM3FallbackPolicy);
-        #endif
-        #ifdef ParamHUE_HUEHCLM4FallbackPolicy
-        readManagerPolicy(3, ParamHUE_HUEHCLM4FallbackPolicy);
-        #endif
-        #ifdef ParamHUE_HUEHCLM5FallbackPolicy
-        readManagerPolicy(4, ParamHUE_HUEHCLM5FallbackPolicy);
-        #endif
-        #ifdef ParamHUE_HUEHCLM6FallbackPolicy
-        readManagerPolicy(5, ParamHUE_HUEHCLM6FallbackPolicy);
-        #endif
-        #ifdef ParamHUE_HUEHCLM7FallbackPolicy
-        readManagerPolicy(6, ParamHUE_HUEHCLM7FallbackPolicy);
-        #endif
-        #ifdef ParamHUE_HUEHCLM8FallbackPolicy
-        readManagerPolicy(7, ParamHUE_HUEHCLM8FallbackPolicy);
-        #endif
-    }
-
-    {
-        // Helper to read per-manager fallback duration
-        auto readManagerDuration = [this](uint8_t idx, uint16_t offsetDefine) {
-            const uint32_t sec = static_cast<uint32_t>(knx.paramInt(offsetDefine));
-            const uint64_t ms = static_cast<uint64_t>(sec) * 1000ULL;
-            _hclManagerFallbackDurationMs[idx] = (ms > 0xFFFFFFFFULL) ? 0xFFFFFFFFUL : static_cast<uint32_t>(ms);
-        };
-        #if defined(HUE_HUEHCLM1FallbackDurationSec)
-        readManagerDuration(0, HUE_HUEHCLM1FallbackDurationSec);
-        #endif
-        #if defined(HUE_HUEHCLM2FallbackDurationSec)
-        readManagerDuration(1, HUE_HUEHCLM2FallbackDurationSec);
-        #endif
-        #if defined(HUE_HUEHCLM3FallbackDurationSec)
-        readManagerDuration(2, HUE_HUEHCLM3FallbackDurationSec);
-        #endif
-        #if defined(HUE_HUEHCLM4FallbackDurationSec)
-        readManagerDuration(3, HUE_HUEHCLM4FallbackDurationSec);
-        #endif
-        #if defined(HUE_HUEHCLM5FallbackDurationSec)
-        readManagerDuration(4, HUE_HUEHCLM5FallbackDurationSec);
-        #endif
-        #if defined(HUE_HUEHCLM6FallbackDurationSec)
-        readManagerDuration(5, HUE_HUEHCLM6FallbackDurationSec);
-        #endif
-        #if defined(HUE_HUEHCLM7FallbackDurationSec)
-        readManagerDuration(6, HUE_HUEHCLM7FallbackDurationSec);
-        #endif
-        #if defined(HUE_HUEHCLM8FallbackDurationSec)
-        readManagerDuration(7, HUE_HUEHCLM8FallbackDurationSec);
-        #endif
-    }
-
-    {
-        // Helper to read per-manager fallback release time
-        auto readManagerReleaseTime = [this](uint8_t idx, uint16_t offsetDefine) {
-            const String releaseTime = readFixedTimeParam(knx.paramData(offsetDefine));
-            _hclManagerFallbackReleaseMinuteOfDay[idx] = HCL::Setpoint::parseTime(releaseTime.c_str());
-        };
-        #if defined(HUE_HUEHCLM1FallbackReleaseTime)
-        readManagerReleaseTime(0, HUE_HUEHCLM1FallbackReleaseTime);
-        #endif
-        #if defined(HUE_HUEHCLM2FallbackReleaseTime)
-        readManagerReleaseTime(1, HUE_HUEHCLM2FallbackReleaseTime);
-        #endif
-        #if defined(HUE_HUEHCLM3FallbackReleaseTime)
-        readManagerReleaseTime(2, HUE_HUEHCLM3FallbackReleaseTime);
-        #endif
-        #if defined(HUE_HUEHCLM4FallbackReleaseTime)
-        readManagerReleaseTime(3, HUE_HUEHCLM4FallbackReleaseTime);
-        #endif
-        #if defined(HUE_HUEHCLM5FallbackReleaseTime)
-        readManagerReleaseTime(4, HUE_HUEHCLM5FallbackReleaseTime);
-        #endif
-        #if defined(HUE_HUEHCLM6FallbackReleaseTime)
-        readManagerReleaseTime(5, HUE_HUEHCLM6FallbackReleaseTime);
-        #endif
-        #if defined(HUE_HUEHCLM7FallbackReleaseTime)
-        readManagerReleaseTime(6, HUE_HUEHCLM7FallbackReleaseTime);
-        #endif
-        #if defined(HUE_HUEHCLM8FallbackReleaseTime)
-        readManagerReleaseTime(7, HUE_HUEHCLM8FallbackReleaseTime);
-        #endif
-    }
-
-    // Read HCL configuration from ETS
-    #ifdef ParamHUE_HUEHCLUpdateInterval
-    uint16_t updateInterval = ParamHUE_HUEHCLUpdateInterval;
-    HCL::masterManager.setUpdateInterval(updateInterval);
-    Serial.printf("[HueGatewayModule] HCL update interval: %d seconds\n", updateInterval);
-    #endif
-    
-    #ifdef ParamHUE_HUEHCLFadeDuration
-    uint8_t fadeDuration = ParamHUE_HUEHCLFadeDuration;
-    HCL::masterManager.setFadeDuration(fadeDuration);
-    Serial.printf("[HueGatewayModule] HCL fade duration: %d seconds\n", fadeDuration);
-    #endif
-
-    const auto decodeBaseTimezoneOffsetMinutes = [](uint8_t timezoneRaw) -> int16_t {
-        if (timezoneRaw == 31)
-        {
-            return 60; // custom TZ string, use CET fallback
-        }
-        if (timezoneRaw >= 17 && timezoneRaw <= 27)
-        {
-            return static_cast<int16_t>((static_cast<int16_t>(timezoneRaw) - 28) * 60);
-        }
-        if (timezoneRaw == 28)
-        {
-            return 60;
-        }
-        if (timezoneRaw <= 12)
-        {
-            return static_cast<int16_t>(timezoneRaw * 60);
-        }
-        return 60;
-    };
-
-    float hclLatitude = 50.115377f;
-    float hclLongitude = 8.684170f;
-    int16_t hclTimezoneOffsetMinutes = 60;
-
-    #ifdef ParamBASE_Latitude
-    hclLatitude = ParamBASE_Latitude;
-    #endif
-
-    #ifdef ParamBASE_Longitude
-    hclLongitude = ParamBASE_Longitude;
-    #endif
-
-    #ifdef ParamBASE_Timezone
-    hclTimezoneOffsetMinutes = decodeBaseTimezoneOffsetMinutes(static_cast<uint8_t>(ParamBASE_Timezone));
-    #endif
-
-    auto loadMasterSetpoints = [](uint8_t masterNumber,
-                                  const char* const (&times)[10],
-                                  const uint16_t (&kelvins)[10],
-                                  const uint8_t (&brightnesses)[10],
-                                  const bool (&active)[10]) {
-        HCL::Master* master = HCL::masterManager.getMaster(masterNumber);
-        if (!master)
-        {
-            Serial.printf("[HueGatewayModule] HCL Master %u not available\n", masterNumber);
-            return;
-        }
-
-        // Reset all slots so inactive setpoints don't carry old data.
-        for (int i = 0; i < 10; i++)
-        {
-            master->setSetpoint(i, HCL::Setpoint(0xFFFF, 4000, 100));
-        }
-
-        Serial.printf("[HueGatewayModule] Loading HCL Master %u setpoints...\n", masterNumber);
-
-        for (int i = 0; i < 10; i++)
-        {
-            if (!active[i])
-            {
-                continue;
-            }
-            uint16_t minutes = HCL::Setpoint::parseTime(times[i]);
-            if (minutes == 0xFFFF)
-            {
-                continue;
-            }
-
-            master->setSetpoint(i, HCL::Setpoint(minutes, kelvins[i], brightnesses[i]));
-            const String timeText = readFixedTimeParam(reinterpret_cast<const uint8_t*>(times[i]));
-            Serial.printf("  SP%d: %s (%dmin) -> %dK, %d%%\n", i + 1, timeText.c_str(), minutes, kelvins[i], brightnesses[i]);
-        }
-
-        master->sortSetpoints();
-        Serial.printf("[HueGatewayModule] HCL Master %u loaded with %d valid setpoints\n",
-                      masterNumber,
-                      master->getValidSetpointCount());
-    };
-
-    auto loadMasterSummerSetpoints = [](uint8_t masterNumber,
-                                        const char* const (&times)[10],
-                                        const uint16_t (&summerKelvins)[10],
-                                        const uint8_t (&summerBrightnesses)[10],
-                                        const bool (&active)[10]) {
-        HCL::Master* master = HCL::masterManager.getMaster(masterNumber);
-        if (!master)
-        {
-            return;
-        }
-
-        for (int i = 0; i < 10; i++)
-        {
-            if (!active[i])
-            {
-                master->setSummerSetpoint(i, HCL::Setpoint(0xFFFF, 4000, 100));
-                continue;
-            }
-            uint16_t minutes = HCL::Setpoint::parseTime(times[i]);
-            if (minutes == 0xFFFF)
-            {
-                master->setSummerSetpoint(i, HCL::Setpoint(0xFFFF, 4000, 100));
-                continue;
-            }
-            master->setSummerSetpoint(i, HCL::Setpoint(minutes, summerKelvins[i], summerBrightnesses[i]));
-        }
-
-        master->sortSummerSetpoints();
-        Serial.printf("[HueGatewayModule] HCL Master %u summer setpoints loaded\n", masterNumber);
-    };
-
-    auto applyMasterAdvanced = [](uint8_t masterNumber,
-                                  uint8_t curveType,
-                                  uint16_t slewRateKelvinPerMinute,
-                                  uint16_t manualKelvin,
-                                  const String& sunriseTime,
-                                  const String& sunsetTime,
-                                  int16_t sunriseOffset,
-                                  int16_t sunsetOffset,
-                                  float latitude,
-                                  float longitude,
-                                  int16_t timezoneOffsetMinutes,
-                                  uint16_t astroMinKelvin,
-                                  uint16_t astroMaxKelvin,
-                                  uint8_t astroMinBrightness,
-                                  uint8_t astroMaxBrightness) {
-        HCL::Master* master = HCL::masterManager.getMaster(masterNumber);
-        if (!master)
-        {
-            return;
-        }
-
-        if (curveType > static_cast<uint8_t>(HCL::CurveType::Astronomical))
-        {
-            curveType = static_cast<uint8_t>(HCL::CurveType::FixedTime);
-        }
-
-        master->setCurveType(static_cast<HCL::CurveType>(curveType));
-        master->setSlewRateKelvinPerMinute(slewRateKelvinPerMinute);
-        master->setManualKelvin(manualKelvin);
-        master->setLocation(latitude, longitude);
-        master->setTimezoneOffsetMinutes(timezoneOffsetMinutes);
-        master->setAstronomicalProfile(astroMinKelvin, astroMaxKelvin, astroMinBrightness, astroMaxBrightness);
-
-        uint16_t sunriseMinutes = HCL::Setpoint::parseTime(sunriseTime.c_str());
-        uint16_t sunsetMinutes = HCL::Setpoint::parseTime(sunsetTime.c_str());
-        if (sunriseMinutes != 0xFFFF && sunsetMinutes != 0xFFFF)
-        {
-            master->setSunTimes(sunriseMinutes, sunsetMinutes);
-        }
-        else
-        {
-            master->clearSunTimes();
-        }
-
-        master->setSunOffsets(sunriseOffset, sunsetOffset);
-
-        Serial.printf("[HueGatewayModule] HCL Master %u advanced: curve=%u slew=%uK/min manual=%uK sunrise=%s sunset=%s offsets=%d/%d astro=%u-%uK/%u-%u%%\n",
-                      masterNumber,
-                      static_cast<unsigned>(curveType),
-                      static_cast<unsigned>(slewRateKelvinPerMinute),
-                      static_cast<unsigned>(manualKelvin),
-                      sunriseTime.c_str(),
-                      sunsetTime.c_str(),
-                      static_cast<int>(sunriseOffset),
-                  static_cast<int>(sunsetOffset),
-                  static_cast<unsigned>(astroMinKelvin),
-                  static_cast<unsigned>(astroMaxKelvin),
-                  static_cast<unsigned>(astroMinBrightness),
-                  static_cast<unsigned>(astroMaxBrightness));
-    };
-
-    auto getAstroMinKelvin = [](uint8_t masterNumber) -> uint16_t {
-        switch (masterNumber)
-        {
-            case 1:
-                #ifdef ParamHUE_HCLM1AstroMinKelvin
-                return ParamHUE_HCLM1AstroMinKelvin;
-                #endif
-                break;
-            case 2:
-                #ifdef ParamHUE_HCLM2AstroMinKelvin
-                return ParamHUE_HCLM2AstroMinKelvin;
-                #endif
-                break;
-            case 3:
-                #ifdef ParamHUE_HCLM3AstroMinKelvin
-                return ParamHUE_HCLM3AstroMinKelvin;
-                #endif
-                break;
-            case 4:
-                #ifdef ParamHUE_HCLM4AstroMinKelvin
-                return ParamHUE_HCLM4AstroMinKelvin;
-                #endif
-                break;
-            case 5:
-                #ifdef ParamHUE_HCLM5AstroMinKelvin
-                return ParamHUE_HCLM5AstroMinKelvin;
-                #endif
-                break;
-            case 6:
-                #ifdef ParamHUE_HCLM6AstroMinKelvin
-                return ParamHUE_HCLM6AstroMinKelvin;
-                #endif
-                break;
-            case 7:
-                #ifdef ParamHUE_HCLM7AstroMinKelvin
-                return ParamHUE_HCLM7AstroMinKelvin;
-                #endif
-                break;
-            case 8:
-                #ifdef ParamHUE_HCLM8AstroMinKelvin
-                return ParamHUE_HCLM8AstroMinKelvin;
-                #endif
-                break;
-            default:
-                break;
-        }
-        return 2400;
-    };
-
-    auto getAstroMaxKelvin = [](uint8_t masterNumber) -> uint16_t {
-        switch (masterNumber)
-        {
-            case 1:
-                #ifdef ParamHUE_HCLM1AstroMaxKelvin
-                return ParamHUE_HCLM1AstroMaxKelvin;
-                #endif
-                break;
-            case 2:
-                #ifdef ParamHUE_HCLM2AstroMaxKelvin
-                return ParamHUE_HCLM2AstroMaxKelvin;
-                #endif
-                break;
-            case 3:
-                #ifdef ParamHUE_HCLM3AstroMaxKelvin
-                return ParamHUE_HCLM3AstroMaxKelvin;
-                #endif
-                break;
-            case 4:
-                #ifdef ParamHUE_HCLM4AstroMaxKelvin
-                return ParamHUE_HCLM4AstroMaxKelvin;
-                #endif
-                break;
-            case 5:
-                #ifdef ParamHUE_HCLM5AstroMaxKelvin
-                return ParamHUE_HCLM5AstroMaxKelvin;
-                #endif
-                break;
-            case 6:
-                #ifdef ParamHUE_HCLM6AstroMaxKelvin
-                return ParamHUE_HCLM6AstroMaxKelvin;
-                #endif
-                break;
-            case 7:
-                #ifdef ParamHUE_HCLM7AstroMaxKelvin
-                return ParamHUE_HCLM7AstroMaxKelvin;
-                #endif
-                break;
-            case 8:
-                #ifdef ParamHUE_HCLM8AstroMaxKelvin
-                return ParamHUE_HCLM8AstroMaxKelvin;
-                #endif
-                break;
-            default:
-                break;
-        }
-        return 5000;
-    };
-
-    auto getAstroMinBrightness = [](uint8_t masterNumber) -> uint8_t {
-        switch (masterNumber)
-        {
-            case 1:
-                #ifdef ParamHUE_HCLM1AstroMinBrightness
-                return ParamHUE_HCLM1AstroMinBrightness;
-                #endif
-                break;
-            case 2:
-                #ifdef ParamHUE_HCLM2AstroMinBrightness
-                return ParamHUE_HCLM2AstroMinBrightness;
-                #endif
-                break;
-            case 3:
-                #ifdef ParamHUE_HCLM3AstroMinBrightness
-                return ParamHUE_HCLM3AstroMinBrightness;
-                #endif
-                break;
-            case 4:
-                #ifdef ParamHUE_HCLM4AstroMinBrightness
-                return ParamHUE_HCLM4AstroMinBrightness;
-                #endif
-                break;
-            case 5:
-                #ifdef ParamHUE_HCLM5AstroMinBrightness
-                return ParamHUE_HCLM5AstroMinBrightness;
-                #endif
-                break;
-            case 6:
-                #ifdef ParamHUE_HCLM6AstroMinBrightness
-                return ParamHUE_HCLM6AstroMinBrightness;
-                #endif
-                break;
-            case 7:
-                #ifdef ParamHUE_HCLM7AstroMinBrightness
-                return ParamHUE_HCLM7AstroMinBrightness;
-                #endif
-                break;
-            case 8:
-                #ifdef ParamHUE_HCLM8AstroMinBrightness
-                return ParamHUE_HCLM8AstroMinBrightness;
-                #endif
-                break;
-            default:
-                break;
-        }
-        return 10;
-    };
-
-    auto getAstroMaxBrightness = [](uint8_t masterNumber) -> uint8_t {
-        switch (masterNumber)
-        {
-            case 1:
-                #ifdef ParamHUE_HCLM1AstroMaxBrightness
-                return ParamHUE_HCLM1AstroMaxBrightness;
-                #endif
-                break;
-            case 2:
-                #ifdef ParamHUE_HCLM2AstroMaxBrightness
-                return ParamHUE_HCLM2AstroMaxBrightness;
-                #endif
-                break;
-            case 3:
-                #ifdef ParamHUE_HCLM3AstroMaxBrightness
-                return ParamHUE_HCLM3AstroMaxBrightness;
-                #endif
-                break;
-            case 4:
-                #ifdef ParamHUE_HCLM4AstroMaxBrightness
-                return ParamHUE_HCLM4AstroMaxBrightness;
-                #endif
-                break;
-            case 5:
-                #ifdef ParamHUE_HCLM5AstroMaxBrightness
-                return ParamHUE_HCLM5AstroMaxBrightness;
-                #endif
-                break;
-            case 6:
-                #ifdef ParamHUE_HCLM6AstroMaxBrightness
-                return ParamHUE_HCLM6AstroMaxBrightness;
-                #endif
-                break;
-            case 7:
-                #ifdef ParamHUE_HCLM7AstroMaxBrightness
-                return ParamHUE_HCLM7AstroMaxBrightness;
-                #endif
-                break;
-            case 8:
-                #ifdef ParamHUE_HCLM8AstroMaxBrightness
-                return ParamHUE_HCLM8AstroMaxBrightness;
-                #endif
-                break;
-            default:
-                break;
-        }
-        return 80;
-    };
-
-    #ifdef ParamHUE_HCLM1SP0Time
-    {
-        const char* const times[10] = {
-            reinterpret_cast<const char*>(ParamHUE_HCLM1SP0Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM1SP1Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM1SP2Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM1SP3Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM1SP4Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM1SP5Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM1SP6Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM1SP7Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM1SP8Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM1SP9Time)
-        };
-        const uint16_t kelvins[10] = {
-            ParamHUE_HCLM1SP0Kelvin, ParamHUE_HCLM1SP1Kelvin, ParamHUE_HCLM1SP2Kelvin,
-            ParamHUE_HCLM1SP3Kelvin, ParamHUE_HCLM1SP4Kelvin, ParamHUE_HCLM1SP5Kelvin,
-            ParamHUE_HCLM1SP6Kelvin, ParamHUE_HCLM1SP7Kelvin, ParamHUE_HCLM1SP8Kelvin, ParamHUE_HCLM1SP9Kelvin
-        };
-        const uint8_t brightnesses[10] = {
-            ParamHUE_HCLM1SP0Brightness, ParamHUE_HCLM1SP1Brightness, ParamHUE_HCLM1SP2Brightness,
-            ParamHUE_HCLM1SP3Brightness, ParamHUE_HCLM1SP4Brightness, ParamHUE_HCLM1SP5Brightness,
-            ParamHUE_HCLM1SP6Brightness, ParamHUE_HCLM1SP7Brightness, ParamHUE_HCLM1SP8Brightness, ParamHUE_HCLM1SP9Brightness
-        };
-        const bool active[10] = {
-            #if defined(ParamHUE_HCLM1SP0Active) && defined(ParamHUE_HCLM1SP9Active)
-            ParamHUE_HCLM1SP0Active != 0, ParamHUE_HCLM1SP1Active != 0,
-            ParamHUE_HCLM1SP2Active != 0, ParamHUE_HCLM1SP3Active != 0,
-            ParamHUE_HCLM1SP4Active != 0, ParamHUE_HCLM1SP5Active != 0,
-            ParamHUE_HCLM1SP6Active != 0, ParamHUE_HCLM1SP7Active != 0,
-            ParamHUE_HCLM1SP8Active != 0, ParamHUE_HCLM1SP9Active != 0,
-            #else
-            true, true, true, true, true, true, true, true, true, true,
-            #endif
-        };
-        loadMasterSetpoints(1, times, kelvins, brightnesses, active);
-        #if defined(ParamHUE_HCLM1SeasonMode) && defined(ParamHUE_HCLM1SP0SummerKelvin)
-        if (ParamHUE_HCLM1SeasonMode != 0) {
-            const uint16_t summerKelvins[10] = {
-                ParamHUE_HCLM1SP0SummerKelvin, ParamHUE_HCLM1SP1SummerKelvin,
-                ParamHUE_HCLM1SP2SummerKelvin, ParamHUE_HCLM1SP3SummerKelvin,
-                ParamHUE_HCLM1SP4SummerKelvin, ParamHUE_HCLM1SP5SummerKelvin,
-                ParamHUE_HCLM1SP6SummerKelvin, ParamHUE_HCLM1SP7SummerKelvin,
-                ParamHUE_HCLM1SP8SummerKelvin, ParamHUE_HCLM1SP9SummerKelvin
-            };
-            const uint8_t summerBrightnesses[10] = {
-                ParamHUE_HCLM1SP0SummerBrightness, ParamHUE_HCLM1SP1SummerBrightness,
-                ParamHUE_HCLM1SP2SummerBrightness, ParamHUE_HCLM1SP3SummerBrightness,
-                ParamHUE_HCLM1SP4SummerBrightness, ParamHUE_HCLM1SP5SummerBrightness,
-                ParamHUE_HCLM1SP6SummerBrightness, ParamHUE_HCLM1SP7SummerBrightness,
-                ParamHUE_HCLM1SP8SummerBrightness, ParamHUE_HCLM1SP9SummerBrightness
-            };
-            loadMasterSummerSetpoints(1, times, summerKelvins, summerBrightnesses, active);
-        }
-        #endif
-
-        #ifdef ParamHUE_HCLM1CurveType
-        applyMasterAdvanced(
-            1,
-            ParamHUE_HCLM1CurveType,
-            ParamHUE_HCLM1SlewRate,
-            ParamHUE_HCLM1ManualKelvin,
-            readFixedTimeParam(ParamHUE_HCLM1Sunrise),
-            readFixedTimeParam(ParamHUE_HCLM1Sunset),
-            static_cast<int16_t>(ParamHUE_HCLM1SunriseOffset),
-            static_cast<int16_t>(ParamHUE_HCLM1SunsetOffset),
-            hclLatitude,
-            hclLongitude,
-            hclTimezoneOffsetMinutes,
-            getAstroMinKelvin(1),
-            getAstroMaxKelvin(1),
-            getAstroMinBrightness(1),
-            getAstroMaxBrightness(1));
-        #endif
-    }
-    #endif
-
-    #ifdef ParamHUE_HCLM2SP0Time
-    {
-        const char* const times[10] = {
-            reinterpret_cast<const char*>(ParamHUE_HCLM2SP0Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM2SP1Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM2SP2Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM2SP3Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM2SP4Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM2SP5Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM2SP6Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM2SP7Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM2SP8Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM2SP9Time)
-        };
-        const uint16_t kelvins[10] = {
-            ParamHUE_HCLM2SP0Kelvin, ParamHUE_HCLM2SP1Kelvin, ParamHUE_HCLM2SP2Kelvin,
-            ParamHUE_HCLM2SP3Kelvin, ParamHUE_HCLM2SP4Kelvin, ParamHUE_HCLM2SP5Kelvin,
-            ParamHUE_HCLM2SP6Kelvin, ParamHUE_HCLM2SP7Kelvin, ParamHUE_HCLM2SP8Kelvin, ParamHUE_HCLM2SP9Kelvin
-        };
-        const uint8_t brightnesses[10] = {
-            ParamHUE_HCLM2SP0Brightness, ParamHUE_HCLM2SP1Brightness, ParamHUE_HCLM2SP2Brightness,
-            ParamHUE_HCLM2SP3Brightness, ParamHUE_HCLM2SP4Brightness, ParamHUE_HCLM2SP5Brightness,
-            ParamHUE_HCLM2SP6Brightness, ParamHUE_HCLM2SP7Brightness, ParamHUE_HCLM2SP8Brightness, ParamHUE_HCLM2SP9Brightness
-        };
-        const bool active[10] = {
-            #if defined(ParamHUE_HCLM2SP0Active) && defined(ParamHUE_HCLM2SP9Active)
-            ParamHUE_HCLM2SP0Active != 0, ParamHUE_HCLM2SP1Active != 0,
-            ParamHUE_HCLM2SP2Active != 0, ParamHUE_HCLM2SP3Active != 0,
-            ParamHUE_HCLM2SP4Active != 0, ParamHUE_HCLM2SP5Active != 0,
-            ParamHUE_HCLM2SP6Active != 0, ParamHUE_HCLM2SP7Active != 0,
-            ParamHUE_HCLM2SP8Active != 0, ParamHUE_HCLM2SP9Active != 0,
-            #else
-            true, true, true, true, true, true, true, true, true, true,
-            #endif
-        };
-        loadMasterSetpoints(2, times, kelvins, brightnesses, active);
-        #if defined(ParamHUE_HCLM2SeasonMode) && defined(ParamHUE_HCLM2SP0SummerKelvin)
-        if (ParamHUE_HCLM2SeasonMode != 0) {
-            const uint16_t summerKelvins[10] = {
-                ParamHUE_HCLM2SP0SummerKelvin, ParamHUE_HCLM2SP1SummerKelvin,
-                ParamHUE_HCLM2SP2SummerKelvin, ParamHUE_HCLM2SP3SummerKelvin,
-                ParamHUE_HCLM2SP4SummerKelvin, ParamHUE_HCLM2SP5SummerKelvin,
-                ParamHUE_HCLM2SP6SummerKelvin, ParamHUE_HCLM2SP7SummerKelvin,
-                ParamHUE_HCLM2SP8SummerKelvin, ParamHUE_HCLM2SP9SummerKelvin
-            };
-            const uint8_t summerBrightnesses[10] = {
-                ParamHUE_HCLM2SP0SummerBrightness, ParamHUE_HCLM2SP1SummerBrightness,
-                ParamHUE_HCLM2SP2SummerBrightness, ParamHUE_HCLM2SP3SummerBrightness,
-                ParamHUE_HCLM2SP4SummerBrightness, ParamHUE_HCLM2SP5SummerBrightness,
-                ParamHUE_HCLM2SP6SummerBrightness, ParamHUE_HCLM2SP7SummerBrightness,
-                ParamHUE_HCLM2SP8SummerBrightness, ParamHUE_HCLM2SP9SummerBrightness
-            };
-            loadMasterSummerSetpoints(2, times, summerKelvins, summerBrightnesses, active);
-        }
-        #endif
-
-        #ifdef ParamHUE_HCLM2CurveType
-        applyMasterAdvanced(
-            2,
-            ParamHUE_HCLM2CurveType,
-            ParamHUE_HCLM2SlewRate,
-            ParamHUE_HCLM2ManualKelvin,
-            readFixedTimeParam(ParamHUE_HCLM2Sunrise),
-            readFixedTimeParam(ParamHUE_HCLM2Sunset),
-            static_cast<int16_t>(ParamHUE_HCLM2SunriseOffset),
-            static_cast<int16_t>(ParamHUE_HCLM2SunsetOffset),
-            hclLatitude,
-            hclLongitude,
-            hclTimezoneOffsetMinutes,
-            getAstroMinKelvin(2),
-            getAstroMaxKelvin(2),
-            getAstroMinBrightness(2),
-            getAstroMaxBrightness(2));
-        #endif
-    }
-    #endif
-
-    #ifdef ParamHUE_HCLM3SP0Time
-    {
-        const char* const times[10] = {
-            reinterpret_cast<const char*>(ParamHUE_HCLM3SP0Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM3SP1Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM3SP2Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM3SP3Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM3SP4Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM3SP5Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM3SP6Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM3SP7Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM3SP8Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM3SP9Time)
-        };
-        const uint16_t kelvins[10] = {
-            ParamHUE_HCLM3SP0Kelvin, ParamHUE_HCLM3SP1Kelvin, ParamHUE_HCLM3SP2Kelvin,
-            ParamHUE_HCLM3SP3Kelvin, ParamHUE_HCLM3SP4Kelvin, ParamHUE_HCLM3SP5Kelvin,
-            ParamHUE_HCLM3SP6Kelvin, ParamHUE_HCLM3SP7Kelvin, ParamHUE_HCLM3SP8Kelvin, ParamHUE_HCLM3SP9Kelvin
-        };
-        const uint8_t brightnesses[10] = {
-            ParamHUE_HCLM3SP0Brightness, ParamHUE_HCLM3SP1Brightness, ParamHUE_HCLM3SP2Brightness,
-            ParamHUE_HCLM3SP3Brightness, ParamHUE_HCLM3SP4Brightness, ParamHUE_HCLM3SP5Brightness,
-            ParamHUE_HCLM3SP6Brightness, ParamHUE_HCLM3SP7Brightness, ParamHUE_HCLM3SP8Brightness, ParamHUE_HCLM3SP9Brightness
-        };
-        const bool active[10] = {
-            #if defined(ParamHUE_HCLM3SP0Active) && defined(ParamHUE_HCLM3SP9Active)
-            ParamHUE_HCLM3SP0Active != 0, ParamHUE_HCLM3SP1Active != 0,
-            ParamHUE_HCLM3SP2Active != 0, ParamHUE_HCLM3SP3Active != 0,
-            ParamHUE_HCLM3SP4Active != 0, ParamHUE_HCLM3SP5Active != 0,
-            ParamHUE_HCLM3SP6Active != 0, ParamHUE_HCLM3SP7Active != 0,
-            ParamHUE_HCLM3SP8Active != 0, ParamHUE_HCLM3SP9Active != 0,
-            #else
-            true, true, true, true, true, true, true, true, true, true,
-            #endif
-        };
-        loadMasterSetpoints(3, times, kelvins, brightnesses, active);
-        #if defined(ParamHUE_HCLM3SeasonMode) && defined(ParamHUE_HCLM3SP0SummerKelvin)
-        if (ParamHUE_HCLM3SeasonMode != 0) {
-            const uint16_t summerKelvins[10] = {
-                ParamHUE_HCLM3SP0SummerKelvin, ParamHUE_HCLM3SP1SummerKelvin,
-                ParamHUE_HCLM3SP2SummerKelvin, ParamHUE_HCLM3SP3SummerKelvin,
-                ParamHUE_HCLM3SP4SummerKelvin, ParamHUE_HCLM3SP5SummerKelvin,
-                ParamHUE_HCLM3SP6SummerKelvin, ParamHUE_HCLM3SP7SummerKelvin,
-                ParamHUE_HCLM3SP8SummerKelvin, ParamHUE_HCLM3SP9SummerKelvin
-            };
-            const uint8_t summerBrightnesses[10] = {
-                ParamHUE_HCLM3SP0SummerBrightness, ParamHUE_HCLM3SP1SummerBrightness,
-                ParamHUE_HCLM3SP2SummerBrightness, ParamHUE_HCLM3SP3SummerBrightness,
-                ParamHUE_HCLM3SP4SummerBrightness, ParamHUE_HCLM3SP5SummerBrightness,
-                ParamHUE_HCLM3SP6SummerBrightness, ParamHUE_HCLM3SP7SummerBrightness,
-                ParamHUE_HCLM3SP8SummerBrightness, ParamHUE_HCLM3SP9SummerBrightness
-            };
-            loadMasterSummerSetpoints(3, times, summerKelvins, summerBrightnesses, active);
-        }
-        #endif
-
-        #ifdef ParamHUE_HCLM3CurveType
-        applyMasterAdvanced(
-            3,
-            ParamHUE_HCLM3CurveType,
-            ParamHUE_HCLM3SlewRate,
-            ParamHUE_HCLM3ManualKelvin,
-            readFixedTimeParam(ParamHUE_HCLM3Sunrise),
-            readFixedTimeParam(ParamHUE_HCLM3Sunset),
-            static_cast<int16_t>(ParamHUE_HCLM3SunriseOffset),
-            static_cast<int16_t>(ParamHUE_HCLM3SunsetOffset),
-            hclLatitude,
-            hclLongitude,
-            hclTimezoneOffsetMinutes,
-            getAstroMinKelvin(3),
-            getAstroMaxKelvin(3),
-            getAstroMinBrightness(3),
-            getAstroMaxBrightness(3));
-        #endif
-    }
-    #endif
-
-    #ifdef ParamHUE_HCLM4SP0Time
-    {
-        const char* const times[10] = {
-            reinterpret_cast<const char*>(ParamHUE_HCLM4SP0Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM4SP1Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM4SP2Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM4SP3Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM4SP4Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM4SP5Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM4SP6Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM4SP7Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM4SP8Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM4SP9Time)
-        };
-        const uint16_t kelvins[10] = {
-            ParamHUE_HCLM4SP0Kelvin, ParamHUE_HCLM4SP1Kelvin, ParamHUE_HCLM4SP2Kelvin,
-            ParamHUE_HCLM4SP3Kelvin, ParamHUE_HCLM4SP4Kelvin, ParamHUE_HCLM4SP5Kelvin,
-            ParamHUE_HCLM4SP6Kelvin, ParamHUE_HCLM4SP7Kelvin, ParamHUE_HCLM4SP8Kelvin, ParamHUE_HCLM4SP9Kelvin
-        };
-        const uint8_t brightnesses[10] = {
-            ParamHUE_HCLM4SP0Brightness, ParamHUE_HCLM4SP1Brightness, ParamHUE_HCLM4SP2Brightness,
-            ParamHUE_HCLM4SP3Brightness, ParamHUE_HCLM4SP4Brightness, ParamHUE_HCLM4SP5Brightness,
-            ParamHUE_HCLM4SP6Brightness, ParamHUE_HCLM4SP7Brightness, ParamHUE_HCLM4SP8Brightness, ParamHUE_HCLM4SP9Brightness
-        };
-        const bool active[10] = {
-            #if defined(ParamHUE_HCLM4SP0Active) && defined(ParamHUE_HCLM4SP9Active)
-            ParamHUE_HCLM4SP0Active != 0, ParamHUE_HCLM4SP1Active != 0,
-            ParamHUE_HCLM4SP2Active != 0, ParamHUE_HCLM4SP3Active != 0,
-            ParamHUE_HCLM4SP4Active != 0, ParamHUE_HCLM4SP5Active != 0,
-            ParamHUE_HCLM4SP6Active != 0, ParamHUE_HCLM4SP7Active != 0,
-            ParamHUE_HCLM4SP8Active != 0, ParamHUE_HCLM4SP9Active != 0,
-            #else
-            true, true, true, true, true, true, true, true, true, true,
-            #endif
-        };
-        loadMasterSetpoints(4, times, kelvins, brightnesses, active);
-        #if defined(ParamHUE_HCLM4SeasonMode) && defined(ParamHUE_HCLM4SP0SummerKelvin)
-        if (ParamHUE_HCLM4SeasonMode != 0) {
-            const uint16_t summerKelvins[10] = {
-                ParamHUE_HCLM4SP0SummerKelvin, ParamHUE_HCLM4SP1SummerKelvin,
-                ParamHUE_HCLM4SP2SummerKelvin, ParamHUE_HCLM4SP3SummerKelvin,
-                ParamHUE_HCLM4SP4SummerKelvin, ParamHUE_HCLM4SP5SummerKelvin,
-                ParamHUE_HCLM4SP6SummerKelvin, ParamHUE_HCLM4SP7SummerKelvin,
-                ParamHUE_HCLM4SP8SummerKelvin, ParamHUE_HCLM4SP9SummerKelvin
-            };
-            const uint8_t summerBrightnesses[10] = {
-                ParamHUE_HCLM4SP0SummerBrightness, ParamHUE_HCLM4SP1SummerBrightness,
-                ParamHUE_HCLM4SP2SummerBrightness, ParamHUE_HCLM4SP3SummerBrightness,
-                ParamHUE_HCLM4SP4SummerBrightness, ParamHUE_HCLM4SP5SummerBrightness,
-                ParamHUE_HCLM4SP6SummerBrightness, ParamHUE_HCLM4SP7SummerBrightness,
-                ParamHUE_HCLM4SP8SummerBrightness, ParamHUE_HCLM4SP9SummerBrightness
-            };
-            loadMasterSummerSetpoints(4, times, summerKelvins, summerBrightnesses, active);
-        }
-        #endif
-
-        #ifdef ParamHUE_HCLM4CurveType
-        applyMasterAdvanced(
-            4,
-            ParamHUE_HCLM4CurveType,
-            ParamHUE_HCLM4SlewRate,
-            ParamHUE_HCLM4ManualKelvin,
-            readFixedTimeParam(ParamHUE_HCLM4Sunrise),
-            readFixedTimeParam(ParamHUE_HCLM4Sunset),
-            static_cast<int16_t>(ParamHUE_HCLM4SunriseOffset),
-            static_cast<int16_t>(ParamHUE_HCLM4SunsetOffset),
-            hclLatitude,
-            hclLongitude,
-            hclTimezoneOffsetMinutes,
-            getAstroMinKelvin(4),
-            getAstroMaxKelvin(4),
-            getAstroMinBrightness(4),
-            getAstroMaxBrightness(4));
-        #endif
-    }
-    #endif
-
-    #ifdef ParamHUE_HCLM5SP0Time
-    {
-        const char* const times[10] = {
-            reinterpret_cast<const char*>(ParamHUE_HCLM5SP0Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM5SP1Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM5SP2Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM5SP3Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM5SP4Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM5SP5Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM5SP6Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM5SP7Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM5SP8Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM5SP9Time)
-        };
-        const uint16_t kelvins[10] = {
-            ParamHUE_HCLM5SP0Kelvin, ParamHUE_HCLM5SP1Kelvin, ParamHUE_HCLM5SP2Kelvin,
-            ParamHUE_HCLM5SP3Kelvin, ParamHUE_HCLM5SP4Kelvin, ParamHUE_HCLM5SP5Kelvin,
-            ParamHUE_HCLM5SP6Kelvin, ParamHUE_HCLM5SP7Kelvin, ParamHUE_HCLM5SP8Kelvin, ParamHUE_HCLM5SP9Kelvin
-        };
-        const uint8_t brightnesses[10] = {
-            ParamHUE_HCLM5SP0Brightness, ParamHUE_HCLM5SP1Brightness, ParamHUE_HCLM5SP2Brightness,
-            ParamHUE_HCLM5SP3Brightness, ParamHUE_HCLM5SP4Brightness, ParamHUE_HCLM5SP5Brightness,
-            ParamHUE_HCLM5SP6Brightness, ParamHUE_HCLM5SP7Brightness, ParamHUE_HCLM5SP8Brightness, ParamHUE_HCLM5SP9Brightness
-        };
-        const bool active[10] = {
-            #if defined(ParamHUE_HCLM5SP0Active) && defined(ParamHUE_HCLM5SP9Active)
-            ParamHUE_HCLM5SP0Active != 0, ParamHUE_HCLM5SP1Active != 0,
-            ParamHUE_HCLM5SP2Active != 0, ParamHUE_HCLM5SP3Active != 0,
-            ParamHUE_HCLM5SP4Active != 0, ParamHUE_HCLM5SP5Active != 0,
-            ParamHUE_HCLM5SP6Active != 0, ParamHUE_HCLM5SP7Active != 0,
-            ParamHUE_HCLM5SP8Active != 0, ParamHUE_HCLM5SP9Active != 0,
-            #else
-            true, true, true, true, true, true, true, true, true, true,
-            #endif
-        };
-        loadMasterSetpoints(5, times, kelvins, brightnesses, active);
-        #if defined(ParamHUE_HCLM5SeasonMode) && defined(ParamHUE_HCLM5SP0SummerKelvin)
-        if (ParamHUE_HCLM5SeasonMode != 0) {
-            const uint16_t summerKelvins[10] = {
-                ParamHUE_HCLM5SP0SummerKelvin, ParamHUE_HCLM5SP1SummerKelvin,
-                ParamHUE_HCLM5SP2SummerKelvin, ParamHUE_HCLM5SP3SummerKelvin,
-                ParamHUE_HCLM5SP4SummerKelvin, ParamHUE_HCLM5SP5SummerKelvin,
-                ParamHUE_HCLM5SP6SummerKelvin, ParamHUE_HCLM5SP7SummerKelvin,
-                ParamHUE_HCLM5SP8SummerKelvin, ParamHUE_HCLM5SP9SummerKelvin
-            };
-            const uint8_t summerBrightnesses[10] = {
-                ParamHUE_HCLM5SP0SummerBrightness, ParamHUE_HCLM5SP1SummerBrightness,
-                ParamHUE_HCLM5SP2SummerBrightness, ParamHUE_HCLM5SP3SummerBrightness,
-                ParamHUE_HCLM5SP4SummerBrightness, ParamHUE_HCLM5SP5SummerBrightness,
-                ParamHUE_HCLM5SP6SummerBrightness, ParamHUE_HCLM5SP7SummerBrightness,
-                ParamHUE_HCLM5SP8SummerBrightness, ParamHUE_HCLM5SP9SummerBrightness
-            };
-            loadMasterSummerSetpoints(5, times, summerKelvins, summerBrightnesses, active);
-        }
-        #endif
-
-        #ifdef ParamHUE_HCLM5CurveType
-        applyMasterAdvanced(
-            5,
-            ParamHUE_HCLM5CurveType,
-            ParamHUE_HCLM5SlewRate,
-            ParamHUE_HCLM5ManualKelvin,
-            readFixedTimeParam(ParamHUE_HCLM5Sunrise),
-            readFixedTimeParam(ParamHUE_HCLM5Sunset),
-            static_cast<int16_t>(ParamHUE_HCLM5SunriseOffset),
-            static_cast<int16_t>(ParamHUE_HCLM5SunsetOffset),
-            hclLatitude,
-            hclLongitude,
-            hclTimezoneOffsetMinutes,
-            getAstroMinKelvin(5),
-            getAstroMaxKelvin(5),
-            getAstroMinBrightness(5),
-            getAstroMaxBrightness(5));
-        #endif
-    }
-    #endif
-
-    #ifdef ParamHUE_HCLM6SP0Time
-    {
-        const char* const times[10] = {
-            reinterpret_cast<const char*>(ParamHUE_HCLM6SP0Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM6SP1Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM6SP2Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM6SP3Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM6SP4Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM6SP5Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM6SP6Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM6SP7Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM6SP8Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM6SP9Time)
-        };
-        const uint16_t kelvins[10] = {
-            ParamHUE_HCLM6SP0Kelvin, ParamHUE_HCLM6SP1Kelvin, ParamHUE_HCLM6SP2Kelvin,
-            ParamHUE_HCLM6SP3Kelvin, ParamHUE_HCLM6SP4Kelvin, ParamHUE_HCLM6SP5Kelvin,
-            ParamHUE_HCLM6SP6Kelvin, ParamHUE_HCLM6SP7Kelvin, ParamHUE_HCLM6SP8Kelvin, ParamHUE_HCLM6SP9Kelvin
-        };
-        const uint8_t brightnesses[10] = {
-            ParamHUE_HCLM6SP0Brightness, ParamHUE_HCLM6SP1Brightness, ParamHUE_HCLM6SP2Brightness,
-            ParamHUE_HCLM6SP3Brightness, ParamHUE_HCLM6SP4Brightness, ParamHUE_HCLM6SP5Brightness,
-            ParamHUE_HCLM6SP6Brightness, ParamHUE_HCLM6SP7Brightness, ParamHUE_HCLM6SP8Brightness, ParamHUE_HCLM6SP9Brightness
-        };
-        const bool active[10] = {
-            #if defined(ParamHUE_HCLM6SP0Active) && defined(ParamHUE_HCLM6SP9Active)
-            ParamHUE_HCLM6SP0Active != 0, ParamHUE_HCLM6SP1Active != 0,
-            ParamHUE_HCLM6SP2Active != 0, ParamHUE_HCLM6SP3Active != 0,
-            ParamHUE_HCLM6SP4Active != 0, ParamHUE_HCLM6SP5Active != 0,
-            ParamHUE_HCLM6SP6Active != 0, ParamHUE_HCLM6SP7Active != 0,
-            ParamHUE_HCLM6SP8Active != 0, ParamHUE_HCLM6SP9Active != 0,
-            #else
-            true, true, true, true, true, true, true, true, true, true,
-            #endif
-        };
-        loadMasterSetpoints(6, times, kelvins, brightnesses, active);
-        #if defined(ParamHUE_HCLM6SeasonMode) && defined(ParamHUE_HCLM6SP0SummerKelvin)
-        if (ParamHUE_HCLM6SeasonMode != 0) {
-            const uint16_t summerKelvins[10] = {
-                ParamHUE_HCLM6SP0SummerKelvin, ParamHUE_HCLM6SP1SummerKelvin,
-                ParamHUE_HCLM6SP2SummerKelvin, ParamHUE_HCLM6SP3SummerKelvin,
-                ParamHUE_HCLM6SP4SummerKelvin, ParamHUE_HCLM6SP5SummerKelvin,
-                ParamHUE_HCLM6SP6SummerKelvin, ParamHUE_HCLM6SP7SummerKelvin,
-                ParamHUE_HCLM6SP8SummerKelvin, ParamHUE_HCLM6SP9SummerKelvin
-            };
-            const uint8_t summerBrightnesses[10] = {
-                ParamHUE_HCLM6SP0SummerBrightness, ParamHUE_HCLM6SP1SummerBrightness,
-                ParamHUE_HCLM6SP2SummerBrightness, ParamHUE_HCLM6SP3SummerBrightness,
-                ParamHUE_HCLM6SP4SummerBrightness, ParamHUE_HCLM6SP5SummerBrightness,
-                ParamHUE_HCLM6SP6SummerBrightness, ParamHUE_HCLM6SP7SummerBrightness,
-                ParamHUE_HCLM6SP8SummerBrightness, ParamHUE_HCLM6SP9SummerBrightness
-            };
-            loadMasterSummerSetpoints(6, times, summerKelvins, summerBrightnesses, active);
-        }
-        #endif
-
-        #ifdef ParamHUE_HCLM6CurveType
-        applyMasterAdvanced(
-            6,
-            ParamHUE_HCLM6CurveType,
-            ParamHUE_HCLM6SlewRate,
-            ParamHUE_HCLM6ManualKelvin,
-            readFixedTimeParam(ParamHUE_HCLM6Sunrise),
-            readFixedTimeParam(ParamHUE_HCLM6Sunset),
-            static_cast<int16_t>(ParamHUE_HCLM6SunriseOffset),
-            static_cast<int16_t>(ParamHUE_HCLM6SunsetOffset),
-            hclLatitude,
-            hclLongitude,
-            hclTimezoneOffsetMinutes,
-            getAstroMinKelvin(6),
-            getAstroMaxKelvin(6),
-            getAstroMinBrightness(6),
-            getAstroMaxBrightness(6));
-        #endif
-    }
-    #endif
-
-    #ifdef ParamHUE_HCLM7SP0Time
-    {
-        const char* const times[10] = {
-            reinterpret_cast<const char*>(ParamHUE_HCLM7SP0Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM7SP1Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM7SP2Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM7SP3Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM7SP4Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM7SP5Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM7SP6Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM7SP7Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM7SP8Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM7SP9Time)
-        };
-        const uint16_t kelvins[10] = {
-            ParamHUE_HCLM7SP0Kelvin, ParamHUE_HCLM7SP1Kelvin, ParamHUE_HCLM7SP2Kelvin,
-            ParamHUE_HCLM7SP3Kelvin, ParamHUE_HCLM7SP4Kelvin, ParamHUE_HCLM7SP5Kelvin,
-            ParamHUE_HCLM7SP6Kelvin, ParamHUE_HCLM7SP7Kelvin, ParamHUE_HCLM7SP8Kelvin, ParamHUE_HCLM7SP9Kelvin
-        };
-        const uint8_t brightnesses[10] = {
-            ParamHUE_HCLM7SP0Brightness, ParamHUE_HCLM7SP1Brightness, ParamHUE_HCLM7SP2Brightness,
-            ParamHUE_HCLM7SP3Brightness, ParamHUE_HCLM7SP4Brightness, ParamHUE_HCLM7SP5Brightness,
-            ParamHUE_HCLM7SP6Brightness, ParamHUE_HCLM7SP7Brightness, ParamHUE_HCLM7SP8Brightness, ParamHUE_HCLM7SP9Brightness
-        };
-        const bool active[10] = {
-            #if defined(ParamHUE_HCLM7SP0Active) && defined(ParamHUE_HCLM7SP9Active)
-            ParamHUE_HCLM7SP0Active != 0, ParamHUE_HCLM7SP1Active != 0,
-            ParamHUE_HCLM7SP2Active != 0, ParamHUE_HCLM7SP3Active != 0,
-            ParamHUE_HCLM7SP4Active != 0, ParamHUE_HCLM7SP5Active != 0,
-            ParamHUE_HCLM7SP6Active != 0, ParamHUE_HCLM7SP7Active != 0,
-            ParamHUE_HCLM7SP8Active != 0, ParamHUE_HCLM7SP9Active != 0,
-            #else
-            true, true, true, true, true, true, true, true, true, true,
-            #endif
-        };
-        loadMasterSetpoints(7, times, kelvins, brightnesses, active);
-        #if defined(ParamHUE_HCLM7SeasonMode) && defined(ParamHUE_HCLM7SP0SummerKelvin)
-        if (ParamHUE_HCLM7SeasonMode != 0) {
-            const uint16_t summerKelvins[10] = {
-                ParamHUE_HCLM7SP0SummerKelvin, ParamHUE_HCLM7SP1SummerKelvin,
-                ParamHUE_HCLM7SP2SummerKelvin, ParamHUE_HCLM7SP3SummerKelvin,
-                ParamHUE_HCLM7SP4SummerKelvin, ParamHUE_HCLM7SP5SummerKelvin,
-                ParamHUE_HCLM7SP6SummerKelvin, ParamHUE_HCLM7SP7SummerKelvin,
-                ParamHUE_HCLM7SP8SummerKelvin, ParamHUE_HCLM7SP9SummerKelvin
-            };
-            const uint8_t summerBrightnesses[10] = {
-                ParamHUE_HCLM7SP0SummerBrightness, ParamHUE_HCLM7SP1SummerBrightness,
-                ParamHUE_HCLM7SP2SummerBrightness, ParamHUE_HCLM7SP3SummerBrightness,
-                ParamHUE_HCLM7SP4SummerBrightness, ParamHUE_HCLM7SP5SummerBrightness,
-                ParamHUE_HCLM7SP6SummerBrightness, ParamHUE_HCLM7SP7SummerBrightness,
-                ParamHUE_HCLM7SP8SummerBrightness, ParamHUE_HCLM7SP9SummerBrightness
-            };
-            loadMasterSummerSetpoints(7, times, summerKelvins, summerBrightnesses, active);
-        }
-        #endif
-
-        #ifdef ParamHUE_HCLM7CurveType
-        applyMasterAdvanced(
-            7,
-            ParamHUE_HCLM7CurveType,
-            ParamHUE_HCLM7SlewRate,
-            ParamHUE_HCLM7ManualKelvin,
-            readFixedTimeParam(ParamHUE_HCLM7Sunrise),
-            readFixedTimeParam(ParamHUE_HCLM7Sunset),
-            static_cast<int16_t>(ParamHUE_HCLM7SunriseOffset),
-            static_cast<int16_t>(ParamHUE_HCLM7SunsetOffset),
-            hclLatitude,
-            hclLongitude,
-            hclTimezoneOffsetMinutes,
-            getAstroMinKelvin(7),
-            getAstroMaxKelvin(7),
-            getAstroMinBrightness(7),
-            getAstroMaxBrightness(7));
-        #endif
-    }
-    #endif
-
-    #ifdef ParamHUE_HCLM8SP0Time
-    {
-        const char* const times[10] = {
-            reinterpret_cast<const char*>(ParamHUE_HCLM8SP0Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM8SP1Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM8SP2Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM8SP3Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM8SP4Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM8SP5Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM8SP6Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM8SP7Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM8SP8Time),
-            reinterpret_cast<const char*>(ParamHUE_HCLM8SP9Time)
-        };
-        const uint16_t kelvins[10] = {
-            ParamHUE_HCLM8SP0Kelvin, ParamHUE_HCLM8SP1Kelvin, ParamHUE_HCLM8SP2Kelvin,
-            ParamHUE_HCLM8SP3Kelvin, ParamHUE_HCLM8SP4Kelvin, ParamHUE_HCLM8SP5Kelvin,
-            ParamHUE_HCLM8SP6Kelvin, ParamHUE_HCLM8SP7Kelvin, ParamHUE_HCLM8SP8Kelvin, ParamHUE_HCLM8SP9Kelvin
-        };
-        const uint8_t brightnesses[10] = {
-            ParamHUE_HCLM8SP0Brightness, ParamHUE_HCLM8SP1Brightness, ParamHUE_HCLM8SP2Brightness,
-            ParamHUE_HCLM8SP3Brightness, ParamHUE_HCLM8SP4Brightness, ParamHUE_HCLM8SP5Brightness,
-            ParamHUE_HCLM8SP6Brightness, ParamHUE_HCLM8SP7Brightness, ParamHUE_HCLM8SP8Brightness, ParamHUE_HCLM8SP9Brightness
-        };
-        const bool active[10] = {
-            #if defined(ParamHUE_HCLM8SP0Active) && defined(ParamHUE_HCLM8SP9Active)
-            ParamHUE_HCLM8SP0Active != 0, ParamHUE_HCLM8SP1Active != 0,
-            ParamHUE_HCLM8SP2Active != 0, ParamHUE_HCLM8SP3Active != 0,
-            ParamHUE_HCLM8SP4Active != 0, ParamHUE_HCLM8SP5Active != 0,
-            ParamHUE_HCLM8SP6Active != 0, ParamHUE_HCLM8SP7Active != 0,
-            ParamHUE_HCLM8SP8Active != 0, ParamHUE_HCLM8SP9Active != 0,
-            #else
-            true, true, true, true, true, true, true, true, true, true,
-            #endif
-        };
-        loadMasterSetpoints(8, times, kelvins, brightnesses, active);
-        #if defined(ParamHUE_HCLM8SeasonMode) && defined(ParamHUE_HCLM8SP0SummerKelvin)
-        if (ParamHUE_HCLM8SeasonMode != 0) {
-            const uint16_t summerKelvins[10] = {
-                ParamHUE_HCLM8SP0SummerKelvin, ParamHUE_HCLM8SP1SummerKelvin,
-                ParamHUE_HCLM8SP2SummerKelvin, ParamHUE_HCLM8SP3SummerKelvin,
-                ParamHUE_HCLM8SP4SummerKelvin, ParamHUE_HCLM8SP5SummerKelvin,
-                ParamHUE_HCLM8SP6SummerKelvin, ParamHUE_HCLM8SP7SummerKelvin,
-                ParamHUE_HCLM8SP8SummerKelvin, ParamHUE_HCLM8SP9SummerKelvin
-            };
-            const uint8_t summerBrightnesses[10] = {
-                ParamHUE_HCLM8SP0SummerBrightness, ParamHUE_HCLM8SP1SummerBrightness,
-                ParamHUE_HCLM8SP2SummerBrightness, ParamHUE_HCLM8SP3SummerBrightness,
-                ParamHUE_HCLM8SP4SummerBrightness, ParamHUE_HCLM8SP5SummerBrightness,
-                ParamHUE_HCLM8SP6SummerBrightness, ParamHUE_HCLM8SP7SummerBrightness,
-                ParamHUE_HCLM8SP8SummerBrightness, ParamHUE_HCLM8SP9SummerBrightness
-            };
-            loadMasterSummerSetpoints(8, times, summerKelvins, summerBrightnesses, active);
-        }
-        #endif
-
-        #ifdef ParamHUE_HCLM8CurveType
-        applyMasterAdvanced(
-            8,
-            ParamHUE_HCLM8CurveType,
-            ParamHUE_HCLM8SlewRate,
-            ParamHUE_HCLM8ManualKelvin,
-            readFixedTimeParam(ParamHUE_HCLM8Sunrise),
-            readFixedTimeParam(ParamHUE_HCLM8Sunset),
-            static_cast<int16_t>(ParamHUE_HCLM8SunriseOffset),
-            static_cast<int16_t>(ParamHUE_HCLM8SunsetOffset),
-            hclLatitude,
-            hclLongitude,
-            hclTimezoneOffsetMinutes,
-            getAstroMinKelvin(8),
-            getAstroMaxKelvin(8),
-            getAstroMinBrightness(8),
-            getAstroMaxBrightness(8));
-        #endif
-    }
-    #endif
-    
-    // === Adaptive Helligkeit – Konfiguration pro Master laden ===
-    {
-        auto loadMasterAdaptiveConfig = [](uint8_t masterNumber,
-                                           uint8_t mode,
-                                           uint8_t activeMode,
-                                           uint8_t ceilToHCL,
-                                           uint16_t maxLux,
-                                           uint8_t minBrightness,
-                                           uint8_t sensorTimeout,
-                                           uint8_t minChange,
-                                           uint8_t strength,
-                                           uint8_t kpEnum,
-                                           uint16_t deadband,
-                                           const uint8_t* startTimeRaw,
-                                           const uint8_t* endTimeRaw,
-                                           uint8_t dayNightPolarity) {
-            HCL::Master* master = HCL::masterManager.getMaster(masterNumber);
-            if (!master) return;
-            HCL::AdaptiveConfig cfg;
-            cfg.mode               = static_cast<HCL::AdaptiveMode>(mode);
-            cfg.activeMode         = static_cast<HCL::AdaptiveActiveMode>(activeMode);
-            cfg.ceilToHCL          = (ceilToHCL != 0);
-            cfg.maxLux             = maxLux;
-            cfg.minBrightness      = minBrightness;
-            cfg.sensorTimeoutMinutes = sensorTimeout;
-            cfg.minChangePercent   = minChange;
-            cfg.strength           = strength;
-            const float kpValues[] = {0.5f, 1.0f, 1.5f, 2.0f};
-            cfg.kp                 = (kpEnum < 4) ? kpValues[kpEnum] : 1.0f;
-            cfg.deadbandLux        = deadband;
-            const String startStr  = readFixedTimeParam(startTimeRaw);
-            const String endStr    = readFixedTimeParam(endTimeRaw);
-            cfg.activeStartMinutes = HCL::Setpoint::parseTime(startStr.c_str());
-            cfg.activeEndMinutes   = HCL::Setpoint::parseTime(endStr.c_str());
-            if (cfg.activeStartMinutes == 0xFFFF) cfg.activeStartMinutes = 360;
-            if (cfg.activeEndMinutes   == 0xFFFF) cfg.activeEndMinutes   = 1320;
-            cfg.dayNightPolarity   = (dayNightPolarity != 0);
-            master->setAdaptiveConfig(cfg);
-        };
-        #if defined(ParamHUE_HCLM1AdaptiveMode)
-        loadMasterAdaptiveConfig(1, ParamHUE_HCLM1AdaptiveMode, ParamHUE_HCLM1AdaptiveActiveMode,
-            ParamHUE_HCLM1AdaptiveCeilToHCL, ParamHUE_HCLM1AdaptiveMaxLux,
-            ParamHUE_HCLM1AdaptiveMinBrightness, ParamHUE_HCLM1AdaptiveSensorTimeout,
-            ParamHUE_HCLM1AdaptiveMinChange, ParamHUE_HCLM1AdaptiveStrength,
-            ParamHUE_HCLM1AdaptiveKp, ParamHUE_HCLM1AdaptiveDeadband,
-            knx.paramData(HUE_HCLM1AdaptiveStartTime), knx.paramData(HUE_HCLM1AdaptiveEndTime),
-            ParamHUE_HCLM1AdaptiveDayNightPolarity);
-        #endif
-        #if defined(ParamHUE_HCLM2AdaptiveMode)
-        loadMasterAdaptiveConfig(2, ParamHUE_HCLM2AdaptiveMode, ParamHUE_HCLM2AdaptiveActiveMode,
-            ParamHUE_HCLM2AdaptiveCeilToHCL, ParamHUE_HCLM2AdaptiveMaxLux,
-            ParamHUE_HCLM2AdaptiveMinBrightness, ParamHUE_HCLM2AdaptiveSensorTimeout,
-            ParamHUE_HCLM2AdaptiveMinChange, ParamHUE_HCLM2AdaptiveStrength,
-            ParamHUE_HCLM2AdaptiveKp, ParamHUE_HCLM2AdaptiveDeadband,
-            knx.paramData(HUE_HCLM2AdaptiveStartTime), knx.paramData(HUE_HCLM2AdaptiveEndTime),
-            ParamHUE_HCLM2AdaptiveDayNightPolarity);
-        #endif
-        #if defined(ParamHUE_HCLM3AdaptiveMode)
-        loadMasterAdaptiveConfig(3, ParamHUE_HCLM3AdaptiveMode, ParamHUE_HCLM3AdaptiveActiveMode,
-            ParamHUE_HCLM3AdaptiveCeilToHCL, ParamHUE_HCLM3AdaptiveMaxLux,
-            ParamHUE_HCLM3AdaptiveMinBrightness, ParamHUE_HCLM3AdaptiveSensorTimeout,
-            ParamHUE_HCLM3AdaptiveMinChange, ParamHUE_HCLM3AdaptiveStrength,
-            ParamHUE_HCLM3AdaptiveKp, ParamHUE_HCLM3AdaptiveDeadband,
-            knx.paramData(HUE_HCLM3AdaptiveStartTime), knx.paramData(HUE_HCLM3AdaptiveEndTime),
-            ParamHUE_HCLM3AdaptiveDayNightPolarity);
-        #endif
-        #if defined(ParamHUE_HCLM4AdaptiveMode)
-        loadMasterAdaptiveConfig(4, ParamHUE_HCLM4AdaptiveMode, ParamHUE_HCLM4AdaptiveActiveMode,
-            ParamHUE_HCLM4AdaptiveCeilToHCL, ParamHUE_HCLM4AdaptiveMaxLux,
-            ParamHUE_HCLM4AdaptiveMinBrightness, ParamHUE_HCLM4AdaptiveSensorTimeout,
-            ParamHUE_HCLM4AdaptiveMinChange, ParamHUE_HCLM4AdaptiveStrength,
-            ParamHUE_HCLM4AdaptiveKp, ParamHUE_HCLM4AdaptiveDeadband,
-            knx.paramData(HUE_HCLM4AdaptiveStartTime), knx.paramData(HUE_HCLM4AdaptiveEndTime),
-            ParamHUE_HCLM4AdaptiveDayNightPolarity);
-        #endif
-        #if defined(ParamHUE_HCLM5AdaptiveMode)
-        loadMasterAdaptiveConfig(5, ParamHUE_HCLM5AdaptiveMode, ParamHUE_HCLM5AdaptiveActiveMode,
-            ParamHUE_HCLM5AdaptiveCeilToHCL, ParamHUE_HCLM5AdaptiveMaxLux,
-            ParamHUE_HCLM5AdaptiveMinBrightness, ParamHUE_HCLM5AdaptiveSensorTimeout,
-            ParamHUE_HCLM5AdaptiveMinChange, ParamHUE_HCLM5AdaptiveStrength,
-            ParamHUE_HCLM5AdaptiveKp, ParamHUE_HCLM5AdaptiveDeadband,
-            knx.paramData(HUE_HCLM5AdaptiveStartTime), knx.paramData(HUE_HCLM5AdaptiveEndTime),
-            ParamHUE_HCLM5AdaptiveDayNightPolarity);
-        #endif
-        #if defined(ParamHUE_HCLM6AdaptiveMode)
-        loadMasterAdaptiveConfig(6, ParamHUE_HCLM6AdaptiveMode, ParamHUE_HCLM6AdaptiveActiveMode,
-            ParamHUE_HCLM6AdaptiveCeilToHCL, ParamHUE_HCLM6AdaptiveMaxLux,
-            ParamHUE_HCLM6AdaptiveMinBrightness, ParamHUE_HCLM6AdaptiveSensorTimeout,
-            ParamHUE_HCLM6AdaptiveMinChange, ParamHUE_HCLM6AdaptiveStrength,
-            ParamHUE_HCLM6AdaptiveKp, ParamHUE_HCLM6AdaptiveDeadband,
-            knx.paramData(HUE_HCLM6AdaptiveStartTime), knx.paramData(HUE_HCLM6AdaptiveEndTime),
-            ParamHUE_HCLM6AdaptiveDayNightPolarity);
-        #endif
-        #if defined(ParamHUE_HCLM7AdaptiveMode)
-        loadMasterAdaptiveConfig(7, ParamHUE_HCLM7AdaptiveMode, ParamHUE_HCLM7AdaptiveActiveMode,
-            ParamHUE_HCLM7AdaptiveCeilToHCL, ParamHUE_HCLM7AdaptiveMaxLux,
-            ParamHUE_HCLM7AdaptiveMinBrightness, ParamHUE_HCLM7AdaptiveSensorTimeout,
-            ParamHUE_HCLM7AdaptiveMinChange, ParamHUE_HCLM7AdaptiveStrength,
-            ParamHUE_HCLM7AdaptiveKp, ParamHUE_HCLM7AdaptiveDeadband,
-            knx.paramData(HUE_HCLM7AdaptiveStartTime), knx.paramData(HUE_HCLM7AdaptiveEndTime),
-            ParamHUE_HCLM7AdaptiveDayNightPolarity);
-        #endif
-        #if defined(ParamHUE_HCLM8AdaptiveMode)
-        loadMasterAdaptiveConfig(8, ParamHUE_HCLM8AdaptiveMode, ParamHUE_HCLM8AdaptiveActiveMode,
-            ParamHUE_HCLM8AdaptiveCeilToHCL, ParamHUE_HCLM8AdaptiveMaxLux,
-            ParamHUE_HCLM8AdaptiveMinBrightness, ParamHUE_HCLM8AdaptiveSensorTimeout,
-            ParamHUE_HCLM8AdaptiveMinChange, ParamHUE_HCLM8AdaptiveStrength,
-            ParamHUE_HCLM8AdaptiveKp, ParamHUE_HCLM8AdaptiveDeadband,
-            knx.paramData(HUE_HCLM8AdaptiveStartTime), knx.paramData(HUE_HCLM8AdaptiveEndTime),
-            ParamHUE_HCLM8AdaptiveDayNightPolarity);
-        #endif
-    }
-
-    HCL::masterManager.setup();
-    publishHclMasterValues();
-    Serial.println("[HueGatewayModule] HCL setup complete");
+    Serial.println("[HueGatewayModule] HCL ownership moved to LightManagerModule");
 }
-
 void HueGatewayModule::checkConnection()
 {
     const unsigned long now = millis();
@@ -5381,7 +3968,7 @@ void HueGatewayModule::checkConnection()
     }
 }
 
-void HueGatewayModule::refreshLightStatus()
+void HueGatewayModule::refreshLightStatus(bool fastTrackOnly)
 {
     static bool sPollingModeMarkerLogged = false;
     if (!sPollingModeMarkerLogged)
@@ -5417,6 +4004,13 @@ void HueGatewayModule::refreshLightStatus()
         {
             dueFlags[i] = true;
             dueChannels++;
+            continue;
+        }
+
+        // In fast-track-only mode (called while the EventStream is the active sync
+        // path) skip the regular interval polling so we don't undermine SSE.
+        if (fastTrackOnly)
+        {
             continue;
         }
 
@@ -5684,6 +4278,18 @@ void HueGatewayModule::refreshLightStatus()
                     channelSnapshot[j].blue);
 
                 _lastChannelSyncOkMs = now;
+                {
+                    uint16_t briPct = (uint16_t)((channelSnapshot[j].brightness * 100u + 127u) / 254u);
+                    if (briPct > 100) briPct = 100;
+                    logInfo("HUE", "K%d %s: %s %u%% (Poll)",
+                            i + 1,
+                            lightI->getName().c_str(),
+                            channelSnapshot[j].on ? "EIN" : "AUS",
+                            static_cast<unsigned>(briPct));
+                }
+#ifdef OPENKNX_WEBSERVER
+                markChannelDirty(i);
+#endif
 
                 if (fastTrackDue)
                 {
@@ -5736,6 +4342,9 @@ void HueGatewayModule::refreshLightStatus()
                     {
                         static_cast<HueGatewayPlug*>(_devices[i])->updateFromHue(lightSnapshot[j].on, lightSnapshot[j].reachable);
                         _lastChannelSyncOkMs = now;
+#ifdef OPENKNX_WEBSERVER
+                        markChannelDirty(i);
+#endif
                         break;
                     }
                 }
@@ -5913,6 +4522,7 @@ void HueGatewayModule::publishHclManagerLockStatus(uint8_t managerNumber)
     }
 
     const bool active = _hclManagerLockActive[managerNumber - 1];
+    (void)active;
     switch (managerNumber)
     {
         case 1:
@@ -5940,6 +4550,197 @@ void HueGatewayModule::publishHclManagerLockStatus(uint8_t managerNumber)
     }
 }
 
+namespace
+{
+    constexpr uint16_t kFadeTestSampleMs = 500;
+    constexpr const char* kFadeTestOn80 = R"({"on":{"on":true},"dimming":{"brightness":80}})";
+
+    struct FadeTestStep
+    {
+        const char* label;
+        const char* payload;
+        uint8_t sampleCount;  // brightness samples taken every kFadeTestSampleMs after the PUT
+        uint16_t settleMs;
+        bool readBack;        // read state once after settling and report it
+    };
+
+    // The four variants under test, each preceded by a defined starting point.
+    // Read-backs after V2 and V3 answer the decisive question: does the payload
+    // overwrite the brightness the bridge restores on a plain on-command?
+    const FadeTestStep kFadeTestSteps[] = {
+        {"prep",  kFadeTestOn80,                                                                       0, 2000, false},
+        {"V1 off+dur",        R"({"on":{"on":false},"dynamics":{"duration":4000}})",                  10,  500, false},
+        {"RB-0 plain on",     R"({"on":{"on":true}})",                                                 0, 2000, true},
+        {"prep",  kFadeTestOn80,                                                                       0, 2000, false},
+        {"V2 off+dim0+dur",   R"({"on":{"on":false},"dimming":{"brightness":0},"dynamics":{"duration":4000}})", 10, 500, false},
+        {"RB-A plain on",     R"({"on":{"on":true}})",                                                 0, 2000, true},
+        {"prep",  kFadeTestOn80,                                                                       0, 2000, false},
+        {"V3a dim1+dur",      R"({"dimming":{"brightness":1},"dynamics":{"duration":4000}})",         10,  500, false},
+        {"V3b off",           R"({"on":{"on":false}})",                                                0, 1500, false},
+        {"RB-B plain on",     R"({"on":{"on":true}})",                                                 0, 2000, true},
+        {"prep off",          R"({"on":{"on":false}})",                                                0, 2000, false},
+        {"V4 on+dim80+dur",   R"({"on":{"on":true},"dimming":{"brightness":80},"dynamics":{"duration":4000}})", 10, 500, false},
+        {"restore", kFadeTestOn80,                                                                     0,    0, false},
+    };
+    constexpr uint8_t kFadeTestStepCount = sizeof(kFadeTestSteps) / sizeof(kFadeTestSteps[0]);
+} // namespace
+
+bool HueGatewayModule::startFadeTest(int channelIndex, String& error)
+{
+    if (_fadeTestChannel >= 0)
+    {
+        error = "Es läuft bereits ein Rampen-Test (Kanal " + String(_fadeTestChannel + 1) + ").";
+        return false;
+    }
+    if (channelIndex < 0 || channelIndex >= MAX_LIGHTS)
+    {
+        error = "Kanalnummer außerhalb des gültigen Bereichs.";
+        return false;
+    }
+    if (_client == nullptr || !_client->isInitialized())
+    {
+        error = "Keine Verbindung zur Hue-Bridge.";
+        return false;
+    }
+    auto* light = lightAt(channelIndex);
+    if (light == nullptr)
+    {
+        error = "Kanal " + String(channelIndex + 1) + " ist kein konfigurierter Licht-Kanal.";
+        return false;
+    }
+
+    // The light manager would fight the test for the channel, so park it for the
+    // duration. Channels without an assignment need no lock.
+    _fadeTestLockTaken = false;
+    if (light->getHCLMaster() > 0 && !_hclChannelLockActive[channelIndex])
+    {
+        setHclChannelLock(static_cast<uint8_t>(channelIndex), true, "fade test");
+        _fadeTestLockTaken = true;
+    }
+
+    _fadeTestChannel = static_cast<int8_t>(channelIndex);
+    _fadeTestStep = 0;
+    _fadeTestSampleIndex = 0;
+    _fadeTestPhase = FadeTestPhase::Put;
+    _fadeTestNextMs = millis();
+
+    _fadeTestReport = "";
+    _fadeTestReport.reserve(1024);
+    _fadeTestReport += "Channel=" + String(channelIndex + 1);
+    _fadeTestReport += " target=" + String(light->isGroupedTarget() ? "grouped_light" : "light");
+    _fadeTestReport += " rid=" + light->getLightId();
+    _fadeTestReport += light->getHCLMaster() > 0 ? " hclMaster=" + String(light->getHCLMaster()) : String(" hclMaster=-");
+    _fadeTestReport += _fadeTestLockTaken ? " (Sperre für Testdauer gesetzt)\n" : "\n";
+    _fadeTestReport += "Samples alle " + String(kFadeTestSampleMs) + " ms, Helligkeit in %, 'off@' = Bridge meldet aus\n";
+
+    appendDiagnosticLog("INFO", "FADETEST", "started on channel " + String(channelIndex + 1));
+    Serial.printf("[HueGatewayModule] Fade test started on channel %d\n", channelIndex + 1);
+    return true;
+}
+
+void HueGatewayModule::finishFadeTest()
+{
+    if (_fadeTestLockTaken && _fadeTestChannel >= 0)
+    {
+        setHclChannelLock(static_cast<uint8_t>(_fadeTestChannel), false, "fade test finished");
+    }
+    _fadeTestLockTaken = false;
+    _fadeTestChannel = -1;
+    _fadeTestPhase = FadeTestPhase::Put;
+    appendDiagnosticLog("INFO", "FADETEST", "finished");
+    Serial.println("[HueGatewayModule] Fade test finished");
+}
+
+void HueGatewayModule::loopFadeTest()
+{
+    if (_fadeTestChannel < 0)
+        return;
+    if (static_cast<long>(millis() - _fadeTestNextMs) < 0)
+        return;
+
+    auto* light = lightAt(_fadeTestChannel);
+    if (light == nullptr || _client == nullptr || !_client->isInitialized())
+    {
+        _fadeTestReport += "ABBRUCH: Kanal oder Bridge nicht mehr verfügbar\n";
+        finishFadeTest();
+        return;
+    }
+
+    const char* resourceType = light->isGroupedTarget() ? "grouped_light" : "light";
+    const String rid = light->getLightId();
+    const FadeTestStep& step = kFadeTestSteps[_fadeTestStep];
+
+    switch (_fadeTestPhase)
+    {
+        case FadeTestPhase::Put:
+        {
+            const bool ok = _client->diagRawPut(resourceType, rid, step.payload);
+            _fadeTestReport += String(step.label) + ": put=" + (ok ? "ok" : "FEHLER");
+            _fadeTestSampleIndex = 0;
+            if (step.sampleCount > 0)
+            {
+                _fadeTestReport += " bri=";
+                _fadeTestPhase = FadeTestPhase::Sample;
+                _fadeTestNextMs = millis() + kFadeTestSampleMs;
+            }
+            else
+            {
+                _fadeTestReport += "\n";
+                _fadeTestPhase = FadeTestPhase::Settle;
+                _fadeTestNextMs = millis() + step.settleMs;
+            }
+            return;
+        }
+
+        case FadeTestPhase::Sample:
+        {
+            bool on = false;
+            uint8_t bri = 0;
+            if (_client->diagReadState(resourceType, rid, on, bri))
+                _fadeTestReport += (on ? String("") : String("off@")) + String(bri);
+            else
+                _fadeTestReport += "?";
+
+            _fadeTestSampleIndex++;
+            if (_fadeTestSampleIndex < step.sampleCount)
+            {
+                _fadeTestReport += ",";
+                _fadeTestNextMs = millis() + kFadeTestSampleMs;
+                return;
+            }
+
+            _fadeTestReport += "\n";
+            _fadeTestPhase = FadeTestPhase::Settle;
+            _fadeTestNextMs = millis() + step.settleMs;
+            return;
+        }
+
+        case FadeTestPhase::Settle:
+        {
+            if (step.readBack)
+            {
+                bool on = false;
+                uint8_t bri = 0;
+                if (_client->diagReadState(resourceType, rid, on, bri))
+                    _fadeTestReport += "  -> gespeicherte Helligkeit: " + String(bri) + "%" + (on ? "" : " (aus)") + "\n";
+                else
+                    _fadeTestReport += "  -> Rücklesen FEHLER\n";
+            }
+
+            _fadeTestStep++;
+            _fadeTestPhase = FadeTestPhase::Put;
+            _fadeTestSampleIndex = 0;
+            if (_fadeTestStep >= kFadeTestStepCount)
+            {
+                finishFadeTest();
+                return;
+            }
+            _fadeTestNextMs = millis();
+            return;
+        }
+    }
+}
+
 void HueGatewayModule::publishHclChannelLockStatus(uint8_t channelIndex)
 {
     if (channelIndex >= MAX_LIGHTS)
@@ -5948,9 +4749,13 @@ void HueGatewayModule::publishHclChannelLockStatus(uint8_t channelIndex)
     }
 
     const bool active = _hclChannelLockActive[channelIndex];
+    (void)active;
 
     #ifdef HUE_KoCHHCLLockStatus
-    knx.getGroupObject(HUE_KoCHHCLLockStatus).value(active, Dpt(1, 1));
+    // HUE_KoCHHCLLockStatus is the channel-relative index; KoHUE_CHHCLLockStatus
+    // expands to _channelIndex, which does not exist in module scope.
+    const uint16_t koNumber = HUE_KoBlockOffset + channelIndex * HUE_KoBlockSize + HUE_KoCHHCLLockStatus;
+    knx.getGroupObject(koNumber).value(active, Dpt(1, 1));
     #endif
 }
 
@@ -6111,7 +4916,7 @@ void HueGatewayModule::setHclChannelLock(uint8_t channelIndex, bool active, cons
         _hclChannelLockActivationDayOfYear[channelIndex] = -1;
         _hclChannelLockActivationMinuteOfDay[channelIndex] = -1;
 
-        const HclLockFallbackPolicy fallbackPolicy = static_cast<HclLockFallbackPolicy>(_hclFallbackPolicy);
+        const HclLockFallbackPolicy fallbackPolicy = static_cast<HclLockFallbackPolicy>(_hclChannelFallbackPolicy[channelIndex]);
 
         if (fallbackPolicy == HclLockFallbackPolicy::Legacy)
         {
@@ -6124,9 +4929,9 @@ void HueGatewayModule::setHclChannelLock(uint8_t channelIndex, bool active, cons
         }
         else if (fallbackPolicy == HclLockFallbackPolicy::Duration || fallbackPolicy == HclLockFallbackPolicy::DurationOrTime)
         {
-            if (_hclFallbackDurationMs > 0)
+            if (_hclChannelFallbackDurationMs[channelIndex] > 0)
             {
-                _hclChannelLockAutoReleaseMs[channelIndex] = _hclChannelLockActivatedMs[channelIndex] + _hclFallbackDurationMs;
+                _hclChannelLockAutoReleaseMs[channelIndex] = _hclChannelLockActivatedMs[channelIndex] + _hclChannelFallbackDurationMs[channelIndex];
             }
         }
 
@@ -6160,7 +4965,12 @@ void HueGatewayModule::setHclChannelLock(uint8_t channelIndex, bool active, cons
         }
     }
 
-    publishHclChannelLockStatus(channelIndex);
+    // Repeated manual adjustments re-arm the fallback timer above, but must not
+    // put a redundant status telegram on the bus each time.
+    if (changed)
+    {
+        publishHclChannelLockStatus(channelIndex);
+    }
 }
 
 void HueGatewayModule::evaluateHclLockFallback(const tm* timeinfo, bool hasTime)
@@ -6275,14 +5085,14 @@ void HueGatewayModule::evaluateHclManagerLockFallback(const tm* timeinfo, bool h
 
 void HueGatewayModule::evaluateHclChannelLockFallback(const tm* timeinfo, bool hasTime)
 {
-    const HclLockFallbackPolicy fallbackPolicy = static_cast<HclLockFallbackPolicy>(_hclFallbackPolicy);
-
     for (uint8_t channelIndex = 0; channelIndex < MAX_LIGHTS; channelIndex++)
     {
         if (!_hclChannelLockActive[channelIndex])
         {
             continue;
         }
+
+        const HclLockFallbackPolicy fallbackPolicy = static_cast<HclLockFallbackPolicy>(_hclChannelFallbackPolicy[channelIndex]);
 
         if (fallbackPolicy == HclLockFallbackPolicy::ExternalOnly)
         {
@@ -6294,7 +5104,7 @@ void HueGatewayModule::evaluateHclChannelLockFallback(const tm* timeinfo, bool h
             const bool releaseByDuration = (_hclChannelLockAutoReleaseMs[channelIndex] != 0)
                 && (static_cast<long>(millis() - _hclChannelLockAutoReleaseMs[channelIndex]) >= 0);
             const bool releaseByTime = (fallbackPolicy == HclLockFallbackPolicy::TimeOfDay || fallbackPolicy == HclLockFallbackPolicy::DurationOrTime)
-                && shouldReleaseByPolicyTime(_hclChannelLockActivationDayOfYear[channelIndex], _hclChannelLockActivationMinuteOfDay[channelIndex], _hclFallbackReleaseMinuteOfDay, timeinfo, hasTime);
+                && shouldReleaseByPolicyTime(_hclChannelLockActivationDayOfYear[channelIndex], _hclChannelLockActivationMinuteOfDay[channelIndex], _hclChannelFallbackReleaseMinuteOfDay[channelIndex], timeinfo, hasTime);
 
             if (releaseByDuration || releaseByTime)
             {
@@ -6332,26 +5142,21 @@ void HueGatewayModule::evaluateHclChannelLockFallback(const tm* timeinfo, bool h
 
 void HueGatewayModule::publishHclMasterValues()
 {
-    #ifdef ParamHUE_HUEHCLEnable
-    if (ParamHUE_HUEHCLEnable == 0)
+    if (!HCL::masterManager.isEnabled())
     {
         return;
     }
-    #endif
 
-    uint8_t masterCount = 4;
-    #ifdef ParamHUE_HUEHCLMasterCount
-    masterCount = ParamHUE_HUEHCLMasterCount;
+    uint8_t masterCount = HCL::masterManager.getMasterCount();
     if (masterCount > 4)
     {
         masterCount = 4;
     }
-    #endif
 
     for (uint8_t masterNumber = 1; masterNumber <= masterCount; masterNumber++)
     {
         HCL::Master* master = HCL::masterManager.getMaster(masterNumber);
-        if (!master || !master->isValid())
+        if (!master)
         {
             continue;
         }
@@ -6362,7 +5167,7 @@ void HueGatewayModule::publishHclMasterValues()
         const uint8_t index = static_cast<uint8_t>(masterNumber - 1);
 
         const unsigned long nowMs = millis();
-        const unsigned long updateIntervalMs = static_cast<unsigned long>(HCL::masterManager.getUpdateInterval()) * 1000UL;
+        const unsigned long updateIntervalMs = static_cast<unsigned long>(openknxLightManagerModule.channelUpdateIntervalSec(masterNumber)) * 1000UL;
         const bool intervalElapsed = (_hclLastPublishMs[index] == 0) || ((nowMs - _hclLastPublishMs[index]) >= updateIntervalMs);
 
         if (_hclMasterValuesPublished[index] &&
@@ -6809,9 +5614,22 @@ void HueGatewayModule::applyEventStreamUpdates(const HueGatewayEventLightUpdate*
                           static_cast<unsigned>(red),
                           static_cast<unsigned>(green),
                           static_cast<unsigned>(blue));
+            {
+                uint16_t briPct = (uint16_t)((brightness * 100u + 127u) / 254u);
+                if (briPct > 100) briPct = 100;
+                logInfo("HUE", "K%d %s: %s %u%%",
+                        i + 1,
+                        light->getName().c_str(),
+                        on ? "EIN" : "AUS",
+                        static_cast<unsigned>(briPct));
+            }
 
             _channelFastTrackRemaining[i] = 0;
             _channelFastTrackNextMs[i] = 0;
+
+#ifdef OPENKNX_WEBSERVER
+            markChannelDirty(i);
+#endif
 
             applied = true;
             break;
@@ -6858,13 +5676,26 @@ void HueGatewayModule::applyEventStreamUpdates(const HueGatewayEventLightUpdate*
         }
 
         uint32_t nowMs = millis();
-        if ((nowMs - lastIgnoredSummaryMs) >= 30000 || nowMs < lastIgnoredSummaryMs)
+        if ((nowMs - lastIgnoredSummaryMs) >= 5000 || nowMs < lastIgnoredSummaryMs)
         {
             Serial.printf("[HueGatewayModule] EventStream ignored unmapped updates: light=%lu grouped=%lu sample(light=%s grouped=%s)\n",
                           static_cast<unsigned long>(pendingIgnoredLightEvents),
                           static_cast<unsigned long>(pendingIgnoredGroupedEvents),
                           pendingIgnoredLightSampleId.length() > 0 ? pendingIgnoredLightSampleId.c_str() : "-",
                           pendingIgnoredGroupedSampleId.length() > 0 ? pendingIgnoredGroupedSampleId.c_str() : "-");
+            {
+                const char* _sampleId = pendingIgnoredLightSampleId.length() > 0 ? pendingIgnoredLightSampleId.c_str() : pendingIgnoredGroupedSampleId.c_str();
+                logInfo("HUE", "EVT unkonfig: L%lu G%lu eingehend=%.8s",
+                        static_cast<unsigned long>(pendingIgnoredLightEvents),
+                        static_cast<unsigned long>(pendingIgnoredGroupedEvents),
+                        _sampleId);
+                for (int _ci = 0; _ci < MAX_LIGHTS; _ci++)
+                {
+                    HueGatewayLight* _cl = lightAt(_ci);
+                    if (_cl != nullptr)
+                        logInfo("HUE", "  K%d %s ID=%.8s %s", _ci + 1, _cl->getName().c_str(), _cl->getLightId().c_str(), _cl->isGroupedTarget() ? "[Grp]" : "[Lmp]");
+                }
+            }
 
             pendingIgnoredLightEvents = 0;
             pendingIgnoredGroupedEvents = 0;
@@ -7099,38 +5930,45 @@ void HueGatewayModule::updateInfoLED()
 }
 
 // ============================================
-// WebUI Implementation
+// WebUI Implementation (OFM-Network Webserver)
 // ============================================
 
-static esp_err_t send_html(httpd_req_t* req, const String& html, int status)
+#ifdef OPENKNX_WEBSERVER
+
+using OpenKNX::Network::WebRequest;
+using OpenKNX::Network::WebResponse;
+
+static void send_html(WebResponse& res, const String& html, int status = 200)
 {
-    httpd_resp_set_type(req, "text/html; charset=UTF-8");
-    httpd_resp_set_status(req, status == 200 ? "200 OK" : "500 Internal Server Error");
-    return httpd_resp_send(req, html.c_str(), HTTPD_RESP_USE_STRLEN);
+    res.setStatus(status);
+    res.setContentType("text/html; charset=UTF-8");
+    res.send(html.c_str());
 }
 
-static esp_err_t send_text(httpd_req_t* req, const String& text, int status)
+static void send_text(WebResponse& res, const String& text, int status = 200)
 {
-    httpd_resp_set_type(req, "text/plain; charset=UTF-8");
-    httpd_resp_set_status(req, status == 200 ? "200 OK" : "500 Internal Server Error");
-    return httpd_resp_send(req, text.c_str(), HTTPD_RESP_USE_STRLEN);
+    res.setStatus(status);
+    res.setContentType("text/plain; charset=UTF-8");
+    res.send(text.c_str());
 }
 
-static esp_err_t begin_chunked_html(httpd_req_t* req)
+// KNX stores text parameters as ISO-8859-1; convert to UTF-8 for HTML output
+static String latin1ToUtf8(const std::string& s)
 {
-    httpd_resp_set_type(req, "text/html; charset=UTF-8");
-    httpd_resp_set_status(req, "200 OK");
-    return ESP_OK;
-}
-
-static esp_err_t send_html_chunk(httpd_req_t* req, const String& chunk)
-{
-    return httpd_resp_send_chunk(req, chunk.c_str(), chunk.length());
-}
-
-static esp_err_t end_html_chunks(httpd_req_t* req)
-{
-    return httpd_resp_send_chunk(req, nullptr, 0);
+    String out;
+    out.reserve(s.length() * 2);
+    for (size_t i = 0; i < s.length(); i++)
+    {
+        const uint8_t c = (uint8_t)s[i];
+        if (c < 0x80)
+            out += (char)c;
+        else
+        {
+            out += (char)(0xC0 | (c >> 6));
+            out += (char)(0x80 | (c & 0x3F));
+        }
+    }
+    return out;
 }
 
 static String escape_html(const String& input)
@@ -7209,346 +6047,306 @@ static String urlEncode(const String& input)
     return encoded;
 }
 
-static void readDiagnoseQuery(httpd_req_t* req, size_t& depth, String& note, bool& viewMode, bool& includeNetworkDetails)
+static void readDiagnoseQuery(WebRequest& req, size_t& depth, String& note, bool& viewMode, bool& includeNetworkDetails)
 {
     depth = kDiagDefaultDepth;
     note = "";
     viewMode = false;
     includeNetworkDetails = false;
 
-    if (req == nullptr)
+    String depthValue = req.getQueryParam("depth").c_str();
+    if (depthValue.length() > 0)
     {
-        return;
+        depth = parseDiagnosticDepth(depthValue);
     }
 
-    char query[640] = {0};
-    if (httpd_req_get_url_query_str(req, query, sizeof(query)) != ESP_OK)
+    String noteValue = req.getQueryParam("note").c_str();
+    if (noteValue.length() > 0)
     {
-        return;
+        note = noteValue;
     }
 
-    char depthValue[16] = {0};
-    if (httpd_query_key_value(query, "depth", depthValue, sizeof(depthValue)) == ESP_OK)
+    String viewValue = req.getQueryParam("view").c_str();
+    if (viewValue.length() > 0)
     {
-        depth = parseDiagnosticDepth(String(depthValue));
+        viewMode = (viewValue == "1");
     }
 
-    char noteValue[384] = {0};
-    if (httpd_query_key_value(query, "note", noteValue, sizeof(noteValue)) == ESP_OK)
+    String netValue = req.getQueryParam("net").c_str();
+    if (netValue.length() > 0)
     {
-        note = String(noteValue);
-    }
-
-    char viewValue[8] = {0};
-    if (httpd_query_key_value(query, "view", viewValue, sizeof(viewValue)) == ESP_OK)
-    {
-        viewMode = (strcmp(viewValue, "1") == 0);
-    }
-
-    char netValue[8] = {0};
-    if (httpd_query_key_value(query, "net", netValue, sizeof(netValue)) == ESP_OK)
-    {
-        includeNetworkDetails = (strcmp(netValue, "1") == 0);
+        includeNetworkDetails = (netValue == "1");
     }
 }
+
+static const char hueLiveCss[] =
+    "#live-status{padding:.4em 0 .8em;color:#666;font-size:.88em}"
+    "#live-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1em}"
+    ".lc{background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:1em;"
+        "transition:opacity .2s;box-shadow:0 1px 4px rgba(0,0,0,.06)}"
+    ".lc.off{opacity:.55}"
+    ".lc h3{display:flex;align-items:center;gap:.4em;font-size:.95em;font-weight:600;"
+        "margin-bottom:.6em;flex-wrap:wrap}"
+    ".ch{background:#449841;color:#fff;border-radius:3px;padding:1px 6px;"
+        "font-size:.78em;white-space:nowrap}"
+    ".rch{display:inline-block;width:9px;height:9px;border-radius:50%;"
+        "flex-shrink:0;margin-left:auto}"
+    ".rch.ok{background:#449841}.rch.no{background:#aaa}"
+    ".row{display:flex;justify-content:space-between;align-items:center;"
+        "padding:3px 0;border-bottom:1px solid #f4f4f4;font-size:.86em;gap:.5em}"
+    ".row span:first-child{color:#888;white-space:nowrap}"
+    ".sw.on{color:#449841;font-weight:600}.sw.off{color:#aaa}"
+    ".col{display:inline-block;width:14px;height:9px;border:1px solid #ccc;"
+        "border-radius:2px;vertical-align:middle;margin-right:3px}"
+    ".hcl{font-size:.78em;color:#449841;background:#f0f8f0;border-radius:3px;"
+        "padding:2px 7px;margin-top:.5em;display:inline-block}"
+    ".lc .meta{color:#888;font-size:.78em;margin-top:.5em;margin-bottom:0;"
+        "border-top:1px solid #f4f4f4;padding-top:.4em}";
 
 void HueGatewayModule::setupWebUI()
 {
-    WebHandler scanTextHandler;
-    scanTextHandler.name = "Hue Geräte (Text)";
-    scanTextHandler.uri = "/hue/scan.txt";
-    scanTextHandler.isVisible = false;
-    scanTextHandler.httpd = {
-        .uri = "/hue/scan.txt",
-        .method = HTTP_GET,
-        .handler = HueGatewayModule::handleWebScanText,
-        .user_ctx = this
-    };
-    openknxWebUI.addHandler(scanTextHandler);
+    using namespace OpenKNX::Network;
 
-    WebHandler diagnoseTextHandler;
-    diagnoseTextHandler.name = "Hue Diagnose (Text)";
-    diagnoseTextHandler.uri = "/hue/diagnose.txt";
-    diagnoseTextHandler.isVisible = false;
-    diagnoseTextHandler.httpd = {
-        .uri = "/hue/diagnose.txt",
-        .method = HTTP_GET,
-        .handler = HueGatewayModule::handleWebDiagnoseText,
-        .user_ctx = this
-    };
-    openknxWebUI.addHandler(diagnoseTextHandler);
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue", [this](WebRequest& req, WebResponse& res) { handleWebRoot(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/scan", [this](WebRequest& req, WebResponse& res) { handleWebScan(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/scan.txt", [this](WebRequest& req, WebResponse& res) { handleWebScanText(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/status", [this](WebRequest& req, WebResponse& res) { handleWebStatus(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/pair", [this](WebRequest& req, WebResponse& res) { handleWebPair(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/reset-auth", [this](WebRequest& req, WebResponse& res) { handleWebResetAuth(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/diagnose", [this](WebRequest& req, WebResponse& res) { handleWebDiagnose(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/diagnose.txt", [this](WebRequest& req, WebResponse& res) { handleWebDiagnoseText(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/retry-setup", [this](WebRequest& req, WebResponse& res) { handleWebRetrySetup(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/fadetest", [this](WebRequest& req, WebResponse& res) { handleWebFadeTest(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/live", [this](WebRequest& req, WebResponse& res) { handleWebLive(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/assets/huelive.css",
+        OpenKNX::Network::Webserver::Static("text/css", hueLiveCss));
+    openknxNetwork.webserver.addStylesheet("/assets/huelive.css");
 
-    WebPage scanPage;
-    scanPage.uri = "/hue/scan";
-    scanPage.name = "Hue Geräte";
-    scanPage.handler = HueGatewayModule::pageWebScan;
-    scanPage.arg = this;
-    openknxWebUI.addPage(scanPage);
+    openknxNetwork.webserver.addMenuItem("Hue Gateway", "/hue", 30);
+    openknxNetwork.webserver.addMenuItem("Hue Live", "/hue/live", 31);
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/lichtmanager", [this](WebRequest& req, WebResponse& res) { handleWebLichtmanager(req, res); });
+    openknxNetwork.webserver.addMenuItem("Lichtmanager", "/hue/lichtmanager", 32);
 
-    WebPage statusPage;
-    statusPage.uri = "/hue/status";
-    statusPage.name = "Hue-Status";
-    statusPage.handler = HueGatewayModule::pageWebStatus;
-    statusPage.arg = this;
-    openknxWebUI.addPage(statusPage);
+    openknxNetwork.webserver.addSocket("/ws/hue",
+        [this](int id, WebSocketFrame* f) { handleLiveWsMessage(id, f); },
+        [this](int id, bool c) { handleLiveWsConnect(id, c); });
 
-    WebPage pairPage;
-    pairPage.uri = "/hue/pair";
-    pairPage.name = "Hue-Kopplung";
-    pairPage.handler = HueGatewayModule::pageWebPair;
-    pairPage.arg = this;
-    openknxWebUI.addPage(pairPage);
-
-    WebPage resetAuthPage;
-    resetAuthPage.uri = "/hue/reset-auth";
-    resetAuthPage.name = "Hue-Auth zurücksetzen";
-    resetAuthPage.handler = HueGatewayModule::pageWebResetAuth;
-    resetAuthPage.arg = this;
-    openknxWebUI.addPage(resetAuthPage);
-
-    WebPage diagnosePage;
-    diagnosePage.uri = "/hue/diagnose";
-    diagnosePage.name = "Hue-Diagnose";
-    diagnosePage.handler = HueGatewayModule::pageWebDiagnose;
-    diagnosePage.arg = this;
-    openknxWebUI.addPage(diagnosePage);
-
-    WebPage retrySetupPage;
-    retrySetupPage.uri = "/hue/retry-setup";
-    retrySetupPage.name = "Setup-Retry";
-    retrySetupPage.handler = HueGatewayModule::pageWebRetrySetup;
-    retrySetupPage.arg = this;
-    openknxWebUI.addPage(retrySetupPage);
-
-    WebPage rootPage;
-    rootPage.uri = "/hue";
-    rootPage.name = "Hue Gateway";
-    rootPage.handler = HueGatewayModule::pageWebRoot;
-    rootPage.arg = this;
-    openknxWebUI.addPage(rootPage);
-
-    Serial.printf("[HueGatewayModule] WebUI pages registered at %s\n", openknxWebUI.getBaseUri());
+    Serial.println("[HueGatewayModule] WebUI pages registered at /hue");
 }
 
-esp_err_t HueGatewayModule::handleWebRoot(httpd_req_t* req)
+void HueGatewayModule::handleWebRoot(WebRequest& req, WebResponse& res)
 {
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(req->user_ctx);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
+    (void)req;
+    const char* hueBaseUri = "/hue";
 
-    const String hueBaseUri = String(openknxWebUI.getBaseUri()) + "/hue";
-
-    String html;
-    html.reserve(1536);
-    html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-    html += "<title>Open KNX Hue Gateway</title>";
-    html += "<style>body{font-family:Arial,sans-serif;margin:40px;background:#f5f5f5;}";
-    html += "h1{color:#333;}.card{background:white;padding:20px;margin:10px 0;border-radius:5px;box-shadow:0 2px 5px rgba(0,0,0,0.1);}";
-    html += "a{display:inline-block;padding:10px 20px;margin:5px;background:#007bff;color:white;text-decoration:none;border-radius:3px;}";
-    html += "a:hover{background:#0056b3;}</style></head><body>";
-    html += "<h1>🏠 Open KNX Hue Gateway</h1>";
-    html += "<div class='card'><h2>Funktionen</h2>";
-    html += "<a href='" + hueBaseUri + "/pair'>🔗 Pairing starten</a>";
-    html += "<a href='" + hueBaseUri + "/reset-auth'>🗑️ Auth zurücksetzen</a>";
-    html += "<a href='" + hueBaseUri + "/scan'>🔍 Hue-Geräte laden</a>";
-    html += "<a href='" + hueBaseUri + "/status'>📊 Status</a>";
-    html += "<a href='" + hueBaseUri + "/diagnose'>🧰 Diagnose</a>";
-    html += "<a href='" + hueBaseUri + "/retry-setup'>🔄 Setup-Retry</a>";
-    html += "</div>";
-    html += "<div class='card'><h3>Info</h3>";
-    html += "<p><strong>Geräte-IP:</strong> " + getRequestLocalIpString(req) + "</p>";
-    html += "<p><strong>Modulversion:</strong> " + String(self->version().c_str()) + "</p>";
-    if (self->_bridgeStatus == BridgeStatus::WAIT_FOR_BUTTON)
+    String authState;
+    const char* authClass;
+    if (_bridgeStatus == BridgeStatus::WAIT_FOR_BUTTON)
     {
-        html += "<p><strong>Auth:</strong> Warte auf Tastendruck an der Hue Bridge</p>";
+        authState = "Warte auf Tastendruck an der Hue Bridge";
+        authClass = "yellow";
     }
-    else if (self->_bridgeStatus == BridgeStatus::CONNECTED)
+    else if (_bridgeStatus == BridgeStatus::CONNECTED)
     {
-        html += "<p><strong>Auth:</strong> Verbunden</p>";
+        authState = "Verbunden";
+        authClass = "green";
     }
     else
     {
-        html += "<p><strong>Auth:</strong> Nicht verbunden</p>";
+        authState = "Nicht verbunden";
+        authClass = "red";
     }
-    html += "<p><strong>App-Key:</strong> " + maskKey(self->_auth.getAppKey()) + "</p>";
-    html += "<p><strong>Client-Key:</strong> " + maskKey(self->_auth.getClientKey()) + "</p>";
-    html += "</div></body></html>";
 
-    return send_html(req, html, 200);
+    String html;
+    html.reserve(2048);
+    html = "<div class='container'>";
+    html += "<h1>Hue Gateway</h1>";
+
+    html += "<h2>Status</h2><table class='attribute-table'><tbody>";
+    html += "<tr><td>Auth</td><td><span class='";
+    html += authClass;
+    html += "'>";
+    html += authState;
+    html += "</span></td></tr>";
+    html += "<tr><td>Geräte-IP</td><td>" + getDeviceIpString() + "</td></tr>";
+    html += "<tr><td>Modulversion</td><td>" + String(version().c_str()) + "</td></tr>";
+    html += "<tr><td>App-Key</td><td>" + maskKey(_auth.getAppKey()) + "</td></tr>";
+    html += "<tr><td>Client-Key</td><td>" + maskKey(_auth.getClientKey()) + "</td></tr>";
+    html += "</tbody></table>";
+
+    html += "<h2>Aktionen</h2><table class='attribute-table'><tbody>";
+    html += String("<tr><td><a href='") + hueBaseUri + "/pair'>Pairing starten</a></td><td>Verbindung zur Hue Bridge herstellen (Bridge-Taste drücken)</td></tr>";
+    html += String("<tr><td><a href='") + hueBaseUri + "/scan'>Hue-Geräte laden</a></td><td>Lichter, Sensoren und Steckdosen von der Bridge abfragen</td></tr>";
+    html += String("<tr><td><a href='") + hueBaseUri + "/status'>Status</a></td><td>Detaillierte Kanal- und Geräteinformationen</td></tr>";
+    html += String("<tr><td><a href='") + hueBaseUri + "/diagnose'>Diagnose</a></td><td>Erweiterte Laufzeitwerte und Fehlerzähler</td></tr>";
+    html += String("<tr><td><a href='") + hueBaseUri + "/retry-setup'>Setup-Retry</a></td><td>Geräte-Zuordnung im nächsten Loop neu durchführen</td></tr>";
+    html += String("<tr><td><a href='") + hueBaseUri + "/reset-auth'>Auth zurücksetzen</a></td><td>Bridge-Anmeldedaten löschen &mdash; neues Pairing erforderlich</td></tr>";
+    html += "</tbody></table>";
+
+    html += "</div>";
+
+    res.setLayout(true);
+    res.setActiveMenu("/hue");
+    send_html(res, html, 200);
 }
 
-esp_err_t HueGatewayModule::handleWebScan(httpd_req_t* req)
+void HueGatewayModule::handleWebScan(WebRequest& req, WebResponse& res)
 {
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(req->user_ctx);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
+    (void)req;
+    const char* hueBaseUri = "/hue";
 
-    if (!self->_client || !self->_initialized || !self->_client->isInitialized())
+    if (!_client || !_initialized || !_client->isInitialized())
     {
-        const String hueBaseUri = String(openknxWebUI.getBaseUri()) + "/hue";
-
         String html;
         html.reserve(384);
-        html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Hue-Geräte laden</title></head><body>";
-        html += "<h1>ℹ️ Hue-Geräte laden</h1><p>Noch keine aktive Bridge-Verbindung. Bitte zuerst Pairing starten und den Hue-Bridge-Button drücken.</p>";
-        html += "<a href='" + hueBaseUri + "/pair'>🔗 Pairing starten</a> ";
-        html += "<a href='" + hueBaseUri + "'>← Zurück</a></body></html>";
-        return send_html(req, html, 200);
+        html = "<div class='container'>";
+        html += "<h1>Hue-Geräte laden</h1>";
+        html += "<p>Noch keine aktive Bridge-Verbindung. Bitte zuerst Pairing starten und den Hue-Bridge-Button drücken.</p>";
+        html += "<p>";
+        html += String("<a href='") + hueBaseUri + "/pair'>Pairing starten</a>&nbsp;&nbsp;";
+        html += String("<a href='") + hueBaseUri + "'>← Zurück</a>";
+        html += "</p>";
+        html += "</div>";
+        res.setLayout(true);
+        res.setActiveMenu("/hue");
+        send_html(res, html, 200);
+        return;
     }
 
-    if (self->_webScanInProgress)
+    if (_webScanInProgress)
     {
-        const String hueBaseUri = String(openknxWebUI.getBaseUri()) + "/hue";
-        const unsigned long elapsedMs = (self->_webScanStartedMs == 0) ? 0 : (millis() - self->_webScanStartedMs);
+        const unsigned long elapsedMs = (_webScanStartedMs == 0) ? 0 : (millis() - _webScanStartedMs);
 
         if (elapsedMs > kWebScanTimeoutMs)
         {
-            self->_webScanInProgress = false;
-            self->_webScanRequested = false;
-            self->_diagCounterWebScanTimeouts++;
-            self->_lastWebScanDurationMs = elapsedMs;
-            self->_lastWebScanError = "Web-Scan Timeout nach " + String(elapsedMs / 1000UL) + " Sekunden";
-            self->appendDiagnosticLog("WARN", "WEBSCAN", String("timeout after ") + String(elapsedMs) + " ms");
+            _webScanInProgress = false;
+            _webScanRequested = false;
+            _diagCounterWebScanTimeouts++;
+            _lastWebScanDurationMs = elapsedMs;
+            _lastWebScanError = "Web-Scan Timeout nach " + String(elapsedMs / 1000UL) + " Sekunden";
+            appendDiagnosticLog("WARN", "WEBSCAN", String("timeout after ") + String(elapsedMs) + " ms");
 
             String html;
             html.reserve(1024);
-            html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Hue-Geräte laden</title></head><body>";
-            html += "<h1>⚠️ Hue-Scan dauert zu lange</h1>";
+            html = "<div class='container'>";
+            html += "<h1>Hue-Scan dauert zu lange</h1>";
             html += "<p>Der Scan läuft seit " + String(elapsedMs / 1000UL) + " Sekunden. Das überschreitet den Timeout.</p>";
             html += "<p>Bitte Tester-Feedback inkl. Seriellog senden: JSON parse error, Content-Length, HTTP GET failed.</p>";
-            html += "<a href='" + hueBaseUri + "/scan'><button>Erneut versuchen</button></a> ";
-            html += "<a href='" + hueBaseUri + "/scan.txt'><button>TXT Status</button></a> ";
-            html += "<a href='" + hueBaseUri + "'><button>← Zurück</button></a></body></html>";
-            self->_lastWebScanHtml = html;
-            self->_lastWebScanText = "Scan-Timeout nach " + String(elapsedMs / 1000UL) + " Sekunden. Bitte Seriellog mit JSON parse error / Content-Length / HTTP GET failed senden.\n";
-            self->_lastWebScanLightCount = 0;
-            return send_html(req, html, 200);
+            html += String("<a href='") + hueBaseUri + "/scan'><button>Erneut versuchen</button></a> ";
+            html += String("<a href='") + hueBaseUri + "/scan.txt'><button>TXT Status</button></a> ";
+            html += String("<a href='") + hueBaseUri + "'><button>← Zurück</button></a>";
+            html += "</div>";
+            res.setLayout(true);
+            res.setActiveMenu("/hue");
+            _lastWebScanHtml = html;
+            _lastWebScanText = "Scan-Timeout nach " + String(elapsedMs / 1000UL) + " Sekunden. Bitte Seriellog mit JSON parse error / Content-Length / HTTP GET failed senden.\n";
+            _lastWebScanLightCount = 0;
+            send_html(res, html, 200);
+            return;
         }
 
         String html;
         html.reserve(384);
-        html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><meta http-equiv='refresh' content='2'><title>Hue-Geräte laden</title></head><body>";
-        html += "<h1>🔄 Hue-Geräte laden</h1><p>Scan läuft... Seite aktualisiert sich automatisch.</p>";
+        html = "<div class='container'>";
+        html += "<meta http-equiv='refresh' content='2'>";
+        html += "<h1>Hue-Geräte laden</h1><p>Scan läuft... Seite aktualisiert sich automatisch.</p>";
         if (elapsedMs > 0)
         {
             html += "<p>Laufzeit: " + String(elapsedMs / 1000UL) + " Sekunden</p>";
         }
-        html += "<a href='" + hueBaseUri + "'>← Zurück</a></body></html>";
-        return send_html(req, html, 200);
+        html += String("<a href='") + hueBaseUri + "'>← Zurück</a>";
+        html += "</div>";
+        res.setLayout(true);
+        res.setActiveMenu("/hue");
+        send_html(res, html, 200);
+        return;
     }
 
-    const bool noScanYet = (self->_lastWebScanMs == 0);
-    const bool stale = (!noScanYet) && ((millis() - self->_lastWebScanMs) > kWebScanCacheStaleMs);
+    const bool noScanYet = (_lastWebScanMs == 0);
+    const bool stale = (!noScanYet) && ((millis() - _lastWebScanMs) > kWebScanCacheStaleMs);
     if (noScanYet || stale)
     {
-        self->_webScanRequested = true;
-        const String hueBaseUri = String(openknxWebUI.getBaseUri()) + "/hue";
+        _webScanRequested = true;
         String html;
         html.reserve(480);
-        html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><meta http-equiv='refresh' content='2'><title>Hue-Geräte laden</title></head><body>";
-        html += "<h1>🔄 Hue-Geräte laden</h1><p>Scan wurde gestartet... Seite aktualisiert sich automatisch.</p>";
-        html += "<a href='" + hueBaseUri + "'>← Zurück</a></body></html>";
-        return send_html(req, html, 200);
+        html = "<div class='container'>";
+        html += "<meta http-equiv='refresh' content='2'>";
+        html += "<h1>Hue-Geräte laden</h1><p>Scan wurde gestartet... Seite aktualisiert sich automatisch.</p>";
+        html += String("<a href='") + hueBaseUri + "'>← Zurück</a>";
+        html += "</div>";
+        res.setLayout(true);
+        res.setActiveMenu("/hue");
+        send_html(res, html, 200);
+        return;
     }
 
-    const String hueBaseUri = String(openknxWebUI.getBaseUri()) + "/hue";
+    String html;
+    html.reserve(2048);
+    html = "<div class='container'>";
+    html += "<h1>Hue-Geräte von Bridge</h1>";
 
-    if (begin_chunked_html(req) != ESP_OK)
+    if (_lastWebScanLightCount <= 0)
     {
-        return httpd_resp_send_500(req);
-    }
-
-    String chunk;
-    chunk.reserve(768);
-    chunk = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-    chunk += "<title>Hue-Geräte von Bridge</title>";
-    chunk += "<style>body{font-family:'Courier New',monospace;margin:40px;background:#1e1e1e;color:#d4d4d4;}";
-    chunk += "h1{color:#4ec9b0;}";
-    chunk += ".light{background:#252526;padding:15px;margin:10px 0;border-left:4px solid #007acc;border-radius:3px;}";
-    chunk += ".light-id{color:#ce9178;font-size:0.9em;word-break:break-all;}";
-    chunk += ".status{color:#b5cea8;}";
-    chunk += ".error{color:#f48771;background:#3c1f1e;padding:15px;border-left:4px solid #f48771;}";
-    chunk += "button{padding:8px 15px;margin:5px;background:#007acc;color:white;border:none;border-radius:3px;cursor:pointer;}";
-    chunk += "button:hover{background:#005a9e;}</style></head><body>";
-    chunk += "<h1>🔍 Hue-Geräte von Bridge</h1>";
-
-    if (send_html_chunk(req, chunk) != ESP_OK)
-    {
-        return httpd_resp_send_500(req);
-    }
-
-    chunk = "";
-    chunk.reserve(512);
-    if (self->_lastWebScanLightCount <= 0)
-    {
-        chunk += "<div class='error'>❌ Keine Leuchten gefunden! Bitte Bridge-Verbindung prüfen.</div>";
-        if (self->_lastWebScanError.length() > 0)
+        html += "<div class='error'>❌ Keine Leuchten gefunden! Bitte Bridge-Verbindung prüfen.</div>";
+        if (_lastWebScanError.length() > 0)
         {
-            chunk += "<div class='error'>Diagnose: " + self->_lastWebScanError + "</div>";
+            html += "<div class='error'>Diagnose: " + _lastWebScanError + "</div>";
         }
     }
     else
     {
         {
-            String summary = "Es wurden <strong>" + String(self->_lastWebScanLightCount) + "</strong> Leuchte" + String(self->_lastWebScanLightCount == 1 ? "" : "n");
-            if (self->_lastWebScanAccessoryCount > 0)
+            String summary = "Es wurden <strong>" + String(_lastWebScanLightCount) + "</strong> Leuchte" + String(_lastWebScanLightCount == 1 ? "" : "n");
+            if (_lastWebScanAccessoryCount > 0)
             {
-                summary += " und <strong>" + String(self->_lastWebScanAccessoryCount) + "</strong> Schalter/Sensor" + String(self->_lastWebScanAccessoryCount == 1 ? "" : "en");
+                summary += " und <strong>" + String(_lastWebScanAccessoryCount) + "</strong> Schalter/Sensor" + String(_lastWebScanAccessoryCount == 1 ? "" : "en");
             }
             summary += " gefunden:";
-            chunk += "<p>" + summary + "</p>";
+            html += "<p>" + summary + "</p>";
         }
-        if (self->_lastWebScanDurationMs > 0)
+        if (_lastWebScanDurationMs > 0)
         {
-            chunk += "<p>Scan-Dauer: " + String(self->_lastWebScanDurationMs / 1000UL) + " Sekunden</p>";
+            html += "<p>Scan-Dauer: " + String(_lastWebScanDurationMs / 1000UL) + " Sekunden</p>";
         }
-        chunk += "<p><strong>Details:</strong></p><pre style='white-space:pre-wrap;background:#252526;padding:12px;border-radius:3px;'>";
-        chunk += escape_html(self->_lastWebScanText);
-        chunk += "</pre>";
+        html += "<p><strong>Details:</strong></p><pre style='white-space:pre-wrap;'>";
+        html += escape_html(_lastWebScanText);
+        html += "</pre>";
     }
 
-    if (send_html_chunk(req, chunk) != ESP_OK)
-    {
-        return httpd_resp_send_500(req);
-    }
-
-    chunk = "<br><p><strong>Tipp:</strong> Die Leuchten-ID kopieren und in die ETS-Kanalparameter einfügen.</p>";
-    chunk += "<button onclick='location.reload()'>Aktualisieren</button>";
-    chunk += "<a href='" + hueBaseUri + "/scan.txt'><button>TXT herunterladen</button></a>";
-    chunk += "<a href='" + hueBaseUri + "'><button>Zurück</button></a>";
-    chunk += "</body></html>";
-
-    if (send_html_chunk(req, chunk) != ESP_OK)
-    {
-        return httpd_resp_send_500(req);
-    }
-
-    return end_html_chunks(req);
+    html += "<br><p><strong>Tipp:</strong> Die Leuchten-ID kopieren und in die ETS-Kanalparameter einfügen.</p>";
+    html += "<button onclick='location.reload()'>Aktualisieren</button>";
+    html += String("<a href='") + hueBaseUri + "/scan.txt'><button>TXT herunterladen</button></a>";
+    html += String("<a href='") + hueBaseUri + "'><button>Zurück</button></a>";
+    html += "</div>";
+    res.setLayout(true);
+    res.setActiveMenu("/hue");
+    send_html(res, html, 200);
 }
 
-esp_err_t HueGatewayModule::handleWebScanText(httpd_req_t* req)
+void HueGatewayModule::handleWebScanText(WebRequest& req, WebResponse& res)
 {
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(req->user_ctx);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
-
-    if (!self->_client || !self->_initialized || !self->_client->isInitialized())
-        return send_text(req, "Keine aktive Bridge-Verbindung. Bitte zuerst Pairing starten und den Hue-Bridge-Button druecken.\n", 200);
-
-    if (self->_webScanInProgress)
+    (void)req;
+    if (!_client || !_initialized || !_client->isInitialized())
     {
-        const unsigned long elapsedMs = (self->_webScanStartedMs == 0) ? 0 : (millis() - self->_webScanStartedMs);
+        send_text(res, "Keine aktive Bridge-Verbindung. Bitte zuerst Pairing starten und den Hue-Bridge-Button druecken.\n", 200);
+        return;
+    }
+
+    if (_webScanInProgress)
+    {
+        const unsigned long elapsedMs = (_webScanStartedMs == 0) ? 0 : (millis() - _webScanStartedMs);
         if (elapsedMs > kWebScanTimeoutMs)
         {
-            self->_webScanInProgress = false;
-            self->_webScanRequested = false;
-            self->_lastWebScanDurationMs = elapsedMs;
-            self->_lastWebScanError = "Web-Scan Timeout nach " + String(elapsedMs / 1000UL) + " Sekunden";
-            self->_lastWebScanText = "Scan-Timeout nach " + String(elapsedMs / 1000UL) + " Sekunden. Bitte Seriellog mit JSON parse error / Content-Length / HTTP GET failed senden.\n";
-            self->_lastWebScanLightCount = 0;
-            return send_text(req,
-                             "Scan-Timeout: Der Hue-Scan dauert zu lange. Bitte Seriellog mit JSON parse error / Content-Length / HTTP GET failed senden und Scan erneut starten.\n",
-                             200);
+            _webScanInProgress = false;
+            _webScanRequested = false;
+            _lastWebScanDurationMs = elapsedMs;
+            _lastWebScanError = "Web-Scan Timeout nach " + String(elapsedMs / 1000UL) + " Sekunden";
+            _lastWebScanText = "Scan-Timeout nach " + String(elapsedMs / 1000UL) + " Sekunden. Bitte Seriellog mit JSON parse error / Content-Length / HTTP GET failed senden.\n";
+            _lastWebScanLightCount = 0;
+            send_text(res,
+                      "Scan-Timeout: Der Hue-Scan dauert zu lange. Bitte Seriellog mit JSON parse error / Content-Length / HTTP GET failed senden und Scan erneut starten.\n",
+                      200);
+            return;
         }
 
         String text = "Scan läuft, bitte in 2-3 Sekunden erneut abrufen.";
@@ -7557,377 +6355,227 @@ esp_err_t HueGatewayModule::handleWebScanText(httpd_req_t* req)
             text += " Laufzeit=" + String(elapsedMs / 1000UL) + "s.";
         }
         text += "\n";
-        return send_text(req, text, 200);
+        send_text(res, text, 200);
+        return;
     }
 
-    const bool noScanYet = (self->_lastWebScanMs == 0);
-    const bool stale = (!noScanYet) && ((millis() - self->_lastWebScanMs) > kWebScanCacheStaleMs);
+    const bool noScanYet = (_lastWebScanMs == 0);
+    const bool stale = (!noScanYet) && ((millis() - _lastWebScanMs) > kWebScanCacheStaleMs);
     if (noScanYet || stale)
     {
-        self->_webScanRequested = true;
-        return send_text(req, "Scan gestartet, bitte in 2-3 Sekunden erneut abrufen.\n", 200);
+        _webScanRequested = true;
+        send_text(res, "Scan gestartet, bitte in 2-3 Sekunden erneut abrufen.\n", 200);
+        return;
     }
 
-    String text = self->getBridgeScanText();
-    return send_text(req, text, 200);
+    String text = getBridgeScanText();
+    send_text(res, text, 200);
 }
 
-esp_err_t HueGatewayModule::handleWebStatus(httpd_req_t* req)
+void HueGatewayModule::handleWebStatus(WebRequest& req, WebResponse& res)
 {
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(req->user_ctx);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
+    (void)req;
+    const char* hueBaseUri = "/hue";
 
-    const String hueBaseUri = String(openknxWebUI.getBaseUri()) + "/hue";
+    const unsigned long now = millis();
+    auto elapsedText = [&](unsigned long lastMs) -> String
+    {
+        if (lastMs == 0) return "n/a";
+        const unsigned long diff = now - lastMs;
+        if (diff < 60000UL)   return "vor " + String(diff / 1000) + " s";
+        if (diff < 3600000UL) return "vor " + String(diff / 60000) + " min";
+        return "vor " + String(diff / 3600000) + " h";
+    };
 
     String html;
-    html.reserve(8192);
-    html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-    html += "<title>Hue-Status</title>";
-    html += "<style>body{font-family:Arial,sans-serif;margin:40px;background:#f5f5f5;}";
-    html += "table{width:100%;border-collapse:collapse;background:white;border-radius:5px;overflow:hidden;}";
-    html += "th,td{padding:12px;text-align:left;border-bottom:1px solid #ddd;}";
-    html += "th{background:#007bff;color:white;}</style></head><body>";
-    html += "<h1>📊 Modulstatus</h1>";
-    html += "<table><tr><th>Parameter</th><th>Wert</th></tr>";
-    html += "<tr><td>Initialisiert</td><td>" + String(self->_initialized ? "✅ Ja" : "❌ Nein") + "</td></tr>";
-    html += "<tr><td>Geräte-IP</td><td>" + getRequestLocalIpString(req) + "</td></tr>";
-    html += "<tr><td>Aktive Leuchten</td><td>" + String(self->_lightCount) + " / " + String(MAX_LIGHTS) + "</td></tr>";
-    html += "<tr><td>WiFi RSSI</td><td>" + String(WiFi.RSSI()) + " dBm</td></tr>";
-    String bridgeStatusText = "Unbekannt";
-    switch (self->_bridgeStatus)
+    html.reserve(4096);
+    html = "<div class='container'>";
+    html += "<h1>Hue-Gateway Status</h1>";
+
+    // --- VERBINDUNG ---
+    const char* statusClass = "green";
+    String bridgeStatusText;
+    switch (_bridgeStatus)
     {
-        case BridgeStatus::DISCONNECTED: bridgeStatusText = "Getrennt"; break;
-        case BridgeStatus::CONNECTING: bridgeStatusText = "Verbinde"; break;
-        case BridgeStatus::WAIT_FOR_BUTTON: bridgeStatusText = "Warte auf Taster"; break;
-        case BridgeStatus::AUTHENTICATING: bridgeStatusText = "Authentifiziere"; break;
-        case BridgeStatus::CONNECTED: bridgeStatusText = "Verbunden"; break;
-        case BridgeStatus::CONNECTION_LOST: bridgeStatusText = "Verbindung verloren"; break;
-        case BridgeStatus::BRIDGE_UNREACHABLE: bridgeStatusText = "Bridge nicht erreichbar"; break;
-        case BridgeStatus::ERROR: bridgeStatusText = "Fehler"; break;
+        case BridgeStatus::DISCONNECTED:       bridgeStatusText = "Getrennt";               statusClass = "red";    break;
+        case BridgeStatus::CONNECTING:         bridgeStatusText = "Verbinde\u2026";          statusClass = "yellow"; break;
+        case BridgeStatus::WAIT_FOR_BUTTON:    bridgeStatusText = "Warte auf Bridge-Taster"; statusClass = "yellow"; break;
+        case BridgeStatus::AUTHENTICATING:     bridgeStatusText = "Authentifiziere\u2026";   statusClass = "yellow"; break;
+        case BridgeStatus::CONNECTED:          bridgeStatusText = "Verbunden";              statusClass = "green";  break;
+        case BridgeStatus::CONNECTION_LOST:    bridgeStatusText = "Verbindung verloren";    statusClass = "red";    break;
+        case BridgeStatus::BRIDGE_UNREACHABLE: bridgeStatusText = "Bridge nicht erreichbar"; statusClass = "red";    break;
+        case BridgeStatus::ERROR:              bridgeStatusText = "Fehler";                 statusClass = "red";    break;
+        default:                               bridgeStatusText = "Unbekannt";              statusClass = "gray";   break;
     }
-    html += "<tr><td>Bridge-Status</td><td>" + bridgeStatusText + "</td></tr>";
-    html += "<tr><td>App-Key</td><td>" + maskKey(self->_auth.getAppKey()) + "</td></tr>";
-    html += "<tr><td>Client-Key</td><td>" + maskKey(self->_auth.getClientKey()) + "</td></tr>";
-
-    #ifdef ParamHUE_HUEHCLEnable
-    const bool hclEnabled = (ParamHUE_HUEHCLEnable != 0);
-    html += "<tr><td>HCL aktiviert</td><td>" + String(hclEnabled ? "Ja" : "Nein") + "</td></tr>";
-    #else
-    const bool hclEnabled = false;
-    html += "<tr><td>HCL aktiviert</td><td>Nein</td></tr>";
-    #endif
-
-    if (hclEnabled)
-    {
-        struct tm statusTimeinfo;
-        memset(&statusTimeinfo, 0, sizeof(statusTimeinfo));
-        const bool hasStatusTime = getLocalTime(&statusTimeinfo, 0);
-        const uint16_t statusCurrentMinutes = hasStatusTime
-            ? static_cast<uint16_t>(statusTimeinfo.tm_hour * 60 + statusTimeinfo.tm_min)
-            : 0;
-        html += "<tr><td>HCL-Zeitbasis</td><td>" + String(hasStatusTime ? formatMinutesToClock(statusCurrentMinutes) : "n/a") + "</td></tr>";
-
-        #ifdef ParamHUE_HUEHCLMasterCount
-        const uint8_t masterCount = ParamHUE_HUEHCLMasterCount;
-        html += "<tr><td>HCL-Master</td><td>" + String(masterCount) + "</td></tr>";
-        #else
-        const uint8_t masterCount = 0;
-        html += "<tr><td>HCL-Master</td><td>0</td></tr>";
-        #endif
-
-        #ifdef ParamHUE_HUEHCLUpdateInterval
-        html += "<tr><td>HCL-Aktualisierungsintervall</td><td>" + String(ParamHUE_HUEHCLUpdateInterval) + " s</td></tr>";
-        #endif
-
-        #ifdef ParamHUE_HUEHCLFadeDuration
-        html += "<tr><td>HCL-Überblenddauer</td><td>" + String(ParamHUE_HUEHCLFadeDuration) + " s</td></tr>";
-        #endif
-
-        for (uint8_t masterNumber = 1; masterNumber <= 4; masterNumber++)
-        {
-            if (masterNumber > masterCount)
-            {
-                break;
-            }
-
-            HCL::Master* master = HCL::masterManager.getMaster(masterNumber);
-            if (!master)
-            {
-                continue;
-            }
-
-            HCL::InterpolatedValue current = HCL::masterManager.getCurrentValue(masterNumber);
-                html += "<tr><td>HCL M" + String(masterNumber) + " Aktuell</td><td>" +
-                    String(current.kelvin) + " K / " + String(current.brightness) + "%</td></tr>";
-
-            uint8_t curveTypeValue = 0;
-            uint16_t slewRate = 0;
-            uint16_t manualKelvin = 4000;
-            String sunrise = "";
-            String sunset = "";
-            int16_t sunriseOffset = 0;
-            int16_t sunsetOffset = 0;
-
-            switch (masterNumber)
-            {
-                case 1:
-                    #ifdef ParamHUE_HCLM1CurveType
-                    curveTypeValue = ParamHUE_HCLM1CurveType;
-                    slewRate = ParamHUE_HCLM1SlewRate;
-                    manualKelvin = ParamHUE_HCLM1ManualKelvin;
-                    sunrise = readFixedTimeParam(ParamHUE_HCLM1Sunrise);
-                    sunset = readFixedTimeParam(ParamHUE_HCLM1Sunset);
-                    sunriseOffset = static_cast<int16_t>(ParamHUE_HCLM1SunriseOffset);
-                    sunsetOffset = static_cast<int16_t>(ParamHUE_HCLM1SunsetOffset);
-                    #endif
-                    break;
-                case 2:
-                    #ifdef ParamHUE_HCLM2CurveType
-                    curveTypeValue = ParamHUE_HCLM2CurveType;
-                    slewRate = ParamHUE_HCLM2SlewRate;
-                    manualKelvin = ParamHUE_HCLM2ManualKelvin;
-                    sunrise = readFixedTimeParam(ParamHUE_HCLM2Sunrise);
-                    sunset = readFixedTimeParam(ParamHUE_HCLM2Sunset);
-                    sunriseOffset = static_cast<int16_t>(ParamHUE_HCLM2SunriseOffset);
-                    sunsetOffset = static_cast<int16_t>(ParamHUE_HCLM2SunsetOffset);
-                    #endif
-                    break;
-                case 3:
-                    #ifdef ParamHUE_HCLM3CurveType
-                    curveTypeValue = ParamHUE_HCLM3CurveType;
-                    slewRate = ParamHUE_HCLM3SlewRate;
-                    manualKelvin = ParamHUE_HCLM3ManualKelvin;
-                    sunrise = readFixedTimeParam(ParamHUE_HCLM3Sunrise);
-                    sunset = readFixedTimeParam(ParamHUE_HCLM3Sunset);
-                    sunriseOffset = static_cast<int16_t>(ParamHUE_HCLM3SunriseOffset);
-                    sunsetOffset = static_cast<int16_t>(ParamHUE_HCLM3SunsetOffset);
-                    #endif
-                    break;
-                case 4:
-                    #ifdef ParamHUE_HCLM4CurveType
-                    curveTypeValue = ParamHUE_HCLM4CurveType;
-                    slewRate = ParamHUE_HCLM4SlewRate;
-                    manualKelvin = ParamHUE_HCLM4ManualKelvin;
-                    sunrise = readFixedTimeParam(ParamHUE_HCLM4Sunrise);
-                    sunset = readFixedTimeParam(ParamHUE_HCLM4Sunset);
-                    sunriseOffset = static_cast<int16_t>(ParamHUE_HCLM4SunriseOffset);
-                    sunsetOffset = static_cast<int16_t>(ParamHUE_HCLM4SunsetOffset);
-                    #endif
-                    break;
-                default:
-                    break;
-            }
-
-            String curveText = "Stützpunkte";
-            if (curveTypeValue == 1)
-            {
-                curveText = "Sonnenfenster";
-            }
-            else if (curveTypeValue == 2)
-            {
-                curveText = "Manuell";
-            }
-            else if (curveTypeValue == 3)
-            {
-                curveText = "Astronomisch";
-            }
-
-            html += "<tr><td>HCL M" + String(masterNumber) + " Kurve</td><td>" + curveText + "</td></tr>";
-            html += "<tr><td>HCL M" + String(masterNumber) + " Steigrate</td><td>" + String(slewRate) + " K/min</td></tr>";
-            html += "<tr><td>HCL M" + String(masterNumber) + " Manuell</td><td>" + String(manualKelvin) + " K</td></tr>";
-            html += "<tr><td>HCL M" + String(masterNumber) + " Sonne</td><td>" + sunrise + " / " + sunset + "</td></tr>";
-            html += "<tr><td>HCL M" + String(masterNumber) + " Offset</td><td>" + String(sunriseOffset) + " / " + String(sunsetOffset) + " min</td></tr>";
-            html += "<tr><td>HCL M" + String(masterNumber) + " Setpoints gültig</td><td>" + String(master->getValidSetpointCount()) + "</td></tr>";
-            html += "<tr><td>HCL M" + String(masterNumber) + " Setpoint-Liste</td><td>" + buildSetpointListDebug(master) + "</td></tr>";
-            html += "<tr><td>HCL M" + String(masterNumber) + " Angewendet</td><td>" + String(master->getAppliedKelvin()) + " K</td></tr>";
-
-            if (hasStatusTime)
-            {
-                HclFixedInterpolationDebug interpolationDebug;
-                if (buildFixedInterpolationDebug(master, statusCurrentMinutes, interpolationDebug) && interpolationDebug.valid)
-                {
-                    html += "<tr><td>HCL M" + String(masterNumber) + " Interpolation</td><td>" +
-                        formatMinutesToClock(interpolationDebug.prevTime) + " (" + String(interpolationDebug.prevKelvin) + " K / " + String(interpolationDebug.prevBrightness) + "%) → " +
-                        formatMinutesToClock(interpolationDebug.nextTime) + " (" + String(interpolationDebug.nextKelvin) + " K / " + String(interpolationDebug.nextBrightness) + "%)" +
-                        (interpolationDebug.wrapsMidnight ? " [Wrap]" : "") +
-                        "</td></tr>";
-
-                    html += "<tr><td>HCL M" + String(masterNumber) + " Interpolation Faktor</td><td>" +
-                        String(interpolationDebug.elapsedMinutes) + " / " + String(interpolationDebug.spanMinutes) + " min (" +
-                        String(interpolationDebug.factor * 100.0f, 1) + "%) → Ziel " +
-                        String(interpolationDebug.targetKelvin) + " K / " + String(interpolationDebug.targetBrightness) + "%</td></tr>";
-                }
-                else
-                {
-                    html += "<tr><td>HCL M" + String(masterNumber) + " Interpolation</td><td>n/a (zu wenig gültige Setpoints)</td></tr>";
-                }
-            }
-
-        }
-
-        // HCL lock status — global
-        html += "<tr><th colspan='2'>HCL-Sperre</th></tr>";
-        html += "<tr><td>Globale Sperre</td><td>"
-            + String(self->_hclLockActive ? "🔒 Aktiv" : "🔓 Inaktiv")
-            + " | Richtlinie: " + String(HueGatewayModule::hclFallbackPolicyToText(static_cast<HclLockFallbackPolicy>(self->_hclFallbackPolicy)))
-            + " | Modus: " + String(HueGatewayModule::hclFallbackModeToText(static_cast<HclLockFallbackMode>(self->_hclLockFallbackMode)));
-        if (self->_hclLockActive && self->_hclLockAutoReleaseMs > 0)
-        {
-            const unsigned long nowMs = millis();
-            const long remainMs = static_cast<long>(self->_hclLockAutoReleaseMs) - static_cast<long>(nowMs);
-            html += " | Auto-Freigabe in: " + String(remainMs > 0 ? remainMs / 1000 : 0) + " s";
-        }
-        html += "</td></tr>";
-
-        // HCL lock status — per manager
-        for (uint8_t m = 0; m < HCL::MasterManager::MAX_MASTERS; m++)
-        {
-            if (!self->_hclManagerLockActive[m]) continue;
-            const unsigned long nowMs = millis();
-            String releaseInfo = "";
-            if (self->_hclManagerLockAutoReleaseMs[m] > 0)
-            {
-                const long remainMs = static_cast<long>(self->_hclManagerLockAutoReleaseMs[m]) - static_cast<long>(nowMs);
-                releaseInfo = " | Auto-Freigabe in: " + String(remainMs > 0 ? remainMs / 1000 : 0) + " s";
-            }
-            html += "<tr><td>Manager " + String(m + 1) + " Sperre</td><td>🔒 Aktiv"
-                + " | " + String(HueGatewayModule::hclFallbackPolicyToText(static_cast<HclLockFallbackPolicy>(self->_hclManagerFallbackPolicy[m])))
-                + releaseInfo + "</td></tr>";
-        }
-
-        // HCL lock status — per channel
-        #ifdef ParamHUE_HUEChannelCount
-        {
-            const uint8_t configuredChannels = min(static_cast<uint8_t>(ParamHUE_HUEChannelCount), static_cast<uint8_t>(MAX_LIGHTS));
-            bool anyChannelLock = false;
-            for (uint8_t ch = 0; ch < configuredChannels; ch++)
-            {
-                if (self->_hclChannelLockActive[ch]) { anyChannelLock = true; break; }
-            }
-            if (anyChannelLock)
-            {
-                String lockedList = "";
-                for (uint8_t ch = 0; ch < configuredChannels; ch++)
-                {
-                    if (!self->_hclChannelLockActive[ch]) continue;
-                    if (lockedList.length() > 0) lockedList += ", ";
-                    lockedList += "K" + String(ch + 1);
-                    if (self->_devices[ch] != nullptr)
-                        lockedList += " (" + self->_devices[ch]->getName() + ")";
-                    if (self->_hclChannelLockAutoReleaseMs[ch] > 0)
-                    {
-                        const unsigned long nowMs = millis();
-                        const long remainMs = static_cast<long>(self->_hclChannelLockAutoReleaseMs[ch]) - static_cast<long>(nowMs);
-                        lockedList += " ≤" + String(remainMs > 0 ? remainMs / 1000 : 0) + "s";
-                    }
-                }
-                html += "<tr><td>Kanal-Sperren aktiv</td><td>🔒 " + lockedList + "</td></tr>";
-            }
-            else
-            {
-                html += "<tr><td>Kanal-Sperren</td><td>🔓 Keine</td></tr>";
-            }
-        }
-        #endif
-    }
-
+    html += "<h2>Verbindung</h2>";
+    html += "<table class='attribute-table'>";
+    html += "<tr><td>Bridge-Status</td><td><span class='" + String(statusClass) + "'>" + bridgeStatusText + "</span></td></tr>";
+    html += "<tr><td>Bridge-IP</td><td>" + (_bridgeIP.isEmpty() ? String("n/a") : _bridgeIP) + "</td></tr>";
+    html += "<tr><td>Eigene IP</td><td>" + getDeviceIpString() + "</td></tr>";
+    html += "<tr><td>Letzter Bridge-Kontakt</td><td>" + elapsedText(_lastBridgeHealthOkMs) + "</td></tr>";
+    html += "<tr><td>Letzter Kanal-Sync</td><td>" + elapsedText(_lastChannelSyncOkMs) + "</td></tr>";
+    html += "<tr><td>Aktive Kanäle</td><td>" + String(_lightCount) + " / " + String(MAX_LIGHTS) + "</td></tr>";
     html += "</table>";
-    html += "<br><a href='" + hueBaseUri + "/pair'>🔗 Pairing starten</a> ";
-    html += "<a href='" + hueBaseUri + "/reset-auth'>🗑️ Auth zurücksetzen</a> ";
-    html += "<a href='" + hueBaseUri + "/diagnose'>🧰 Diagnose erstellen</a> ";
-    html += "<a href='" + hueBaseUri + "/retry-setup'>🔄 Setup-Retry</a> ";
-    html += "<a href='" + hueBaseUri + "'>← Zurück</a></body></html>";
 
-    return send_html(req, html, 200);
+    // --- AUTHENTIFIZIERUNG ---
+    const bool hasAppKey    = _auth.getAppKey().length() > 0;
+    const bool hasClientKey = _auth.getClientKey().length() > 0;
+    html += "<h2>Authentifizierung</h2>";
+    html += "<table class='attribute-table'>";
+    html += "<tr><td>App-Key</td><td><span class='" + String(hasAppKey ? "green" : "red") + "'>" + String(hasAppKey ? "Vorhanden" : "Fehlt") + "</span></td></tr>";
+    html += "<tr><td>Client-Key</td><td><span class='" + String(hasClientKey ? "green" : "red") + "'>" + String(hasClientKey ? "Vorhanden" : "Fehlt") + "</span></td></tr>";
+    html += "</table>";
+
+    // --- KANÄLE ---
+    {
+        const uint8_t configuredChannels = (ParamHUE_HUEChannelCount < MAX_LIGHTS) ? ParamHUE_HUEChannelCount : MAX_LIGHTS;
+        static const char* kDevTypeNames[]    = { "Licht", "Bewegungsmelder", "Taster", "Kontakt", "Steckdose" };
+        static const char* kTargetTypeNames[] = { "Licht-ID", "Raum-ID", "Zone-ID" };
+        html += "<h2>Kan\u00e4le</h2>";
+        html += "<table>";
+        html += "<tr><th>Nr</th><th>Bezeichnung</th><th>Typ</th><th>Zieltyp</th><th>Hue-ID</th><th>Lichtmanager</th><th>Status</th></tr>";
+        for (uint8_t ch = 0; ch < configuredChannels; ch++)
+        {
+            uint8_t _channelIndex = ch;
+            const bool disabled = ParamHUE_CHDisabled;
+            uint8_t devType = 0;
+            #ifdef ParamHUE_CHDeviceType
+            devType = ParamHUE_CHDeviceType;
+            #endif
+            const char* devTypeName = (devType <= 4) ? kDevTypeNames[devType] : "-";
+            uint8_t targetType = 0;
+            #ifdef ParamHUE_CHTargetType
+            targetType = ParamHUE_CHTargetType;
+            #endif
+            const char* targetTypeName = (targetType <= 2) ? kTargetTypeNames[targetType] : "-";
+            // Hue-ID: bevorzuge TargetRID (neues Format), Fallback auf LightUUID
+            String ridRaw  = String(ParamHUE_CHTargetRIDStr.c_str());
+            String uuidRaw = String(ParamHUE_CHLightUUIDStr.c_str());
+            String hueId = (ridRaw.length() > 0) ? ridRaw : ((uuidRaw.length() > 0) ? uuidRaw : String("-"));
+            // UUID abkuerzen fuer Anzeige, volle UUID als title-Attribut
+            String hueIdCell;
+            if (hueId.length() > 12)
+                hueIdCell = "<span title='" + hueId + "'>" + hueId.substring(0, 8) + "\u2026" + hueId.substring(hueId.length() - 4) + "</span>";
+            else
+                hueIdCell = hueId;
+            const bool mapped = (_devices[ch] != nullptr);
+            String etsName = latin1ToUtf8(ParamHUE_CHNameStr);
+            String devName = mapped ? _devices[ch]->getName() : String("");
+            if (etsName.length() > 0)
+                devName = etsName;
+            else if (devName.length() == 0)
+                devName = "-";
+            const uint8_t hclMaster = mapped ? _devices[ch]->getHCLMaster() : 0;
+            const String lmText = (hclMaster > 0) ? "LM " + String(hclMaster) : String("-");
+            const char* chanStatusClass;
+            const char* chanStatusLabel;
+            if (disabled)       { chanStatusClass = "gray";   chanStatusLabel = "Deaktiviert"; }
+            else if (mapped)    { chanStatusClass = "green";  chanStatusLabel = "Aktiv"; }
+            else                { chanStatusClass = "yellow"; chanStatusLabel = "Nicht zugeordnet"; }
+            html += "<tr><td>" + String(ch + 1) + "</td>"
+                 + "<td>" + devName + "</td>"
+                 + "<td>" + devTypeName + "</td>"
+                 + "<td>" + targetTypeName + "</td>"
+                 + "<td>" + hueIdCell + "</td>"
+                 + "<td>" + lmText + "</td>"
+                 + "<td><span class='" + chanStatusClass + "'>" + chanStatusLabel + "</span></td></tr>";
+        }
+        html += "</table>";
+        html += "<p><small>Bezeichnung: ETS-Parameter \"Bezeichnung\" (leer = Hue-Name aus der Bridge).</small></p>";
+    }
+
+    // --- Aktionen ---
+    html += "<p>";
+    html += String("<a href='") + hueBaseUri + "/pair'>Pairing starten</a>&nbsp;&nbsp;";
+    html += String("<a href='") + hueBaseUri + "/reset-auth'>Auth zurücksetzen</a>&nbsp;&nbsp;";
+    html += String("<a href='") + hueBaseUri + "/diagnose'>Diagnose</a>&nbsp;&nbsp;";
+    html += String("<a href='") + hueBaseUri + "/retry-setup'>Setup-Retry</a>&nbsp;&nbsp;";
+    html += String("<a href='") + hueBaseUri + "'>← Zurück</a>";
+    html += "</p>";
+    html += "</div>";
+    res.setLayout(true);
+    res.setActiveMenu("/hue");
+    send_html(res, html, 200);
 }
 
-esp_err_t HueGatewayModule::handleWebPair(httpd_req_t* req)
+void HueGatewayModule::handleWebPair(WebRequest& req, WebResponse& res)
 {
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(req->user_ctx);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
+    (void)req;
+    const bool pairingStarted = startPairing();
 
-    const bool pairingStarted = self->startPairing();
-
-    const String hueBaseUri = String(openknxWebUI.getBaseUri()) + "/hue";
+    const char* hueBaseUri = "/hue";
 
     String html;
     html.reserve(1024);
-    html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-    html += "<title>Hue-Kopplung</title>";
+    html = "<div class='container'>";
     if (pairingStarted)
     {
-        html += "<meta http-equiv='refresh' content='3;url=" + hueBaseUri + "/status'>";
+        html += String("<meta http-equiv='refresh' content='3;url=") + hueBaseUri + "/status'>";
     }
-    html += "<style>body{font-family:Arial,sans-serif;margin:40px;background:#f5f5f5;}";
-    html += ".card{background:white;padding:20px;border-radius:5px;box-shadow:0 2px 5px rgba(0,0,0,0.1);}a{display:inline-block;padding:10px 16px;margin:5px;background:#007bff;color:#fff;text-decoration:none;border-radius:3px;}</style></head><body>";
     if (pairingStarted)
     {
-        html += "<div class='card'><h1>🔗 Kopplung gestartet</h1>";
+        html += "<h1>Kopplung gestartet</h1>";
         html += "<p>Bitte jetzt den Link-Button an der Hue Bridge drücken.</p>";
         html += "<p>Weiterleitung auf Statusseite in 3 Sekunden...</p>";
     }
     else
     {
-        html += "<div class='card'><h1>⚠️ Kopplung nicht gestartet</h1>";
+        html += "<h1>Kopplung nicht gestartet</h1>";
         html += "<p>Netzwerk nicht bereit oder Bridge-IP fehlt.</p>";
         html += "<p>Bitte zuerst Netzwerk-/Bridge-Status prüfen und dann erneut starten.</p>";
     }
-    html += "<a href='" + hueBaseUri + "/status'>Status jetzt öffnen</a>";
-    html += "<a href='" + hueBaseUri + "'>Zurück</a></div></body></html>";
-
-    return send_html(req, html, 200);
+    html += "<p>";
+    html += String("<a href='") + hueBaseUri + "/status'>Status jetzt öffnen</a>&nbsp;&nbsp;";
+    html += String("<a href='") + hueBaseUri + "'>← Zurück</a>";
+    html += "</p>";
+    html += "</div>";
+    res.setLayout(true);
+    res.setActiveMenu("/hue");
+    send_html(res, html, 200);
 }
 
-esp_err_t HueGatewayModule::handleWebResetAuth(httpd_req_t* req)
+void HueGatewayModule::handleWebResetAuth(WebRequest& req, WebResponse& res)
 {
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(req->user_ctx);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
-
-    self->resetDevices();
-    if (self->_client)
+    (void)req;
+    resetDevices();
+    if (_client)
     {
-        delete self->_client;
-        self->_client = nullptr;
+        delete _client;
+        _client = nullptr;
     }
 
-    self->_auth.clearAppKey();
-    self->_authPending = false;
-    self->_manualPairingRequired = true;
-    self->_authStartTime = 0;
-    self->_authLastTry = 0;
-    self->_lastReconnectTryMs = 0;
-    self->updateStatus(BridgeStatus::BRIDGE_UNREACHABLE);
-    self->appendDiagnosticLog("INFO", "AUTH", "auth reset via WebUI");
+    _auth.clearAppKey();
+    _authPending = false;
+    _manualPairingRequired = true;
+    _authStartTime = 0;
+    _authLastTry = 0;
+    _lastReconnectTryMs = 0;
+    updateStatus(BridgeStatus::BRIDGE_UNREACHABLE);
+    appendDiagnosticLog("INFO", "AUTH", "auth reset via WebUI");
     Serial.println("[HueGatewayModule] Authentication reset via WebUI route");
 
-    const String hueBaseUri = String(openknxWebUI.getBaseUri()) + "/hue";
+    const char* hueBaseUri = "/hue";
 
     String html;
     html.reserve(1024);
-    html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-    html += "<title>Hue-Authentifizierung zurückgesetzt</title>";
-    html += "<style>body{font-family:Arial,sans-serif;margin:40px;background:#f5f5f5;}";
-    html += ".card{background:white;padding:20px;border-radius:5px;box-shadow:0 2px 5px rgba(0,0,0,0.1);}a{display:inline-block;padding:10px 16px;margin:5px;background:#007bff;color:#fff;text-decoration:none;border-radius:3px;}</style></head><body>";
-    html += "<div class='card'><h1>🗑️ Auth-Daten verworfen</h1>";
+    html = "<div class='container'>";
+    html += "<h1>Auth-Daten verworfen</h1>";
     html += "<p>Gespeicherter App-Key und Client-Key wurden gelöscht.</p>";
     html += "<p>Für den weiteren Betrieb bitte jetzt Pairing neu starten.</p>";
-    html += "<a href='" + hueBaseUri + "/pair'>🔗 Pairing starten</a>";
-    html += "<a href='" + hueBaseUri + "/status'>📊 Status</a>";
-    html += "<a href='" + hueBaseUri + "'>← Zurück</a></div></body></html>";
-
-    return send_html(req, html, 200);
+    html += "<p>";
+    html += String("<a href='") + hueBaseUri + "/pair'>Pairing starten</a>&nbsp;&nbsp;";
+    html += String("<a href='") + hueBaseUri + "/status'>Status</a>&nbsp;&nbsp;";
+    html += String("<a href='") + hueBaseUri + "'>← Zurück</a>";
+    html += "</p>";
+    html += "</div>";
+    res.setLayout(true);
+    res.setActiveMenu("/hue");
+    send_html(res, html, 200);
 }
 
-esp_err_t HueGatewayModule::handleWebDiagnose(httpd_req_t* req)
+void HueGatewayModule::handleWebDiagnose(WebRequest& req, WebResponse& res)
 {
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(req->user_ctx);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
-
-    const String hueBaseUri = String(openknxWebUI.getBaseUri()) + "/hue";
+    const char* hueBaseUri = "/hue";
 
     size_t depth = kDiagDefaultDepth;
     String note;
@@ -7937,28 +6585,21 @@ esp_err_t HueGatewayModule::handleWebDiagnose(httpd_req_t* req)
 
     String html;
     html.reserve(24000);
-    html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-    html += "<title>Hue-Diagnose</title>";
-    html += "<style>body{font-family:Arial,sans-serif;margin:40px;background:#f5f5f5;}";
-    html += ".card{background:#fff;padding:16px;margin:10px 0;border-radius:5px;box-shadow:0 2px 5px rgba(0,0,0,0.08);}";
-    html += "label{display:block;margin:8px 0 4px 0;}select,input,textarea{width:100%;padding:8px;box-sizing:border-box;}";
-    html += "button,a.btn{display:inline-block;padding:10px 14px;margin:6px 6px 6px 0;background:#007bff;color:#fff;text-decoration:none;border:none;border-radius:3px;cursor:pointer;}";
-    html += "pre{white-space:pre-wrap;background:#111;color:#ddd;padding:12px;border-radius:4px;max-height:420px;overflow:auto;}";
-    html += "</style></head><body>";
-    html += "<h1>🧰 Hue-Diagnose</h1>";
+    html = "<div class='container'>";
+    html += "<h1>Hue-Diagnose</h1>";
 
-    html += "<div class='card'><form id='diagForm' method='GET' action='" + hueBaseUri + "/diagnose'>";
+    html += String("<form id='diagForm' method='GET' action='") + hueBaseUri + "/diagnose'>";
     html += "<input type='hidden' name='view' value='1'>";
-    html += "<label>Logtiefe</label>";
-    html += "<select name='depth'>";
+    html += "<table class='attribute-table'>";
+    html += "<tr><td>Logtiefe</td><td><select name='depth'>";
     html += "<option value='120'" + String(depth == 120 ? " selected" : "") + ">120 (Vorschau)</option>";
     html += "<option value='150'" + String(depth == 150 ? " selected" : "") + ">150 (Maximum)</option>";
-    html += "</select>";
-    html += "<label>Tester-Notiz</label>";
-    html += "<textarea name='note' rows='3' placeholder='Was wurde getestet? Welche Gruppenadresse? Erwartet/Passiert?'>" + escape_html(note) + "</textarea>";
-    html += "<label><input type='checkbox' name='net' value='1' style='width:auto;margin-right:8px;'" + String(includeNetworkDetails ? " checked" : "") + ">Vollständige Netzwerkdetails (Device-/Bridge-IP) einfügen</label>";
-    html += "<button type='submit'>Diagnose erstellen</button>";
-    html += "</form></div>";
+    html += "</select></td></tr>";
+    html += "<tr><td>Tester-Notiz</td><td><textarea name='note' rows='4' placeholder='Was wurde getestet? Welche Gruppenadresse? Erwartet/Passiert?'>" + escape_html(note) + "</textarea></td></tr>";
+    html += "<tr><td>Netzwerkdetails</td><td><label><input type='checkbox' name='net' value='1'" + String(includeNetworkDetails ? " checked" : "") + "> Vollständige Device-/Bridge-IP einfügen</label></td></tr>";
+    html += "</table>";
+    html += "<p><button type='submit'>Diagnose erstellen</button></p>";
+    html += "</form>";
 
     String querySuffix = "?depth=" + String(static_cast<unsigned long>(depth));
     if (note.length() > 0)
@@ -7970,25 +6611,27 @@ esp_err_t HueGatewayModule::handleWebDiagnose(httpd_req_t* req)
         querySuffix += "&net=1";
     }
 
-    html += "<div class='card'>";
-    html += "<a class='btn' id='diagDownload' href='" + hueBaseUri + "/diagnose.txt" + querySuffix + "' onclick='return downloadDiag(event)'>Diagnose herunterladen</a>";
-    html += "<button type='button' onclick='copyDiag()'>Diagnose in Zwischenablage</button>";
-    html += "<a class='btn' href='" + hueBaseUri + "'>Zurück</a>";
-    html += "</div>";
+    html += "<p>";
+    html += String("<a id='diagDownload' href='") + hueBaseUri + "/diagnose.txt" + querySuffix + "' onclick='return downloadDiag(event)'>Diagnose herunterladen</a>&nbsp;&nbsp;";
+    html += "<button type='button' onclick='copyDiag()'>In Zwischenablage</button>&nbsp;&nbsp;";
+    html += String("<a href='") + hueBaseUri + "'>← Zurück</a>";
+    html += "</p>";
 
     if (viewMode)
     {
         const size_t previewDepth = min<size_t>(depth, static_cast<size_t>(120));
-        String report = self->buildDiagnosticReport(previewDepth, note, includeNetworkDetails);
-        html += "<div class='card'><h3>Vorschau</h3><pre id='diagText'>" + escape_html(report) + "</pre></div>";
+        String report = buildDiagnosticReport(previewDepth, note, includeNetworkDetails);
+        html += "<h2>Vorschau</h2>";
+        html += "<pre id='diagText'>" + escape_html(report) + "</pre>";
         if (depth > previewDepth)
         {
-            html += "<div class='card'><p>Hinweis: Vorschau zeigt die letzten " + String(static_cast<unsigned long>(previewDepth)) + " Einträge. Vollständiger Export über \"Diagnose herunterladen\".</p></div>";
+            html += "<p>Hinweis: Vorschau zeigt die letzten " + String(static_cast<unsigned long>(previewDepth)) + " Einträge. Vollständiger Export über \"Diagnose herunterladen\".</p>";
         }
     }
     else
     {
-        html += "<div class='card'><p>Diagnose wird beim Klick auf \"Diagnose erstellen\" oder \"Diagnose herunterladen\" erzeugt.</p><pre id='diagText' style='display:none'></pre></div>";
+        html += "<p>Diagnose wird beim Klick auf \"Diagnose erstellen\" oder \"Diagnose herunterladen\" erzeugt.</p>";
+        html += "<pre id='diagText' style='display:none'></pre>";
     }
 
     html += "<script>";
@@ -8001,141 +6644,541 @@ esp_err_t HueGatewayModule::handleWebDiagnose(httpd_req_t* req)
     html += "async function copyDiag(){try{const t=await loadDiagText();const target=document.getElementById('diagText');if(target){target.textContent=t;}if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(t);alert('Diagnose in Zwischenablage kopiert');return;}const ta=document.createElement('textarea');ta.value=t;ta.setAttribute('readonly','readonly');ta.style.position='fixed';ta.style.left='-9999px';document.body.appendChild(ta);ta.focus();ta.select();const ok=document.execCommand('copy');ta.remove();if(!ok){throw new Error('Browser blockiert Kopieren');}alert('Diagnose in Zwischenablage kopiert');}catch(e){alert('Kopieren fehlgeschlagen: '+(e&&e.message?e.message:'unbekannter Fehler')+'\\nBitte Diagnose herunterladen verwenden.');}}";
     html += "</script>";
 
-    html += "</body></html>";
-    return send_html(req, html, 200);
+    html += "</div>";
+    res.setLayout(true);
+    res.setActiveMenu("/hue");
+    send_html(res, html, 200);
 }
 
-esp_err_t HueGatewayModule::handleWebDiagnoseText(httpd_req_t* req)
+void HueGatewayModule::handleWebDiagnoseText(WebRequest& req, WebResponse& res)
 {
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(req->user_ctx);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
-
     size_t depth = kDiagDefaultDepth;
     String note;
     bool viewMode = false;
     bool includeNetworkDetails = false;
     readDiagnoseQuery(req, depth, note, viewMode, includeNetworkDetails);
 
-    self->appendDiagnosticLog("INFO", "DIAG", String("diagnose export depth=") + String(static_cast<unsigned long>(depth)) + String(" net=") + String(includeNetworkDetails ? "1" : "0"));
+    appendDiagnosticLog("INFO", "DIAG", String("diagnose export depth=") + String(static_cast<unsigned long>(depth)) + String(" net=") + String(includeNetworkDetails ? "1" : "0"));
 
-    const String report = self->buildDiagnosticReport(depth, note, includeNetworkDetails);
+    const String report = buildDiagnosticReport(depth, note, includeNetworkDetails);
     String fileName = "hue-diagnose-" + String(millis()) + ".txt";
 
-    httpd_resp_set_type(req, "text/plain; charset=UTF-8");
     String contentDisposition = "attachment; filename=\"" + fileName + "\"";
-    httpd_resp_set_hdr(req, "Content-Disposition", contentDisposition.c_str());
-    return httpd_resp_send(req, report.c_str(), HTTPD_RESP_USE_STRLEN);
+    res.setStatus(200);
+    res.setContentType("text/plain; charset=UTF-8");
+    res.setHeader("Content-Disposition", contentDisposition.c_str());
+    res.send(report.c_str());
 }
 
-esp_err_t HueGatewayModule::pageWebRoot(const char* uri, httpd_req_t* req, void* arg)
+void HueGatewayModule::handleWebLichtmanager(WebRequest& req, WebResponse& res)
 {
-    (void)uri;
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(arg);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
+    (void)req;
+    const char* hueBaseUri = "/hue";
 
-    req->user_ctx = self;
-    return HueGatewayModule::handleWebRoot(req);
+    String html;
+    html.reserve(28672);
+    html = "<div class='container'>";
+    html += "<h1>Lichtmanager</h1>";
+
+    #ifdef ParamHUE_HUEHCLEnable
+    const bool hclEnabled = (ParamHUE_HUEHCLEnable != 0);
+    #else
+    const bool hclEnabled = HCL::masterManager.isEnabled();
+    #endif
+
+    html += "<h2>Status</h2>";
+    html += "<table class='attribute-table'>";
+    html += "<tr><td>HCL aktiviert</td><td>" + String(hclEnabled ? "Ja" : "Nein") + "</td></tr>";
+    if (hclEnabled)
+    {
+        struct tm statusTimeinfo;
+        memset(&statusTimeinfo, 0, sizeof(statusTimeinfo));
+        const bool hasStatusTime = getLocalTime(&statusTimeinfo, 0);
+        const uint16_t statusCurrentMinutes = hasStatusTime
+            ? static_cast<uint16_t>(statusTimeinfo.tm_hour * 60 + statusTimeinfo.tm_min)
+            : 0;
+        const uint8_t masterCount = HCL::masterManager.getMasterCount();
+
+        html += "<tr><td>Zeitbasis (KO Zeit/Datum)</td><td>" + String(hasStatusTime ? formatMinutesToClock(statusCurrentMinutes) : "n/a") + "</td></tr>";
+        html += "<tr><td>Aktive Lichtmanager</td><td>" + String(masterCount) + "</td></tr>";
+        html += "</table>";
+
+        for (uint8_t masterNumber = 1; masterNumber <= HCL::MasterManager::MAX_MASTERS; masterNumber++)
+        {
+            if (masterNumber > masterCount)
+                break;
+
+            HCL::Master* master = HCL::masterManager.getMaster(masterNumber);
+            if (!master)
+                continue;
+
+            LightManagerChannel* ch = openknxLightManagerModule.channel(masterNumber);
+            HCL::InterpolatedValue current = HCL::masterManager.getCurrentValue(masterNumber);
+
+            const uint8_t astroSrc = ch ? ch->astroSource() : 1;
+            String sunrise, sunset;
+            // AstroSource::Automatic = 0 (Master-Geo), Manual = 1
+            if (astroSrc == 0 && hasStatusTime)
+            {
+                uint16_t geoSunrise = 0, geoSunset = 0;
+                const uint16_t yday = (uint16_t)(statusTimeinfo.tm_yday + 1);
+                const int16_t dstOffset = (statusTimeinfo.tm_isdst > 0) ? 60 : 0;
+                if (computeGeoSunriseSunset(master, yday, dstOffset, geoSunrise, geoSunset))
+                {
+                    sunrise = formatMinutesToClock(geoSunrise) + " (geo)";
+                    sunset  = formatMinutesToClock(geoSunset)  + " (geo)";
+                }
+                else
+                {
+                    sunrise = master->hasSunTimes() ? formatMinutesToClock(master->getSunriseMinutes()) : String("--:--");
+                    sunset  = master->hasSunTimes() ? formatMinutesToClock(master->getSunsetMinutes())  : String("--:--");
+                    sunrise += " (konfiguriert, Polarnacht?)";
+                    sunset  += " (konfiguriert, Polarnacht?)";
+                }
+            }
+            else
+            {
+                sunrise = master->hasSunTimes() ? formatMinutesToClock(master->getSunriseMinutes()) : String("--:--");
+                sunset  = master->hasSunTimes() ? formatMinutesToClock(master->getSunsetMinutes())  : String("--:--");
+                if (astroSrc != 0)
+                {
+                    sunrise += " (manuell)";
+                    sunset  += " (manuell)";
+                }
+            }
+
+            const int profileIdx = ch ? ch->activeProfileIndex() : -1;
+            const char* profileName = ch ? ch->activeProfileName() : "";
+            String profileText = (profileIdx < 0)
+                ? String("(kein aktives Profil)")
+                : (String("P") + String(profileIdx + 1) +
+                   ((profileName && profileName[0]) ? (String(" – ") + String(profileName)) : String("")));
+
+            const HCL::AdaptiveConfig& adaptive = master->getAdaptiveConfig();
+            String adaptiveModeText = "Disabled";
+            if (adaptive.mode == HCL::AdaptiveMode::OpenLoop)        adaptiveModeText = "OpenLoop";
+            else if (adaptive.mode == HCL::AdaptiveMode::ClosedLoop) adaptiveModeText = "ClosedLoop";
+
+            {
+                uint8_t _channelIndex = masterNumber - 1;
+                String lmName = latin1ToUtf8(ParamLMG_CHNameStr);
+                html += "<h2>Lichtmanager " + String(masterNumber);
+                if (lmName.length() > 0)
+                    html += " \u2013 " + lmName;
+                html += "</h2>";
+            }
+            html += "<table class='attribute-table'>";
+            html += "<tr><td>Aktueller Wert</td><td>" + String(current.kelvin) + " K / " + String(current.brightness) + "%</td></tr>";
+            html += "<tr><td>Aktives Profil</td><td>" + profileText + "</td></tr>";
+            {
+                const uint8_t intMode = ch ? ch->integrationMode() : 0;
+                const char* bereitText = (intMode == 1) ? "Extern (KNX-Bus)" : (intMode == 2) ? "Intern + Extern" : "Intern (an Hue)";
+                html += "<tr><td>Bereitstellung HCL-Sollwerte</td><td>" + String(bereitText) + "</td></tr>";
+            }
+            html += "<tr><td>Saison</td><td>" + String(master->isSummer() ? "Sommer" : "Winter") + "</td></tr>";
+            html += "<tr><td>Sonnenaufgang / -untergang</td><td>" + sunrise + " / " + sunset + "</td></tr>";
+            html += "<tr><td>Adaptive-Modus</td><td>" + adaptiveModeText + "</td></tr>";
+            html += "<tr><td>Resolved Setpoints</td><td>" + String(ch ? ch->resolvedCount() : 0) + "</td></tr>";
+            html += "<tr><td colspan='2'>" + buildSetpointListHtml(ch) + "</td></tr>";
+
+            if (hasStatusTime)
+            {
+                HclFixedInterpolationDebug interpolationDebug;
+                if (buildFixedInterpolationDebug(ch, statusCurrentMinutes, interpolationDebug) && interpolationDebug.valid)
+                {
+                    html += "<tr><td>Interpolation Bereich</td><td>" +
+                        formatMinutesToClock(interpolationDebug.prevTime) + " (" + String(interpolationDebug.prevKelvin) + " K / " + String(interpolationDebug.prevBrightness) + "%) → " +
+                        formatMinutesToClock(interpolationDebug.nextTime) + " (" + String(interpolationDebug.nextKelvin) + " K / " + String(interpolationDebug.nextBrightness) + "%)" +
+                        (interpolationDebug.wrapsMidnight ? " [Wrap]" : "") +
+                        "</td></tr>";
+                    html += "<tr><td>Interpolation Fortschritt</td><td>" +
+                        String(interpolationDebug.elapsedMinutes) + " / " + String(interpolationDebug.spanMinutes) + " min (" +
+                        String(interpolationDebug.factor * 100.0f, 1) + "%) → " +
+                        String(interpolationDebug.targetKelvin) + " K / " + String(interpolationDebug.targetBrightness) + "%</td></tr>";
+                }
+                else
+                {
+                    html += "<tr><td>Interpolation</td><td>n/a (zu wenig Resolved-Setpoints)</td></tr>";
+                }
+            }
+            html += "</table>";
+
+            // Zugeordnete Hue-Kanäle
+            {
+                const uint8_t hueChCount = (ParamHUE_HUEChannelCount < MAX_LIGHTS) ? ParamHUE_HUEChannelCount : MAX_LIGHTS;
+                bool anyHueCh = false;
+                for (uint8_t hCh = 0; hCh < hueChCount; hCh++)
+                {
+                    if (_devices[hCh] == nullptr) continue;
+                    if (_devices[hCh]->getHCLMaster() != masterNumber) continue;
+                    if (!anyHueCh)
+                    {
+                        html += "<table><tr><th>Kanal</th><th>Name</th><th>HCL-Sperre</th></tr>";
+                        anyHueCh = true;
+                    }
+                    const bool locked = _hclChannelLockActive[hCh];
+                    html += "<tr><td>" + String(hCh + 1) + "</td>"
+                         + "<td>" + _devices[hCh]->getName() + "</td>"
+                         + "<td>" + (locked ? "<span class='red'>Aktiv</span>" : "<span class='green'>Nein</span>") + "</td></tr>";
+                }
+                if (anyHueCh)
+                    html += "</table>";
+            }
+
+            // Tagesprofil-Diagramm
+            html += buildHclSvgChart(ch, statusCurrentMinutes, hasStatusTime);
+        }
+
+        // Sperren
+        html += "<h2>Sperren</h2>";
+        html += "<table class='attribute-table'>";
+
+        // Globale Sperre
+        String globalLockText = String(_hclLockActive ? "<span class='red'>Aktiv</span>" : "<span class='green'>Inaktiv</span>");
+        globalLockText += " | Richtlinie: " + String(HueGatewayModule::hclFallbackPolicyToText(static_cast<HclLockFallbackPolicy>(_hclFallbackPolicy)));
+        globalLockText += " | Modus: " + String(HueGatewayModule::hclFallbackModeToText(static_cast<HclLockFallbackMode>(_hclLockFallbackMode)));
+        if (_hclLockActive && _hclLockAutoReleaseMs > 0)
+        {
+            const unsigned long nowMs = millis();
+            const long remainMs = static_cast<long>(_hclLockAutoReleaseMs) - static_cast<long>(nowMs);
+            globalLockText += " | Auto-Freigabe in: " + String(remainMs > 0 ? remainMs / 1000 : 0) + " s";
+        }
+        html += "<tr><td>Globale Sperre (KO HCL-Sperre)</td><td>" + globalLockText + "</td></tr>";
+
+        // Manager-Sperren
+        for (uint8_t m = 0; m < HCL::MasterManager::MAX_MASTERS; m++)
+        {
+            if (!_hclManagerLockActive[m]) continue;
+            const unsigned long nowMs = millis();
+            String releaseInfo = "";
+            if (_hclManagerLockAutoReleaseMs[m] > 0)
+            {
+                const long remainMs = static_cast<long>(_hclManagerLockAutoReleaseMs[m]) - static_cast<long>(nowMs);
+                releaseInfo = " | Auto-Freigabe in: " + String(remainMs > 0 ? remainMs / 1000 : 0) + " s";
+            }
+            html += "<tr><td>HCL-Master " + String(m + 1) + " Sperre (KO Sperre M" + String(m + 1) + ")</td><td><span class='red'>Aktiv</span> | "
+                + String(HueGatewayModule::hclFallbackPolicyToText(static_cast<HclLockFallbackPolicy>(_hclManagerFallbackPolicy[m])))
+                + releaseInfo + "</td></tr>";
+        }
+
+        // Kanal-Sperren
+        #ifdef ParamHUE_HUEChannelCount
+        {
+            const uint8_t configuredChannels = min(static_cast<uint8_t>(ParamHUE_HUEChannelCount), static_cast<uint8_t>(MAX_LIGHTS));
+            bool anyChannelLock = false;
+            for (uint8_t ch = 0; ch < configuredChannels; ch++)
+            {
+                if (_hclChannelLockActive[ch]) { anyChannelLock = true; break; }
+            }
+            if (anyChannelLock)
+            {
+                String lockedList = "";
+                for (uint8_t ch = 0; ch < configuredChannels; ch++)
+                {
+                    if (!_hclChannelLockActive[ch]) continue;
+                    if (lockedList.length() > 0) lockedList += ", ";
+                    lockedList += "Kanal " + String(ch + 1);
+                    if (_devices[ch] != nullptr)
+                        lockedList += " (" + _devices[ch]->getName() + ")";
+                    if (_hclChannelLockAutoReleaseMs[ch] > 0)
+                    {
+                        const unsigned long nowMs = millis();
+                        const long remainMs = static_cast<long>(_hclChannelLockAutoReleaseMs[ch]) - static_cast<long>(nowMs);
+                        lockedList += " ≤" + String(remainMs > 0 ? remainMs / 1000 : 0) + "s";
+                    }
+                }
+                html += "<tr><td>Kanal-Sperren aktiv (KO Sperre Kx)</td><td><span class='red'>Aktiv:</span> " + lockedList + "</td></tr>";
+            }
+            else
+            {
+                html += "<tr><td>Kanal-Sperren (KO Sperre Kx)</td><td><span class='green'>Keine aktiv</span></td></tr>";
+            }
+        }
+        #endif
+
+        html += "</table>";
+    }
+    else
+    {
+        html += "</table>";
+    }
+
+    html += "<p>";
+    html += String("<a href='") + hueBaseUri + "'>← Zurück</a>";
+    html += "</p>";
+    html += "</div>";
+    res.setLayout(true);
+    res.setActiveMenu("/hue/lichtmanager");
+    send_html(res, html, 200);
 }
 
-esp_err_t HueGatewayModule::pageWebScan(const char* uri, httpd_req_t* req, void* arg)
+void HueGatewayModule::handleWebFadeTest(WebRequest& req, WebResponse& res)
 {
-    (void)uri;
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(arg);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
+    const char* hueBaseUri = "/hue";
+    const std::string chParam = req.getQueryParam("ch");
+    const int channel = chParam.empty() ? -1 : (atoi(chParam.c_str()) - 1);
 
-    req->user_ctx = self;
-    return HueGatewayModule::handleWebScan(req);
+    String error;
+    const bool started = startFadeTest(channel, error);
+    if (started)
+        appendDiagnosticLog("INFO", "WEBUI", "fade test triggered for channel " + String(channel + 1));
+
+    String html;
+    html.reserve(768);
+    html = "<div class='container'>";
+    if (started)
+    {
+        html += String("<meta http-equiv='refresh' content='60;url=") + hueBaseUri + "/diagnose'>";
+        html += "<h1>Rampen-Test gestartet</h1>";
+        html += "<p>Kanal " + String(channel + 1) + " wird rund eine Minute lang durchgeschaltet. ";
+        html += "Solange bitte nicht über KNX oder die Hue-App eingreifen.</p>";
+        html += "<p>Das Ergebnis erscheint anschließend im Diagnosebericht unter <b>[FadeTest]</b>. ";
+        html += "Diese Seite wechselt nach 60 Sekunden automatisch dorthin.</p>";
+    }
+    else
+    {
+        html += "<h1>Rampen-Test nicht gestartet</h1>";
+        html += "<p>" + error + "</p>";
+        html += "<p>Aufruf: <code>/hue/fadetest?ch=&lt;Kanalnummer&gt;</code></p>";
+    }
+    html += "<p>";
+    html += String("<a href='") + hueBaseUri + "/diagnose'>Diagnose</a>&nbsp;&nbsp;";
+    html += String("<a href='") + hueBaseUri + "'>← Zurück</a>";
+    html += "</p>";
+    html += "</div>";
+    res.setLayout(true);
+    res.setActiveMenu("/hue");
+    send_html(res, html, started ? 200 : 400);
 }
 
-esp_err_t HueGatewayModule::pageWebStatus(const char* uri, httpd_req_t* req, void* arg)
+void HueGatewayModule::handleWebRetrySetup(WebRequest& req, WebResponse& res)
 {
-    (void)uri;
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(arg);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
+    (void)req;
+    const char* hueBaseUri = "/hue";
 
-    req->user_ctx = self;
-    return HueGatewayModule::handleWebStatus(req);
-}
-
-esp_err_t HueGatewayModule::pageWebPair(const char* uri, httpd_req_t* req, void* arg)
-{
-    (void)uri;
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(arg);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
-
-    req->user_ctx = self;
-    return HueGatewayModule::handleWebPair(req);
-}
-
-esp_err_t HueGatewayModule::pageWebResetAuth(const char* uri, httpd_req_t* req, void* arg)
-{
-    (void)uri;
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(arg);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
-
-    req->user_ctx = self;
-    return HueGatewayModule::handleWebResetAuth(req);
-}
-
-esp_err_t HueGatewayModule::pageWebDiagnose(const char* uri, httpd_req_t* req, void* arg)
-{
-    (void)uri;
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(arg);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
-
-    req->user_ctx = self;
-    return HueGatewayModule::handleWebDiagnose(req);
-}
-
-esp_err_t HueGatewayModule::handleWebRetrySetup(httpd_req_t* req)
-{
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(req->user_ctx);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
-
-    const String hueBaseUri = String(openknxWebUI.getBaseUri()) + "/hue";
-
-    self->_deviceSetupNeedsRetry = true;
-    self->_deviceSetupRetryBackoffMs = 0;
-    self->_setupCircuitOpenUntilMs = 0;
-    self->_setupCircuitTrips = 0;
-    self->_consecutiveEmptyLightFetches = 0;
-    self->_lastDeviceSetupRetryMs = 0;
+    _deviceSetupNeedsRetry = true;
+    _deviceSetupRetryBackoffMs = 0;
+    _setupCircuitOpenUntilMs = 0;
+    _setupCircuitTrips = 0;
+    _consecutiveEmptyLightFetches = 0;
+    _lastDeviceSetupRetryMs = 0;
     Serial.println("[HueGatewayModule] Manual setup retry triggered via WebUI");
-    self->appendDiagnosticLog("INFO", "WEBUI", "manual setup retry triggered");
+    appendDiagnosticLog("INFO", "WEBUI", "manual setup retry triggered");
 
     String html;
     html.reserve(512);
-    html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-    html += "<meta http-equiv='refresh' content='5;url=" + hueBaseUri + "/status'>";
-    html += "<title>Setup-Retry</title>";
-    html += "<style>body{font-family:Arial,sans-serif;margin:40px;background:#f5f5f5;}";
-    html += "a{display:inline-block;padding:10px 16px;margin:5px;background:#007bff;color:#fff;text-decoration:none;border-radius:3px;}</style></head><body>";
-    html += "<h1>\xF0\x9F\x94\x84 Setup-Retry ausgelöst</h1>";
+    html = "<div class='container'>";
+    html += String("<meta http-equiv='refresh' content='5;url=") + hueBaseUri + "/status'>";
+    html += "<h1>Setup-Retry ausgelöst</h1>";
     html += "<p>Die Geräte-Zuordnung wird beim nächsten Loop-Durchlauf wiederholt.</p>";
     html += "<p>Weiterleitung auf Statusseite in 5 Sekunden...</p>";
-    html += "<a href='" + hueBaseUri + "/status'>\xF0\x9F\x93\x8A Status</a> ";
-    html += "<a href='" + hueBaseUri + "'>\xE2\x86\x90 Zurück</a></body></html>";
-    return send_html(req, html, 200);
+    html += "<p>";
+    html += String("<a href='") + hueBaseUri + "/status'>Status</a>&nbsp;&nbsp;";
+    html += String("<a href='") + hueBaseUri + "'>← Zurück</a>";
+    html += "</p>";
+    html += "</div>";
+    res.setLayout(true);
+    res.setActiveMenu("/hue");
+    send_html(res, html, 200);
 }
 
-esp_err_t HueGatewayModule::pageWebRetrySetup(const char* uri, httpd_req_t* req, void* arg)
+// ---------------------------------------------------------------------------
+// Phase 4 (Option C): read-only Live telemetry — /hue/live + /ws/hue
+// ---------------------------------------------------------------------------
+
+void HueGatewayModule::markChannelDirty(int channel)
 {
-    (void)uri;
-    HueGatewayModule* self = static_cast<HueGatewayModule*>(arg);
-    if (self == nullptr)
-        return httpd_resp_send_500(req);
-
-    req->user_ctx = self;
-    return HueGatewayModule::handleWebRetrySetup(req);
+    if (channel < 0 || channel >= MAX_CHANNELS) return;
+    _liveDirty[channel] = true;
 }
+
+namespace
+{
+    void appendJsonEscaped(String& out, const String& s)
+    {
+        for (size_t k = 0; k < s.length(); k++)
+        {
+            char c = s[k];
+            if (c == '"' || c == '\\') { out += '\\'; out += c; }
+            else if ((uint8_t)c < 0x20) { out += ' '; }
+            else { out += c; }
+        }
+    }
+}
+
+void HueGatewayModule::buildChannelStateJson(int channel, String& out)
+{
+    HueGatewayDevice* dev = _devices[channel];
+    out += "{\"n\":";
+    out += String(channel + 1);
+    if (!dev)
+    {
+        out += ",\"a\":false}";
+        return;
+    }
+    out += ",\"a\":true,\"tp\":";
+    out += String(dev->deviceType());
+    out += ",\"nm\":\"";
+    appendJsonEscaped(out, dev->getName());
+    out += "\",\"on\":";
+    out += dev->isOn() ? "true" : "false";
+    uint8_t bri = dev->getBrightness();
+    uint16_t briPct = (uint16_t)((bri * 100u + 127u) / 254u);
+    if (briPct > 100) briPct = 100;
+    out += ",\"bri\":";
+    out += String(briPct);
+    out += ",\"rch\":";
+    out += dev->isReachable() ? "true" : "false";
+
+    HueGatewayLight* light = lightAt(channel);
+    if (light)
+    {
+        uint16_t ct = light->getColorTempKelvin();
+        if (ct != 0xFFFF)
+        {
+            out += ",\"ct\":";
+            out += String(ct);
+        }
+        uint8_t r = light->getRed(), g = light->getGreen(), b = light->getBlue();
+        if (r || g || b)
+        {
+            char rgb[8];
+            snprintf(rgb, sizeof(rgb), "#%02x%02x%02x", r, g, b);
+            out += ",\"rgb\":\"";
+            out += rgb;
+            out += "\"";
+        }
+    }
+
+    uint8_t hm = dev->getHCLMaster();
+    if (hm > 0)
+    {
+        out += ",\"hm\":";
+        out += String(hm);
+        out += ",\"hl\":";
+        out += dev->isHCLChannelLocked() ? "true" : "false";
+    }
+
+    out += ",\"lkm\":";
+    out += String(_diagLastKoCommandMs[channel]);
+    out += ",\"lwm\":";
+    out += String(_diagLastWriteTraceMs[channel]);
+    out += ",\"lwr\":\"";
+    appendJsonEscaped(out, _diagLastWriteTraceResult[channel]);
+    out += "\"}";
+}
+
+void HueGatewayModule::flushLiveUpdates()
+{
+    if (!openknxNetwork.webserver.hasClients("/ws/hue")) return;
+
+    unsigned long now = millis();
+
+    // Periodic forced refresh: mark all active channels dirty every 3 s.
+    if ((now - _livePeriodicRefreshMs) >= 3000UL)
+    {
+        _livePeriodicRefreshMs = now;
+        for (int i = 0; i < MAX_CHANNELS; i++)
+        {
+            if (_devices[i]) _liveDirty[i] = true;
+        }
+    }
+
+    for (int i = 0; i < MAX_CHANNELS; i++)
+    {
+        if (!_liveDirty[i]) continue;
+        if ((now - _liveLastSentMs[i]) < 200UL) continue;
+
+        String j;
+        j.reserve(384);
+        j = "{\"t\":\"d\",\"now\":";
+        j += String(now);
+        j += ",\"c\":";
+        buildChannelStateJson(i, j);
+        j += "}";
+        openknxNetwork.webserver.sendWebsocketMessage("/ws/hue", j.c_str());
+
+        _liveDirty[i] = false;
+        _liveLastSentMs[i] = now;
+    }
+}
+
+void HueGatewayModule::sendLiveSnapshot(int clientFd)
+{
+    String j;
+    j.reserve(3072);
+    j = "{\"t\":\"s\",\"now\":";
+    j += String(millis());
+    j += ",\"ch\":[";
+    bool first = true;
+    for (int i = 0; i < MAX_CHANNELS; i++)
+    {
+        if (!_devices[i]) continue;
+        if (!first) j += ",";
+        first = false;
+        buildChannelStateJson(i, j);
+    }
+    j += "]}";
+    openknxNetwork.webserver.sendToClient("/ws/hue", clientFd, j.c_str(), j.length());
+}
+
+void HueGatewayModule::handleLiveWsConnect(int clientId, bool connected)
+{
+    if (connected) sendLiveSnapshot(clientId);
+}
+
+void HueGatewayModule::handleLiveWsMessage(int clientId, OpenKNX::Network::WebSocketFrame* frame)
+{
+    // Option C: read-only — incoming WS frames are intentionally ignored
+    // to avoid TLS heap competition with Hue HTTPS PUT requests.
+    (void)clientId;
+    (void)frame;
+}
+
+void HueGatewayModule::handleWebLive(WebRequest& req, WebResponse& res)
+{
+    (void)req;
+    String html;
+    html.reserve(4096);
+    html = "<div class='container'>";
+    html += "<h1>Hue Live (read-only)</h1>";
+    html += "<div id='live-status'>Verbinde...</div>";
+    html += "<div id='live-grid'></div>";
+    html += "<script>";
+    html += "const grid=document.getElementById('live-grid'),sEl=document.getElementById('live-status'),cards={};";
+    html += "const TP={0:'Light',1:'Plug',2:'Motion',3:'Contact',4:'Button'};";
+    html += "function fmtAge(ms,now){if(!ms)return '-';const a=Math.max(0,now-ms);if(a<1000)return a+'ms';if(a<60000)return Math.round(a/1000)+'s';if(a<3600000)return Math.round(a/60000)+'min';return Math.round(a/3600000)+'h';}";
+    html += "function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}";
+    html += "function render(c,now){const id='ch'+c.n;let el=cards[id];if(!c.a){if(el){el.remove();delete cards[id];}return;}";
+    html += "if(!el){el=document.createElement('div');el.className='lc';el.id=id;grid.appendChild(el);cards[id]=el;}";
+    html += "el.classList.toggle('off',!c.on);";
+    html += "let h='<h3><span class=ch>K'+c.n+'</span> <span>'+esc(c.nm||'-')+'</span> <span class=\"rch '+(c.rch?'ok':'no')+'\" title=\"'+(c.rch?'reachable':'unreachable')+'\"></span></h3>';";
+    html += "h+='<div class=row><span>Typ</span><b>'+(TP[c.tp]||c.tp)+'</b></div>';";
+    html += "h+='<div class=row><span>Zustand</span><span class=\"sw '+(c.on?'on':'off')+'\">'+(c.on?'EIN':'AUS')+'</span></div>';";
+    html += "if(c.tp===0||c.tp===1)h+='<div class=row><span>Helligkeit</span><b>'+c.bri+'%</b></div>';";
+    html += "if(c.ct)h+='<div class=row><span>Farbtemp.</span><b>'+c.ct+' K</b></div>';";
+    html += "if(c.rgb)h+='<div class=row><span>Farbe</span><b><span class=col style=\"background:'+c.rgb+'\"></span> '+c.rgb+'</b></div>';";
+    html += "if(c.hm)h+='<div class=hcl>HCL Master '+c.hm+(c.hl?' (gesperrt)':'')+'</div>';";
+    html += "h+='<div class=meta>KO '+fmtAge(c.lkm,now)+' • Hue '+fmtAge(c.lwm,now)+(c.lwr&&c.lwr!=='-'?' • '+esc(c.lwr):'')+'</div>';";
+    html += "el.innerHTML=h;}";
+    html += "let ws,reconn=2000;function connect(){ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws/hue');";
+    html += "ws.onopen=()=>{sEl.textContent='Verbunden';reconn=2000;};";
+    html += "ws.onclose=()=>{sEl.textContent='Getrennt - Reconnect...';setTimeout(connect,reconn);reconn=Math.min(reconn*1.5,15000);};";
+    html += "ws.onerror=()=>{sEl.textContent='Fehler';};";
+    html += "ws.onmessage=e=>{try{const m=JSON.parse(e.data),now=m.now||Date.now();";
+    html += "if(m.t==='s'){grid.innerHTML='';Object.keys(cards).forEach(k=>delete cards[k]);m.ch.forEach(c=>render(c,now));sEl.textContent='Verbunden ('+m.ch.length+' Kanal/Kanaele)';}";
+    html += "else if(m.t==='d'){render(m.c,now);}";
+    html += "}catch(err){console.error(err);}};}";
+    html += "connect();";
+    html += "setInterval(()=>{Object.values(cards).forEach(el=>{const m=el.querySelector('.meta');if(m){/* age refreshed on next message */}});},5000);";
+    html += "</script>";
+    html += "</div>";
+    res.setLayout(true);
+    res.setActiveMenu("/hue/live");
+    send_html(res, html, 200);
+}
+
+#endif // OPENKNX_WEBSERVER
 
 String HueGatewayModule::getBridgeScanHTML()
 {

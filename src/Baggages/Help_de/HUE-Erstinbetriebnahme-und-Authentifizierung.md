@@ -12,10 +12,10 @@ Die Inbetriebnahme kann auf zwei Arten erfolgen:
 
 #### Variante 2: Pairing per Webinterface
 
-1. Webinterface öffnen: `http://<IP-des-OpenKNX-Geräts>/openknx/hue`
-2. **Kopplung starten** aufrufen (`/openknx/hue/pair`).
+1. Webinterface öffnen: `http://<IP-des-OpenKNX-Geräts>/hue`
+2. **Kopplung starten** aufrufen (`/hue/pair`).
 3. Innerhalb des Pairing-Fensters den Link-Button an der Hue Bridge drücken.
-4. Auf der Statusseite den Verbindungsaufbau prüfen (`/openknx/hue/status`).
+4. Auf der Statusseite den Verbindungsaufbau prüfen (`/hue/status`).
 5. Das Modul speichert den App-Key persistent.
 
 Hinweise zu Zuständen und Fortschritt finden Sie unter LED-Signale.

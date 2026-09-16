@@ -23,6 +23,19 @@ OpenKNX Funktionsmodul zur Integration von Philips Hue Geräten in KNX-Systeme.
   - RGB Farben
 - Bidirektionale Status-Updates (Event Stream)
 - ETS-Konfiguration
+- Optionale Anbindung an [OFM-LightManager](../OFM-LightManager) (HCL — Human Centric Lighting)
+  - Partial-Sink-Vertrag: achsenweise Gültigkeitsmaske via `onLightManagerPartial()` — Kanäle mit `HCL-Achsen = Nur CT` senden keine Helligkeitswerte und umgekehrt
+
+## Abhängigkeiten
+
+- **OFM-LightManager** *(optional, aber Voraussetzung für HCL-Funktion)*
+  - Liefert die HCL-Master (Brightness/ColorTemperature-Verläufe).
+  - Stellt den gemeinsamen ETS-`ParameterType` `PT-LMGMasterSelect` bereit,
+    der von der HueGateway-Kanalkonfiguration referenziert wird
+    (Dropdown *„Zuordnung Lichtmanager"*).
+  - Pro Kanal wird über `ParamHUE_CHHCLMaster` ein Master (1..N) ausgewählt;
+    `0` deaktiviert die HCL-Kopplung.
+  - Integrationsdetails siehe `OFM-LightManager/doc/integration.md`.
 
 ## Development
 

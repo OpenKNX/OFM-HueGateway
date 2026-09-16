@@ -12,11 +12,14 @@
 - Bei Legacy-Projektierung zusätzlich **Hue Lampen-ID (UUID)** prüfen.
 - Kanal deaktiviert?
 - Sync-Richtung passend?
+- Versehentlich eine Szenen-ID als Ziel eingetragen? Szenen-IDs sind keine gültigen Ziele.
+- Diagnosebericht (`/hue/diagnose.txt`) prüfen: `targetUnresolved=1` in der Kanalzeile zeigt ein nicht auflösbares Ziel.
 
-### Lichtmanager-Parameter oder HCL-KOs fehlen
-- Lichtmanager global aktiviert?
-- Kanal ist wirklich ein CT- oder RGB-Kanal?
-- Erst nach Aktivierung des globalen Lichtmanagers werden Zuordnung und Sperrparameter sichtbar.
+### Lichtmanager (HCL) — siehe OFM-LightManager
+
+Troubleshooting zu Lichtmanager-Parametern, HCL-KOs, Saison-Profil und adaptiver Helligkeit ist in der Applikationsbeschreibung OFM-LightManager zusammengefasst.
+
+Hinweis: Im HueGateway muss am Kanal mindestens der Lampentyp `Dimmbar` gewählt und der gewünschte Lichtmanager über **Lichtmanager Zuordnung** zugewiesen sein, damit HCL-Sollwerte wirken. Dimmbare Lampen übernehmen nur die Helligkeit.
 
 ### Status fehlt
 - Sync auf **Nur Hue zu KNX** oder **Bidirektional** gesetzt?
@@ -29,29 +32,17 @@
 - Bei Raum- und Zonen-Zielen bildet der Status nicht immer den exakten Zustand jedes Einzelgeräts ab.
 - Dieses Verhalten ist systembedingt und sollte im Projekt mit dem gewünschten Zieltyp getestet werden.
 
-### Lichtmanager wirkt nicht
-- Lichtmanager global aktiviert?
-- Manager zugewiesen?
-- Bei `FixedTime`/`SunPosition`: mind. 2 gültige Stützpunkte?
-- Bei `Manual`: gewünschte manuelle Farbtemperatur gesetzt und optionaler Helligkeitsverlauf passend parametriert?
-- Bei `Astronomischer Sonnenstand`: sinnvolle Astro-Min/Max-Werte gesetzt?
-- Globale/spezifische Sperre aktiv?
-
 ### Hue-Status kommt stark verzögert an
 - Polling-Intervall zu hoch?
 - Bei vielen Kanälen bewusst größere Werte gesetzt?
 - Hue-App-Änderungen werden nicht sofort gepusht, sondern gemäß Abfrageintervall übernommen.
+- Ist ein Kanalziel nicht auflösbar (`targetUnresolved=1` im Diagnosebericht), verzichtet das Gateway für **alle** Kanäle auf die Live-Rückmeldung der Bridge und arbeitet nur mit Polling. Betroffene Kanäle korrigieren oder deaktivieren.
 
 ### Szenen reagieren nicht wie erwartet
 - DPT 18.001 korrekt verwendet?
 - Richtige Szenennummer im Slot hinterlegt?
 - `Szene speichern` nur aktivieren, wenn Speicherbefehle wirklich genutzt werden.
 - Für Steckdosen sind keine Szenen verfügbar.
-
-### Saison-Profil schaltet nicht um
-- Saison-Modus ist `Standard`? → dann sind Sommer-Stützpunkte absichtlich deaktiviert.
-- Bei Modus `Festes Datum`: Start- und Ende-Datum korrekt eingetragen? Datum liegt im aktiven Bereich?
-- Bei Modus `Auto-DST`: Systemzeit korrekt? DST-Erkennung setzt korrekte Uhrzeit voraus.
-- Bei Modus `Per Objekt`: KO `LM x: Sommer aktiv` mit GA verbunden und Wert `1` gesendet?
-- Im Sommer-Profil mindestens 2 Stützpunkte mit **Sommer Aktiv = Ja** vorhanden (bei `FixedTime`/`SunPosition`)?
+- Hue-Szene abrufen: Liegt der Slot auf einem Kanal mit gültigem Ziel? Ein Kanal mit der Szenen-ID als Ziel funktioniert nicht.
+- Dieselbe Szenennummer nicht gleichzeitig für ETS-Presets und eine Hue-Szene verwenden — sonst überschreiben sie sich gegenseitig.
 

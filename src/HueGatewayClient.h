@@ -215,8 +215,8 @@ public:
     * @param fadeDurationSec Transition duration in seconds (0 = immediate)
     * @return true on success
      */
-    bool setLightState(const String& lightId, bool on, uint8_t brightness, uint8_t fadeDurationSec = 0);
-    bool setGroupedLightState(const String& groupedLightId, bool on, uint8_t brightness, uint8_t fadeDurationSec = 0);
+    bool setLightState(const String& lightId, bool on, uint8_t brightness, uint8_t fadeDurationSec = 0, bool includeOnState = true);
+    bool setGroupedLightState(const String& groupedLightId, bool on, uint8_t brightness, uint8_t fadeDurationSec = 0, bool includeOnState = true);
 
     /**
     * @brief Applies relative dimming delta to a light.
@@ -245,10 +245,10 @@ public:
     * @param fadeDurationSec Fade duration in seconds (0 = instant)
     * @return true on success
      */
-    bool setLightStateWithColorTemp(const String& lightId, bool on, uint8_t brightness, 
-                                    uint16_t mirek, uint8_t fadeDurationSec);
+    bool setLightStateWithColorTemp(const String& lightId, bool on, uint8_t brightness,
+                                    uint16_t mirek, uint8_t fadeDurationSec, bool includeOnState = true);
     bool setGroupedLightStateWithColorTemp(const String& groupedLightId, bool on, uint8_t brightness,
-                                           uint16_t mirek, uint8_t fadeDurationSec);
+                                           uint16_t mirek, uint8_t fadeDurationSec, bool includeOnState = true);
     
     /**
     * @brief Sets the color temperature of a light.
@@ -271,6 +271,17 @@ public:
     bool setGroupedLightColor(const String& groupedLightId, float x, float y);
 
     bool pingBridgeApiV2();
+
+    /**
+    * @brief Diagnostics only: sends a raw payload to a resource (fade test).
+    * @param resourceType "light" or "grouped_light"
+    */
+    bool diagRawPut(const char* resourceType, const String& rid, const String& payload);
+
+    /**
+    * @brief Diagnostics only: reads on-state and brightness percent of a resource.
+    */
+    bool diagReadState(const char* resourceType, const String& rid, bool& on, uint8_t& brightnessPercent);
 
     bool startEventStream();
     void stopEventStream();

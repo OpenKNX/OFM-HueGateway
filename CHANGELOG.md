@@ -2,29 +2,76 @@
 
 Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumentiert.
 
-## [0.4.2] - 2026-05-08
+## Geplantes folgendes Release [0.7.2]
+
+### Behoben
+- **Statusrückmeldung der kanal-spezifischen Lichtmanager-Sperre fehlte vollständig.** `publishHclChannelLockStatus()` übergab `HUE_KoCHHCLLockStatus` — den **kanalrelativen Index 10** — direkt an `knx.getGroupObject()` statt der absoluten KO-Nummer. Der Status ging damit an das globale Objekt 10 statt an `HUE_KoBlockOffset + Kanal × HUE_KoBlockSize + 10`. Die Sperre selbst arbeitete korrekt, nur die Rückmeldung erreichte das projektierte KO nie; zusätzlich wurde ein unbeteiligtes Objekt beschrieben. Die KO-Nummer wird jetzt analog zu `LightManagerModule::processInputKo` von Hand berechnet (der Makro `KoHUE_CHHCLLockStatus` ist im Modul-Scope nicht nutzbar, da er `_channelIndex` voraussetzt). Betraf alle Kanäle.
+- **Überlappende Zonen: Der Lichtmanager schaltete ausgeschaltete Leuchten zyklisch wieder ein.** Hue meldet `grouped_light.on.on` bereits als `true`, sobald *irgendeine* Leuchte der Gruppe an ist. Der zyklische HCL-Abgleich lief dadurch weiter und sendete über `setGroupedLightState`/`setGroupedLightStateWithColorTemp` bedingungslos `on:true` mit — auf eine `grouped_light`-Ressource ist das ein Einschaltbefehl an **alle** Mitglieder, nicht bloß eine Statusbestätigung. Was eine überlappende Zone ausgeschaltet hatte, ging im Takt des Aktualisierungsintervalls wieder an. Die vier Schreibfunktionen kennen jetzt `includeOnState`; der Abgleich in `HueGatewayLight::loop()` ruft mit `false` auf. Regel: Eine zyklische Nachführung schaltet nie etwas ein, sie führt nur bereits eingeschaltete Leuchten nach — das schützt auch Einzellampen, die außerhalb von KNX ausgeschaltet wurden.
+- **Szenen-Presets sperrten den Lichtmanager ohne Rückfall.** `processKnxSceneRecall()` setzte das Geräte-Flag direkt; die Modul-Schleife übernahm den Wert zwar, bewaffnete aber keinen Rückfall-Timer — die Sperre lief nie ab und endete nur durch Ausschalten. Presets laufen jetzt wie der Hue-Szenenaufruf über `setHclChannelLock()`, und zwar nur wenn die Szene einschaltet (eine ausschaltende Szene hinterließ sonst eine Sperre, die auch das nächste Einschalten blockierte).
+- **Schreib-Dauerlauf bei herabgestuften Kanälen mit Lichtmanager.** `setupDevices()` stuft Farbtemperatur-/Farbkanäle auf „dimmbar" herab, wenn die Bridge keine CT-Unterstützung meldet, behielt dabei aber die Lichtmanager-Zuordnung. Weil `_currentKelvin` für dimmbare Lampen nie aktualisiert wird, galt die Farbtemperatur in `HueGatewayLight::loop()` dauerhaft als geändert — alle ~220 ms ein PUT an die Bridge plus KNX-Statustelegramm, und der gemeinsame HCL-Schreibslot blockierte alle anderen Lampen. Farbtemperatur zählt jetzt nur noch ab Lampentyp Farbtemperatur; dimmbare Lampen übernehmen nur die Helligkeitsachse. Kanäle vom Typ Ein/Aus verwerfen eine übrig gebliebene Lichtmanager-Zuordnung.
+- **Überblendzeit des Lichtmanagers bei reiner Helligkeits-Nachführung ignoriert.** Die Nachführung ohne Farbtemperatur sendete mit Überblendzeit 0, die Helligkeit sprang.
+- **Einschalten mit veraltetem Lichtmanager-Wert.** Beim Einschalten wurde der Lichtmanager-Wert auch angelegt, wenn keine gültige Achse vorlag; jetzt wie in der zyklischen Nachführung nur bei gültigem Wert.
 
 ### Hinzugefügt
-- **Adaptive Helligkeit (Tageslicht-Kompensation / Konstantlichtregelung)** für alle 8 Lichtmanager:
-  - Neuer Modus je LM: `Aus` / `Tageslicht-Kompensation (Open-Loop)` / `Konstantlichtregelung (Closed-Loop)`
-  - Neuer KO: **Helligkeitssensor (DPT 9.004)** – Lux-Istwert-Eingang
-  - Neuer KO: **Tag/Nacht (DPT 1.001)** – Aktivierungssteuerung per Tageszeit
-  - Neuer KO: **Adaptive Helligkeit aktiv (DPT 1.011)** – Status-Ausgang
-  - Konfigurierbar: Skalierungsmaximum, Mindesthelligkeit, Kompensationsstärke (Open-Loop),
-    P-Faktor / Totband / Auf-HCL-Wert-begrenzen (Closed-Loop), Sensor-Timeout,
-    Mindestschrittgröße, Aktivierungszeitraum (immer / tagsüber / nach Uhrzeit)
+- **Lichtmanager-Standby nach manueller Verstellung** (`CH%C%HCLAutoStandby`, je Hue-Kanal): `Nein` (Vorgabe, Verhalten unverändert), `Bei Helligkeit und Dimmen` oder `Bei Helligkeit, Dimmen, Farbtemperatur und Farbe`. Eine manuelle Verstellung versetzt den Lichtmanager für diesen Kanal selbsttätig in den Standby, sodass er nicht mehr von Hand gesperrt werden muss. Schaltbefehle lösen bewusst nicht aus. Die Rückkehr nutzt die bestehende **Rückfallstrategie nach Sperre** des Kanals; jede weitere Verstellung zieht die Rückfallzeit neu auf. Der Parameter belegt freie Bits einer vorhandenen Union, das Speicherlayout bleibt unverändert.
+- `setHclChannelLock()` meldet den Status nur noch bei tatsächlicher Zustandsänderung, damit wiederholte Verstellungen keine redundanten Telegramme erzeugen.
+- **Rampen-Diagnose** für Raum-/Zonen-Ziele: `/hue/fadetest?ch=<n>` bzw. Konsole `hue fadetest <n>` fährt einen Kanal durch vier Hue-Nutzlastvarianten (Ausschalten mit/ohne `dimming`-Zielwert, zweistufige Rampe, Einschalten aus dem Aus-Zustand) und tastet dabei alle 500 ms die Helligkeit ab. Damit lässt sich „rampt gleichmäßig" objektiv von „wartet und springt am Ende" unterscheiden. Nach jeder Variante wird zusätzlich ohne Helligkeitsangabe eingeschaltet und protokolliert, welchen Wert die Bridge wiederherstellt — inklusive Kontrollmessung nach der ersten Variante. Ergebnis im Diagnosebericht unter `[FadeTest]`. Ein zugeordneter Lichtmanager wird für die Testdauer automatisch gesperrt und danach wieder freigegeben.
+- **Lichtmanager ab Lampentyp „Dimmbar"**: Zuordnung, Sperre, Auto-Standby und Rückfallstrategie stehen jetzt auch dimmbaren Lampen zur Verfügung. Diese folgen nur der Helligkeit; die ETS zeigt dazu einen Hinweis.
+- Diagnosebericht weist ungelöste Kanalziele je Kanal aus (`targetUnresolved=` in der Kanalzeile).
+
+### Geändert
+- Diagnoseschlüssel `HasUnresolvedGroupTarget` heißt jetzt `HasUnresolvedTarget` — er galt schon immer für alle Zieltypen, nicht nur für Räume und Zonen.
+
+### Dokumentation
+- Hue-Szenen: Der Slot muss auf einem Kanal mit gültigem Ziel liegen; Szenen-IDs sind keine Ziel-IDs.
+- Automatische Lichtmanager-Sperre präzisiert: Nur Szenen, die den Kanal einschalten, sperren.
+- Fehlersuche um nicht auflösbare Ziele und deren Auswirkung auf die Live-Rückmeldung ergänzt.
+- Veraltete Pfade `/openknx/hue/…` auf `/hue/…` korrigiert.
+- Abschnitt „Lichtmanager nach manueller Verstellung sperren" in die Applikationsbeschreibung übernommen, aus der die Kontexthilfe erzeugt wird.
+
+## [0.7.1] - 2026-06-15
+
+### Behoben (Helligkeit & Status)
+- **Fortschreitendes Abdimmen bei wiederholten Schaltzyklen.** Während des Ausschalt-Fade-outs sendet die Hue-Bridge mehrere `on=true`-Frames mit fallender Helligkeit. Diese Zwischenwerte wurden fälschlich als neue Zielhelligkeit in den Cache übernommen. Ein neues `_switchOffPending`-Flag (gesetzt von `processKnxSwitch(false)`, gelöscht sobald die Bridge `on=false` bestätigt) unterdrückt Cache-Updates während der kommandierten Überblendung.
+- **Lampe startet nach Neustart/Neuprogrammierung auf ~1 %.** `setLightState`/`setGroupedLightState`/`setLightStateWithColorTemp`/`setGroupedLightStateWithColorTemp` sendeten bei unbekannter Helligkeit aktiv `dimming: 0 %` an die Bridge, die das als Minimum (~1 %) interpretiert. Das `dimming`-Feld wird jetzt bei `brightness == 0` weggelassen → die Bridge stellt ihren eigenen zuletzt bekannten An-Wert wieder her.
+- **Aus-Zustands-Poll vergiftete die zwischengespeicherte Helligkeit.** Die Bridge meldet ihren gespeicherten Dimmwert auch im Aus-Zustand. `updateFromHue` aktualisiert `_brightness` jetzt nur noch, wenn die Bridge die Lampe als **an** (`on == true`) meldet, sodass ein Aus-Zustands-Poll den Wert nicht mehr überschreibt und das nächste Einschalten ihn nicht abspielt.
+- **Helligkeits-Status blieb bei manuell gesteuerten Leuchten auf 0 % stehen.** Nach einem reinen Ein-Befehl liefert der EventStream nur ein `on`-Event ohne `dimming`-Feld, sodass der Gateway die tatsächliche Helligkeit nicht erfuhr. `refreshLightStatus(bool fastTrackOnly)` führt den Fast-Track-Verifikationspoll (mit vollem Light-Fetch inkl. Helligkeit) jetzt auch bei aktivem EventStream aus — aber nur für Kanäle mit kürzlich abgesetztem Befehl und ohne die regulären Intervall-Polls anzustoßen. `sendStatusToKnx` überschreibt das Helligkeits-KO nicht mehr mit 0 %, solange der echte Wert noch unbekannt ist (Ein-Zustand, `_brightness == 0`).
+
+### Hinzugefügt (HCL-Rückfallstrategie)
+- Kanal-spezifische **Rückfallstrategie nach Lichtmanager-Sperre** (`CH%C%HCLFallbackPolicy`): Definierte Rückfallzeit, Freie Dauer, Freie Uhrzeit, Dauer oder Uhrzeit, Nur externes Entsperren, Deaktiviert.
+- Zugehörige Parameter **Freie Rückfalldauer** (`CH%C%HCLFallbackDurationSec`, 0–65535 s) und **Rückfall-Uhrzeit** (`CH%C%HCLFallbackReleaseTime`, 0–1439 min), in der ETS abhängig von der gewählten Strategie eingeblendet.
+- Laufzeit-Auswertung über `_hclChannelFallbackPolicy`/`_hclChannelFallbackDurationMs`/`_hclChannelFallbackReleaseMinuteOfDay` und `shouldReleaseByPolicyTime(...)`.
+
+## [0.7.0] - 2026-05-22 — Partial-Sink-Integration
+
+### Geändert (kompatibilitätsrelevant)
+- Mindestversion **OFM-LightManager 0.3.0** (ProfileV2-HCL-Engine + Variante-E-Dispatch). KO-Block des Lichtmanagers wächst von 12 auf **22** KOs je Kanal (+10 KOs/Kanal) → alle HUE-KO-Nummern in diesem OAM verschieben sich um **+160** (16 Kanäle × 10 neue KOs). HUE-Gruppenadressen müssen in der ETS nach dem Update **neu verknüpft** werden.
+- `LMG_KoOffset` und `LMG_KoSingleOffset` müssen im OAM um den neuen `LMG_KoBlockSize=22` neu berechnet werden.
+
+### Hinzugefügt
+- **`ILightManagerOutput::onLightManagerPartial(masterNum, kelvin, brightness, validMask, fade)`-Implementierung** für die `HueLightManagerBridge`. `validMask` Bit 0 = Kelvin valid, Bit 1 = Brightness valid; nicht-valide Achsen werden aus dem letzten Cache aufgefüllt. Bridge respektiert Achsen-Maske gemäß `HclAxes`/`StatusKoOutput` und überträgt nur projektierte Achsen an die Hue-Bridge.
+- Konsistenz zwischen KNX-Bus- und Hue-Helligkeit: Bridge konsumiert `appliedKelvin()` / `effectiveBrightness()` (geslewt + adaptiert + ext-gemischt) statt des rohen HCL-Sollwerts.
+
+## [0.6.0] - 2026-05-19
+
+### Geändert (kompatibilitätsrelevant)
+- Mindestversion **OFM-LightManager 0.2.0** (DPT 249.600 + per-Kanal-Timing). Der KO-Block des Lichtmanagers wächst um 4 KOs je Kanal → alle HUE-KO-Nummern in diesem OAM sind um **+64** verschoben (`KoOffset 533 → 597`, `KoSingleOffset 531 → 595`).
+  - Alle HUE-Gruppenadressen müssen in der ETS nach dem Update **neu verknüpft** werden.
+- Diagnostische Anzeigen für `Aktualisierungsintervall`/`Überblenddauer` (Konsole `hue`/`hue hcl`, Web-UI-Status) zeigen jetzt `pro Kanal`, da diese Werte nicht mehr global geführt werden.
+- HCL-Throttle in `HueGatewayModule` verwendet die per-Kanal-Werte aus `LightManagerModule::channelUpdateIntervalSec(masterNum)` und `channelFadeDurationSec(masterNum)`.
+
+## [0.5.0] - 2026-05-18
+
+### Geändert (Architektur)
+- HCL-Engine und Lichtmanager-Konfiguration in eigenständiges Modul **OFM-LightManagerModule** extrahiert (neue Abhängigkeit). Die Entwicklungsgeschichte aller HCL/LM-bezogenen Funktionen ist im dortigen CHANGELOG dokumentiert.
+- Tote HCL-`ifdef`-Blöcke entfernt; HCL-Datenzugriff ausschließlich über `HCL::masterManager`.
+- `share.xml` bereinigt (ApplicationVersion 22 → 23): überflüssige HCL-Typen und Stub-Datei `HueGatewayHCL.templ.xml` entfernt.
+- `PT-HUEHCLMasterSelect` durch gemeinsamen `PT-LMGMasterSelect` aus OFM-LightManager ersetzt.
+- Dynamische HCL-Master-Begrenzung gegen `LightManagerModule.getMasterCount()` zur Laufzeit.
 
 ## [0.4.1] - 2026-04-20
 
 ### Hinzugefügt
-- **Saison-Profil für Lichtmanager 1–8** (ETS + Runtime):
-  - Neuer Parameter „Saison-Profil" je Lichtmanager mit vier Modi:
-    - `Standard` – immer Winter-Profil aktiv
-    - `Automatisch (Sommer/Winterzeit)` – nutzt System-DST-Flag; optionaler DST-Offset-Tage-Parameter für abweichende Regionen
-    - `Festes Datum` – konfigurierbares Sommerfenster (Sommerstart/Sommerende je Monat+Tag); unterstützt Jahreswechsel-Übergang (Südhalbkugel)
-    - `Per Kommunikationsobjekt` – KO „Saison" schaltet Sommer/Winter zur Laufzeit
-  - `HCL::Master`: zweiter Stützpunkt-Array (`_setpointsSummer`), `setIsSummer()`, `setSummerSetpoint()`, `sortSummerSetpoints()`; Interpolation und Bereichsberechnung nutzen automatisch das aktive Profil
-  - Hilfedatei `HUE-HCL-Saison-KO.md` ergänzt
 - Neue Baggage-Dateien: `HUE-Hue-Ziel-Geraete-ID.md`, `HUE-Hue-Ziel-Light-Room-Zone-ID.md`
 
 ### Geändert
@@ -110,8 +157,6 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 ## [0.3.5] - 2026-03-18
 
 ### Hinzugefügt
-- **Astronomische HCL-Kurve**: Farbtemperatur und Helligkeit werden anhand der Sonnenhöhe berechnet.
-- Fallback-Policies, Diagnose-Ringpuffer und Retry-Aktionen für stabilen Dauerbetrieb.
 - Transition-Getter in `HueGatewayLight` und verbessertes Switch-Logging.
 
 ### Geändert
@@ -142,7 +187,6 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 
 ### Geändert
 - Versionszweig 0.3.x gestartet (Nachfolger von 0.2.x).
-- HCL-Manager-Handling und Übergangszeitverhalten überarbeitet.
 
 ## [0.2.2] - 2026-02-26
 
@@ -152,13 +196,7 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 ### Geändert
 - Übergangszeiten werden konsistent in der Runtime sowohl für HCL- als auch Nicht-HCL-Schaltwege angewendet.
 
-### Behoben
-- HCL-Manager 5–8: ETS-Zuweisungen wurden zur Laufzeit nicht korrekt angewendet.
-
 ## [0.2.1] - 2026-02-25
-
-### Hinzugefügt
-- Kanal-spezifischer HCL-Lock: Parameter, Kommunikationsobjekt und Runtime-Verhalten.
 
 ### Behoben
 - Doppelter globaler HCL-Manager-Status-KO-Bereich in der ETS-Oberfläche entfernt.
@@ -177,7 +215,6 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 - Hue Bridge Discovery via mDNS; Button-Press-Authentifizierung ohne manuelle Token-Konfiguration.
 - Bidirektionale Lichtkanal-Steuerung: Schalten, Dimmen (0–100 %), Farbtemperatur (2000–6500 K), RGB.
 - Bidirektionale Statusaktualisierung via Hue API v2 Event Stream (SSE); Polling als Fallback.
-- HCL-Master-Funktion (Alpha): tageszeit- und kanal-abhängige Farbtemperatur-/Helligkeitssteuerung.
 - OFM-WebUI-Anbindung für kanalbasierte Hue-UUID-Konfiguration.
 - TLS-Unterstützung für HTTPS-Kommunikation mit der Hue Bridge.
 - NVS-Persistierung von Bridge-UUID und API-Key.

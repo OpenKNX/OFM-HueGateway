@@ -33,6 +33,7 @@ bool hasTlsInternalHeadroom()
 
 void logHeapStats(const char* phase)
 {
+#ifdef OPENKNX_DEBUG
     const uint32_t freeHeap = ESP.getFreeHeap();
     const uint32_t minFreeHeap = ESP.getMinFreeHeap();
     const size_t free8Bit = heap_caps_get_free_size(MALLOC_CAP_8BIT);
@@ -52,6 +53,9 @@ void logHeapStats(const char* phase)
              static_cast<unsigned>(freeInternal),
              static_cast<unsigned>(largestInternal),
              static_cast<unsigned long>(fragPercent));
+#else
+    (void)phase;
+#endif
 }
 
 bool extractResourceRef(JsonVariantConst refVar, String& outRid, String& outType)
@@ -1002,7 +1006,7 @@ bool HueGatewayClient::setGroupedLightBrightness(const String& groupedLightId, u
     return false;
 }
 
-bool HueGatewayClient::setLightState(const String& lightId, bool on, uint8_t brightness, uint8_t fadeDurationSec)
+bool HueGatewayClient::setLightState(const String& lightId, bool on, uint8_t brightness, uint8_t fadeDurationSec, bool includeOnState)
 {
     if (!_initialized)
         return false;
@@ -1012,8 +1016,14 @@ bool HueGatewayClient::setLightState(const String& lightId, bool on, uint8_t bri
     String endpoint = "/clip/v2/resource/light/" + lightId;
     
     DynamicJsonDocument doc(512);
-    doc["on"]["on"] = on;
-    if (on)
+    if (includeOnState)
+    {
+        doc["on"]["on"] = on;
+    }
+    // Only send a dimming value when we actually have one (>0). Sending
+    // brightness=0 would make the bridge clamp to its minimum (~1%) instead
+    // of keeping its last-known brightness. Omitting the field = keep last value.
+    if (on && brightness > 0)
     {
         doc["dimming"]["brightness"] = brightnessPct;
     }
@@ -1040,7 +1050,7 @@ bool HueGatewayClient::setLightState(const String& lightId, bool on, uint8_t bri
     }
 }
 
-bool HueGatewayClient::setGroupedLightState(const String& groupedLightId, bool on, uint8_t brightness, uint8_t fadeDurationSec)
+bool HueGatewayClient::setGroupedLightState(const String& groupedLightId, bool on, uint8_t brightness, uint8_t fadeDurationSec, bool includeOnState)
 {
     if (!_initialized)
         return false;
@@ -1050,8 +1060,14 @@ bool HueGatewayClient::setGroupedLightState(const String& groupedLightId, bool o
     String endpoint = "/clip/v2/resource/grouped_light/" + groupedLightId;
 
     DynamicJsonDocument doc(512);
-    doc["on"]["on"] = on;
-    if (on)
+    // on:true on a grouped_light switches every member on, so periodic HCL
+    // follow-up must omit it (see HueGatewayLight::loop).
+    if (includeOnState)
+    {
+        doc["on"]["on"] = on;
+    }
+    // See setLightState: omit dimming at brightness=0 to keep last bridge value.
+    if (on && brightness > 0)
     {
         doc["dimming"]["brightness"] = brightnessPct;
     }
@@ -1372,8 +1388,8 @@ int HueGatewayClient::getZoneTargets(HueGatewayTargetInfo* targets, int maxTarge
     return getTargetsForEndpoint("/clip/v2/resource/zone", targets, maxTargets);
 }
 
-bool HueGatewayClient::setLightStateWithColorTemp(const String& lightId, bool on, uint8_t brightness, 
-                                                   uint16_t mirek, uint8_t fadeDurationSec)
+bool HueGatewayClient::setLightStateWithColorTemp(const String& lightId, bool on, uint8_t brightness,
+                                                   uint16_t mirek, uint8_t fadeDurationSec, bool includeOnState)
 {
     if (!_initialized)
         return false;
@@ -1394,10 +1410,16 @@ bool HueGatewayClient::setLightStateWithColorTemp(const String& lightId, bool on
     
     // API v2 structure with on, dimming, color_temperature, and dynamics
     DynamicJsonDocument doc(512);
-    doc["on"]["on"] = on;
+    if (includeOnState)
+    {
+        doc["on"]["on"] = on;
+    }
     if (on)
     {
-        doc["dimming"]["brightness"] = brightnessPct;
+        // Omit dimming at brightness=0 so the bridge keeps its last-known
+        // brightness; still apply the requested color temperature.
+        if (brightness > 0)
+            doc["dimming"]["brightness"] = brightnessPct;
         doc["color_temperature"]["mirek"] = clampedMirek;
     }
     if (fadeDurationSec > 0) {
@@ -1426,7 +1448,8 @@ bool HueGatewayClient::setGroupedLightStateWithColorTemp(const String& groupedLi
                                                           bool on,
                                                           uint8_t brightness,
                                                           uint16_t mirek,
-                                                          uint8_t fadeDurationSec)
+                                                          uint8_t fadeDurationSec,
+                                                          bool includeOnState)
 {
     if (!_initialized)
         return false;
@@ -1441,10 +1464,17 @@ bool HueGatewayClient::setGroupedLightStateWithColorTemp(const String& groupedLi
     String endpoint = "/clip/v2/resource/grouped_light/" + groupedLightId;
 
     DynamicJsonDocument doc(512);
-    doc["on"]["on"] = on;
+    // See setGroupedLightState: on:true would switch every group member on.
+    if (includeOnState)
+    {
+        doc["on"]["on"] = on;
+    }
     if (on)
     {
-        doc["dimming"]["brightness"] = brightnessPct;
+        // Omit dimming at brightness=0 so the bridge keeps its last-known
+        // brightness; still apply the requested color temperature.
+        if (brightness > 0)
+            doc["dimming"]["brightness"] = brightnessPct;
         doc["color_temperature"]["mirek"] = clampedMirek;
     }
     if (fadeDurationSec > 0)
@@ -1531,6 +1561,43 @@ bool HueGatewayClient::setGroupedLightColorTemperature(const String& groupedLigh
 
     logError("HueGatewayClient", "PUT grouped_light color_temperature failed - HTTP %d", statusCode);
     return false;
+}
+
+bool HueGatewayClient::diagRawPut(const char* resourceType, const String& rid, const String& payload)
+{
+    if (!_initialized)
+        return false;
+
+    const String endpoint = String("/clip/v2/resource/") + resourceType + "/" + rid;
+    return isHttpSuccessStatus(httpPut(endpoint, payload));
+}
+
+bool HueGatewayClient::diagReadState(const char* resourceType, const String& rid, bool& on, uint8_t& brightnessPercent)
+{
+    if (!_initialized)
+        return false;
+
+    const String endpoint = String("/clip/v2/resource/") + resourceType + "/" + rid;
+
+    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument filterDoc(256);
+    filterDoc.clear();
+    JsonObject filterRoot = filterDoc.to<JsonObject>();
+    JsonObject filterData = filterRoot["data"][0].to<JsonObject>();
+    filterData["on"]["on"] = true;
+    filterData["dimming"]["brightness"] = true;
+    doc.clear();
+    if (!isHttpSuccessStatus(httpGet(endpoint, doc, &filterDoc)))
+        return false;
+
+    JsonVariantConst item = doc["data"][0];
+    if (item.isNull())
+        return false;
+
+    on = item["on"]["on"] | false;
+    const float pct = item["dimming"]["brightness"] | 0.0f;
+    brightnessPercent = static_cast<uint8_t>(roundf(pct));
+    return true;
 }
 
 bool HueGatewayClient::setLightColor(const String& lightId, float x, float y)

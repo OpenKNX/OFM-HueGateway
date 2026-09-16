@@ -29,9 +29,11 @@ Jeder Slot kann unabhängig parametriert werden. Ist die **Szenennummer** auf `0
 
 **Hue-Szene**: Referenz auf eine der 8 global konfigurierten Hue-Szenen (→ Abschnitt Hue Szenen (global)). Sichtbar nur bei Aktion „Hue Szene abrufen".
 
+Die Hue-Szene wird über den Szenen-Slot dieses Kanals abgerufen. Der Kanal selbst muss dafür ein gültiges Licht-, Raum- oder Zonenziel haben; ein eigener Kanal mit der Szenen-ID als Ziel funktioniert nicht. Empfehlung: den Slot auf dem Raum- oder Zonen-Kanal der betroffenen Leuchten anlegen und eine Szenennummer wählen, die nicht schon für ETS-Presets verwendet wird.
+
 #### Lichtmanager-Sperre bei Szenen
 
-Wenn einem Kanal ein Lichtmanager zugeordnet ist, **sperrt ein erfolgreicher Szenen-Abruf automatisch die HCL-Kanalausgabe** für diesen Kanal. Damit behält das Licht nach dem Szenen-Abruf seinen Szenen-Wert, ohne dass der Lichtmanager ihn überschreibt.
+Wenn einem Kanal ein Lichtmanager zugeordnet ist, **sperrt ein Szenen-Abruf, der den Kanal einschaltet, automatisch die HCL-Kanalausgabe** für diesen Kanal. Damit behält das Licht nach dem Szenen-Abruf seinen Szenen-Wert, ohne dass der Lichtmanager ihn überschreibt. Szenen, die den Kanal ausschalten, setzen keine Sperre.
 
 Die Sperre wird aufgehoben durch:
 - **Aus-Befehl** per KNX-Schalten-KO → Sperre wird sofort zurückgesetzt

@@ -10,7 +10,7 @@ Hinweis:
 - Dieses Feld dient primär der Migration älterer ETS-Projekte.
 
 Ermittlung über:
-- Webinterface: `http://<IP-des-OpenKNX-Geräts>/openknx/hue/scan`
+- Webinterface: `http://<IP-des-OpenKNX-Geräts>/hue/scan`
 - Konsole: `hue scan`
 - Hue API v2 (`/clip/v2/resource/light`)
 
