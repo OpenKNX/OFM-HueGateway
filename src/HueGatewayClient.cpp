@@ -1967,7 +1967,16 @@ bool HueGatewayClient::releaseEventStreamForRetry(const char* method, bool event
 
 void HueGatewayClient::loopIdleDisconnect()
 {
-    static constexpr unsigned long kHttpIdleCloseMs = 3000UL;
+    // 15 s, the value aiohttp uses by default (BaseConnector: keepalive_timeout =
+    // 15.0) and therefore what aiohue and Home Assistant hold open against a Hue
+    // bridge. Philips does not document the bridge side, so this is the longest span
+    // with evidence behind it rather than a guess. A connection the bridge dropped
+    // earlier lands in the retry path and shows up as retry=1 in the TIMING lines.
+    //
+    // It used to be 3 s because the TLS context occupied internal RAM the EventStream
+    // needed. With the buffers in PSRAM, closing frees about 130 bytes of internal
+    // RAM -- the reason is gone, while each cold handshake still costs ~900 ms.
+    static constexpr unsigned long kHttpIdleCloseMs = 15000UL;
 
     if (_lastHttpActivityMs == 0) return;
     if ((millis() - _lastHttpActivityMs) < kHttpIdleCloseMs) return;
