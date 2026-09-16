@@ -62,7 +62,10 @@
                 <!-- Kanal-Zieltyp -->
                 <Parameter Id="%AID%_UP-%TT%5%CC%009" Name="CH%C%TargetType" ParameterType="%AID%_PT-HUETargetType" Offset="1" BitOffset="3" Text="Zieltyp" Value="0" />
                 
-                <!-- Bits 5-7 von Byte 1: frei -->
+                <!-- Lichtmanager-Standby nach manueller Verstellung -->
+                <Parameter Id="%AID%_UP-%TT%5%CC%010" Name="CH%C%HCLAutoStandby" ParameterType="%AID%_PT-HUEHCLAutoStandby" Offset="1" BitOffset="5" Text="Lichtmanager nach manueller Verstellung sperren" Value="0" />
+
+                <!-- Bit 7 von Byte 1: frei -->
               </Union>
               
               <Union SizeInBit="16">
@@ -377,6 +380,7 @@
               <ParameterRef Id="%AID%_UP-%TT%5%CC%003_R-%TT%5%CC%00301" RefId="%AID%_UP-%TT%5%CC%003" />
               <ParameterRef Id="%AID%_UP-%TT%5%CC%004_R-%TT%5%CC%00401" RefId="%AID%_UP-%TT%5%CC%004" />
               <ParameterRef Id="%AID%_UP-%TT%5%CC%009_R-%TT%5%CC%00901" RefId="%AID%_UP-%TT%5%CC%009" />
+              <ParameterRef Id="%AID%_UP-%TT%5%CC%010_R-%TT%5%CC%01001" RefId="%AID%_UP-%TT%5%CC%010" />
               <ParameterRef Id="%AID%_UP-%TT%5%CC%005_R-%TT%5%CC%00501" RefId="%AID%_UP-%TT%5%CC%005" />
               <ParameterRef Id="%AID%_UP-%TT%5%CC%006_R-%TT%5%CC%00601" RefId="%AID%_UP-%TT%5%CC%006" />
               <ParameterRef Id="%AID%_UP-%TT%5%CC%014_R-%TT%5%CC%01401" RefId="%AID%_UP-%TT%5%CC%014" />
@@ -762,18 +766,24 @@
                           <!-- Kanal deaktiviert -->
                           <ParameterRefRef RefId="%AID%_UP-%TT%5%CC%003_R-%TT%5%CC%00301" HelpContext="HUE-Kanal-deaktivieren" />
 
-                          <!-- HCL-Master-Zuordnung (nur für Farbtemperatur/RGB) -->
+                          <!-- HCL-Master-Zuordnung (ab Lampentyp Dimmbar) -->
                           <choose ParamRefId="%AID%_UP-%TT%5%CC%002_R-%TT%5%CC%00201">
-                            <when test=">=2">
+                            <when test=">=1">
                               <ParameterSeparator Id="%AID%_PS-%TT%5%CC%CH%C%_HCLLine" Text="" UIHint="HorizontalRuler" />
                               <ParameterSeparator Id="%AID%_PS-%TT%5%CC%CH%C%_HCLHeader" Text="Lichtmanager" UIHint="Headline" />
                               <ParameterRefRef RefId="%AID%_P-%TT%5%CC%007_R-%TT%5%CC%00701" HelpContext="HUE-Lichtmanager-Zuordnung" />
                               <ParameterSeparator Id="%AID%_PS-%TT%5%CC%CH%C%_HCLMasterInfo" Text="Der gewählte Lichtmanager muss unter ‚Lichtmanager' aktiviert sein." UIHint="Information" />
+                              <choose ParamRefId="%AID%_UP-%TT%5%CC%002_R-%TT%5%CC%00201">
+                                <when test="1">
+                                  <ParameterSeparator Id="%AID%_PS-%TT%5%CC%CH%C%_HCLDimmableInfo" Text="Dimmbare Lampen folgen nur der Helligkeit des Lichtmanagers. Dessen HCL-Achsen dürfen nicht auf ‚Nur Farbtemperatur‘ stehen." UIHint="Information" />
+                                </when>
+                              </choose>
                               <choose ParamRefId="%AID%_P-%TT%5%CC%007_R-%TT%5%CC%00701">
                                 <when test=">=1">
                                   <ParameterSeparator Id="%AID%_PS-%TT%5%CC%CH%C%_HCLLockHeader" Text="Lichtmanager Sperre (Hue-Kanal)" UIHint="Headline" />
                                   <ComObjectRefRef RefId="%AID%_O-%TT%5%CC%009_R-%TT%5%CC%00901" />
                                   <ComObjectRefRef RefId="%AID%_O-%TT%5%CC%010_R-%TT%5%CC%01001" />
+                                  <ParameterRefRef RefId="%AID%_UP-%TT%5%CC%010_R-%TT%5%CC%01001" IndentLevel="1" HelpContext="HUE-Lichtmanager-Auto-Standby" />
                                   <ParameterRefRef RefId="%AID%_P-%TT%5%CC%210_R-%TT%5%CC%21001" IndentLevel="1" HelpContext="HUE-Sperre-kanal-spezifisch" />
                                   <choose ParamRefId="%AID%_P-%TT%5%CC%210_R-%TT%5%CC%21001">
                                     <when test="0">
@@ -1763,7 +1773,7 @@
                           </when>
                         </choose>
                         <choose ParamRefId="%AID%_UP-%TT%5%CC%002_R-%TT%5%CC%00201">
-                          <when test=">=2">
+                          <when test=">=1">
                             <choose ParamRefId="%AID%_P-%TT%5%CC%007_R-%TT%5%CC%00701">
                               <when test=">=1">
                                 <ComObjectRefRef RefId="%AID%_O-%TT%5%CC%009_R-%TT%5%CC%00901" />

@@ -144,6 +144,15 @@
                 </TypeRestriction>
               </ParameterType>
 
+              <!-- HCL-Sperre: automatischer Standby nach manueller Verstellung -->
+              <ParameterType Id="%AID%_PT-HUEHCLAutoStandby" Name="HUEHCLAutoStandby">
+                <TypeRestriction Base="Value" SizeInBit="2" UIHint="DropDown">
+                  <Enumeration Text="Nein" Value="0" Id="%ENID%" />
+                  <Enumeration Text="Bei Helligkeit und Dimmen" Value="1" Id="%ENID%" />
+                  <Enumeration Text="Bei Helligkeit, Dimmen, Farbtemperatur und Farbe" Value="2" Id="%ENID%" />
+                </TypeRestriction>
+              </ParameterType>
+
               <!-- HCL-Sperre: Rückfallstrategie (kanal-spezifisch) -->
               <ParameterType Id="%AID%_PT-HUEHCLFallbackPolicy" Name="HUEHCLFallbackPolicy">
                 <TypeRestriction Base="Value" SizeInBit="8" UIHint="DropDown">

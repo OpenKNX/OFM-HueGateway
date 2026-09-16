@@ -964,6 +964,7 @@ HueGatewayModule::HueGatewayModule()
         _channelFastTrackRemaining[i] = 0;
         _hclChannelLockActive[i] = false;
         _hclChannelLockFallbackMode[i] = static_cast<uint8_t>(HclLockFallbackMode::None);
+        _hclChannelAutoStandby[i] = 0;
         _hclChannelFallbackPolicy[i] = static_cast<uint8_t>(HclLockFallbackPolicy::Legacy);
         _hclChannelFallbackDurationMs[i] = 0;
         _hclChannelFallbackReleaseMinuteOfDay[i] = 0xFFFF;
@@ -2068,6 +2069,21 @@ void HueGatewayModule::processInputKo(GroupObject& ko)
         }
         default:
             break;
+    }
+
+    // Auto-standby: a manual adjustment puts the light manager on hold for this
+    // channel. Release follows the channel's configured fallback strategy.
+    // koType 0 (switch) is excluded: off already releases the lock, on applies HCL.
+    if (_devices[channel] != nullptr && _devices[channel]->getHCLMaster() > 0)
+    {
+        const uint8_t autoStandby = _hclChannelAutoStandby[channel];
+        const bool brightnessCommand = (koType == 1 || koType == 2);
+        const bool colorCommand = (koType == 5 || koType == 7);
+        if ((autoStandby == 1 && brightnessCommand) ||
+            (autoStandby == 2 && (brightnessCommand || colorCommand)))
+        {
+            setHclChannelLock(static_cast<uint8_t>(channel), true, "manual override");
+        }
     }
 
     if (isCommandKo)
@@ -3589,6 +3605,11 @@ void HueGatewayModule::setupDevices()
         _hclChannelLockFallbackMode[ch] = static_cast<uint8_t>(HclLockFallbackMode::None);
         #ifdef ParamHUE_CHHCLLockFallback
         _hclChannelLockFallbackMode[ch] = ParamHUE_CHHCLLockFallback;
+        #endif
+
+        _hclChannelAutoStandby[ch] = 0;
+        #ifdef ParamHUE_CHHCLAutoStandby
+        _hclChannelAutoStandby[ch] = ParamHUE_CHHCLAutoStandby;
         #endif
 
         _hclChannelFallbackPolicy[ch] = static_cast<uint8_t>(HclLockFallbackPolicy::Legacy);
