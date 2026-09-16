@@ -4,6 +4,7 @@
 #include <memory>
 #include <math.h>
 #include <esp_heap_caps.h>
+#include <mbedtls/platform.h>
 #include "OpenKNX.h"
 
 namespace
@@ -18,6 +19,48 @@ static constexpr uint32_t kTlsMinInternalFreeBytes = 70000U;
 static constexpr uint32_t kTlsMinInternalLargestBlockBytes = 50000U;
 #endif
 static constexpr unsigned long kLightLocationCacheMs = 300000UL;
+
+// mbedTLS takes its session buffers -- two content buffers plus state, tens of KB
+// per context -- from internal RAM. That budget fits exactly one context on this
+// hardware, which is why the EventStream and a command connection could not be up
+// at the same time. With PSRAM present the buffers can live there instead.
+void* tlsPsramCalloc(size_t count, size_t size)
+{
+    void* ptr = heap_caps_calloc(count, size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (ptr == nullptr) ptr = calloc(count, size); // PSRAM exhausted: internal RAM still works
+    return ptr;
+}
+
+void tlsPsramFree(void* ptr)
+{
+    free(ptr); // frees both regions
+}
+
+void installPsramTlsAllocatorOnce()
+{
+    static bool attempted = false;
+    if (attempted) return;
+    attempted = true;
+
+    const unsigned internalBefore = static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+
+    if (!psramFound())
+    {
+        logInfo("HueGatewayClient", "TLS allocator: internal RAM (no PSRAM found, internalFree=%u)", internalBefore);
+        return;
+    }
+
+    if (mbedtls_platform_set_calloc_free(tlsPsramCalloc, tlsPsramFree) != 0)
+    {
+        logError("HueGatewayClient", "TLS allocator: switch to PSRAM refused, staying on internal RAM");
+        return;
+    }
+
+    logInfo("HueGatewayClient", "TLS allocator: PSRAM (psramFree=%u internalFree=%u internalLargest=%u)",
+            static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)),
+            internalBefore,
+            static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)));
+}
 
 bool isHttpSuccessStatus(int statusCode)
 {
@@ -151,6 +194,9 @@ bool HueGatewayClient::begin(const String& bridgeIP, const String& appKey)
         return false;
     }
     
+    // Before the first TLS context is built: move mbedTLS off the internal heap.
+    installPsramTlsAllocatorOnce();
+
     _bridgeIP = bridgeIP;
     _appKey = appKey;
     _initialized = true;
