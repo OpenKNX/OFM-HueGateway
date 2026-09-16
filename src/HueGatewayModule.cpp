@@ -4501,7 +4501,10 @@ void HueGatewayModule::publishHclChannelLockStatus(uint8_t channelIndex)
     (void)active;
 
     #ifdef HUE_KoCHHCLLockStatus
-    knx.getGroupObject(HUE_KoCHHCLLockStatus).value(active, Dpt(1, 1));
+    // HUE_KoCHHCLLockStatus is the channel-relative index; KoHUE_CHHCLLockStatus
+    // expands to _channelIndex, which does not exist in module scope.
+    const uint16_t koNumber = HUE_KoBlockOffset + channelIndex * HUE_KoBlockSize + HUE_KoCHHCLLockStatus;
+    knx.getGroupObject(koNumber).value(active, Dpt(1, 1));
     #endif
 }
 
@@ -4711,7 +4714,12 @@ void HueGatewayModule::setHclChannelLock(uint8_t channelIndex, bool active, cons
         }
     }
 
-    publishHclChannelLockStatus(channelIndex);
+    // Repeated manual adjustments re-arm the fallback timer above, but must not
+    // put a redundant status telegram on the bus each time.
+    if (changed)
+    {
+        publishHclChannelLockStatus(channelIndex);
+    }
 }
 
 void HueGatewayModule::evaluateHclLockFallback(const tm* timeinfo, bool hasTime)
