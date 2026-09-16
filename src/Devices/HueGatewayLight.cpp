@@ -823,8 +823,6 @@ void HueGatewayLight::processKnxSceneRecall(bool on,
     {
         _lastUpdate = millis();
         _lastHueWriteSuccessMs = _lastUpdate;
-        if (_hclMasterNum > 0)
-            _hclChannelLockActive = true;
         sendStatusToKnx();
         Serial.printf("[HueGatewayLight] %s - Scene recall: On:%d Bri:%u%% (Hue:%u)\n",
                       _name.c_str(), static_cast<int>(on),

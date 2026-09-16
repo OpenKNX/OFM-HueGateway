@@ -1991,6 +1991,8 @@ void HueGatewayModule::processInputKo(GroupObject& ko)
                             light->processKnxSceneRecall(onOff, true, sd.brightness, true, sd.colorTemp, true, sd.red, sd.green, sd.blue);
                         else if (auto* plug = plugAt(channel))
                             plug->processKnxSceneRecall(onOff);
+                        if (onOff && _devices[channel] != nullptr && _devices[channel]->getHCLMaster() > 0)
+                            setHclChannelLock(static_cast<uint8_t>(channel), true, "scene preset");
                         commandValue = String("store-recall:") + String(static_cast<unsigned>(sceneNumber));
                         break;
                     }
@@ -2041,6 +2043,8 @@ void HueGatewayModule::processInputKo(GroupObject& ko)
                         light->processKnxSceneRecall(onOff, applyBri, bri, applyCT, ct, applyColor, red, green, blue);
                     else if (auto* plug = plugAt(channel))
                         plug->processKnxSceneRecall(onOff);
+                    if (onOff && _devices[channel] != nullptr && _devices[channel]->getHCLMaster() > 0)
+                        setHclChannelLock(static_cast<uint8_t>(channel), true, "scene preset");
                 }
                 break;  // First matching slot wins.
             }
