@@ -7070,7 +7070,7 @@ void HueGatewayModule::buildChannelStateJson(int channel, String& out)
 
 void HueGatewayModule::flushLiveUpdates()
 {
-    if (openknxNetwork.webserver.connectedClientFds("/ws/hue").empty()) return;
+    if (!openknxNetwork.webserver.hasClients("/ws/hue")) return;
 
     unsigned long now = millis();
 
