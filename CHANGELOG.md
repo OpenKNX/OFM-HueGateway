@@ -2,6 +2,33 @@
 
 Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumentiert.
 
+## Geplantes folgendes Release [0.7.2]
+
+### Behoben
+- **Statusrückmeldung der kanal-spezifischen Lichtmanager-Sperre fehlte vollständig.** `publishHclChannelLockStatus()` übergab `HUE_KoCHHCLLockStatus` — den **kanalrelativen Index 10** — direkt an `knx.getGroupObject()` statt der absoluten KO-Nummer. Der Status ging damit an das globale Objekt 10 statt an `HUE_KoBlockOffset + Kanal × HUE_KoBlockSize + 10`. Die Sperre selbst arbeitete korrekt, nur die Rückmeldung erreichte das projektierte KO nie; zusätzlich wurde ein unbeteiligtes Objekt beschrieben. Die KO-Nummer wird jetzt analog zu `LightManagerModule::processInputKo` von Hand berechnet (der Makro `KoHUE_CHHCLLockStatus` ist im Modul-Scope nicht nutzbar, da er `_channelIndex` voraussetzt). Betraf alle Kanäle.
+- **Überlappende Zonen: Der Lichtmanager schaltete ausgeschaltete Leuchten zyklisch wieder ein.** Hue meldet `grouped_light.on.on` bereits als `true`, sobald *irgendeine* Leuchte der Gruppe an ist. Der zyklische HCL-Abgleich lief dadurch weiter und sendete über `setGroupedLightState`/`setGroupedLightStateWithColorTemp` bedingungslos `on:true` mit — auf eine `grouped_light`-Ressource ist das ein Einschaltbefehl an **alle** Mitglieder, nicht bloß eine Statusbestätigung. Was eine überlappende Zone ausgeschaltet hatte, ging im Takt des Aktualisierungsintervalls wieder an. Die vier Schreibfunktionen kennen jetzt `includeOnState`; der Abgleich in `HueGatewayLight::loop()` ruft mit `false` auf. Regel: Eine zyklische Nachführung schaltet nie etwas ein, sie führt nur bereits eingeschaltete Leuchten nach — das schützt auch Einzellampen, die außerhalb von KNX ausgeschaltet wurden.
+- **Szenen-Presets sperrten den Lichtmanager ohne Rückfall.** `processKnxSceneRecall()` setzte das Geräte-Flag direkt; die Modul-Schleife übernahm den Wert zwar, bewaffnete aber keinen Rückfall-Timer — die Sperre lief nie ab und endete nur durch Ausschalten. Presets laufen jetzt wie der Hue-Szenenaufruf über `setHclChannelLock()`, und zwar nur wenn die Szene einschaltet (eine ausschaltende Szene hinterließ sonst eine Sperre, die auch das nächste Einschalten blockierte).
+- **Schreib-Dauerlauf bei herabgestuften Kanälen mit Lichtmanager.** `setupDevices()` stuft Farbtemperatur-/Farbkanäle auf „dimmbar" herab, wenn die Bridge keine CT-Unterstützung meldet, behielt dabei aber die Lichtmanager-Zuordnung. Weil `_currentKelvin` für dimmbare Lampen nie aktualisiert wird, galt die Farbtemperatur in `HueGatewayLight::loop()` dauerhaft als geändert — alle ~220 ms ein PUT an die Bridge plus KNX-Statustelegramm, und der gemeinsame HCL-Schreibslot blockierte alle anderen Lampen. Farbtemperatur zählt jetzt nur noch ab Lampentyp Farbtemperatur; dimmbare Lampen übernehmen nur die Helligkeitsachse. Kanäle vom Typ Ein/Aus verwerfen eine übrig gebliebene Lichtmanager-Zuordnung.
+- **Überblendzeit des Lichtmanagers bei reiner Helligkeits-Nachführung ignoriert.** Die Nachführung ohne Farbtemperatur sendete mit Überblendzeit 0, die Helligkeit sprang.
+- **Einschalten mit veraltetem Lichtmanager-Wert.** Beim Einschalten wurde der Lichtmanager-Wert auch angelegt, wenn keine gültige Achse vorlag; jetzt wie in der zyklischen Nachführung nur bei gültigem Wert.
+
+### Hinzugefügt
+- **Lichtmanager-Standby nach manueller Verstellung** (`CH%C%HCLAutoStandby`, je Hue-Kanal): `Nein` (Vorgabe, Verhalten unverändert), `Bei Helligkeit und Dimmen` oder `Bei Helligkeit, Dimmen, Farbtemperatur und Farbe`. Eine manuelle Verstellung versetzt den Lichtmanager für diesen Kanal selbsttätig in den Standby, sodass er nicht mehr von Hand gesperrt werden muss. Schaltbefehle lösen bewusst nicht aus. Die Rückkehr nutzt die bestehende **Rückfallstrategie nach Sperre** des Kanals; jede weitere Verstellung zieht die Rückfallzeit neu auf. Der Parameter belegt freie Bits einer vorhandenen Union, das Speicherlayout bleibt unverändert.
+- `setHclChannelLock()` meldet den Status nur noch bei tatsächlicher Zustandsänderung, damit wiederholte Verstellungen keine redundanten Telegramme erzeugen.
+- **Rampen-Diagnose** für Raum-/Zonen-Ziele: `/hue/fadetest?ch=<n>` bzw. Konsole `hue fadetest <n>` fährt einen Kanal durch vier Hue-Nutzlastvarianten (Ausschalten mit/ohne `dimming`-Zielwert, zweistufige Rampe, Einschalten aus dem Aus-Zustand) und tastet dabei alle 500 ms die Helligkeit ab. Damit lässt sich „rampt gleichmäßig" objektiv von „wartet und springt am Ende" unterscheiden. Nach jeder Variante wird zusätzlich ohne Helligkeitsangabe eingeschaltet und protokolliert, welchen Wert die Bridge wiederherstellt — inklusive Kontrollmessung nach der ersten Variante. Ergebnis im Diagnosebericht unter `[FadeTest]`. Ein zugeordneter Lichtmanager wird für die Testdauer automatisch gesperrt und danach wieder freigegeben.
+- **Lichtmanager ab Lampentyp „Dimmbar"**: Zuordnung, Sperre, Auto-Standby und Rückfallstrategie stehen jetzt auch dimmbaren Lampen zur Verfügung. Diese folgen nur der Helligkeit; die ETS zeigt dazu einen Hinweis.
+- Diagnosebericht weist ungelöste Kanalziele je Kanal aus (`targetUnresolved=` in der Kanalzeile).
+
+### Geändert
+- Diagnoseschlüssel `HasUnresolvedGroupTarget` heißt jetzt `HasUnresolvedTarget` — er galt schon immer für alle Zieltypen, nicht nur für Räume und Zonen.
+
+### Dokumentation
+- Hue-Szenen: Der Slot muss auf einem Kanal mit gültigem Ziel liegen; Szenen-IDs sind keine Ziel-IDs.
+- Automatische Lichtmanager-Sperre präzisiert: Nur Szenen, die den Kanal einschalten, sperren.
+- Fehlersuche um nicht auflösbare Ziele und deren Auswirkung auf die Live-Rückmeldung ergänzt.
+- Veraltete Pfade `/openknx/hue/…` auf `/hue/…` korrigiert.
+- Abschnitt „Lichtmanager nach manueller Verstellung sperren" in die Applikationsbeschreibung übernommen, aus der die Kontexthilfe erzeugt wird.
+
 ## [0.7.1] - 2026-06-15
 
 ### Behoben (Helligkeit & Status)
