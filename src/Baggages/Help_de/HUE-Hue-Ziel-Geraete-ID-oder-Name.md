@@ -9,7 +9,7 @@ Gerätetypen:
 - Steckdose
 
 Ermittlung über:
-- Webinterface: `http://<IP-des-OpenKNX-Geräts>/openknx/hue/scan`
+- Webinterface: `http://<IP-des-OpenKNX-Geräts>/hue/scan`
 - Konsole: `hue scan`
 
 Empfehlung:

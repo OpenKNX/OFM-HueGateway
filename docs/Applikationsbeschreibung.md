@@ -173,10 +173,10 @@ Die Inbetriebnahme kann auf zwei Arten erfolgen:
 
 #### Variante 2: Pairing per Webinterface
 
-1. Webinterface öffnen: `http://<IP-des-OpenKNX-Geräts>/openknx/hue`
-2. **Kopplung starten** aufrufen (`/openknx/hue/pair`).
+1. Webinterface öffnen: `http://<IP-des-OpenKNX-Geräts>/hue`
+2. **Kopplung starten** aufrufen (`/hue/pair`).
 3. Innerhalb des Pairing-Fensters den Link-Button an der Hue Bridge drücken.
-4. Auf der Statusseite den Verbindungsaufbau prüfen (`/openknx/hue/status`).
+4. Auf der Statusseite den Verbindungsaufbau prüfen (`/hue/status`).
 5. Das Modul speichert den App-Key persistent.
 
 Hinweise zu Zuständen und Fortschritt finden Sie unter [LED-Signale](#led-signale).
@@ -186,7 +186,7 @@ Hinweise zu Zuständen und Fortschritt finden Sie unter [LED-Signale](#led-signa
 
 Nach erfolgreicher Kopplung (LED grün dauerhaft) erfolgt die eigentliche Gerätezuordnung:
 
-1. **Hue-Geräte laden** öffnen: `http://<IP-des-OpenKNX-Geräts>/openknx/hue/scan`
+1. **Hue-Geräte laden** öffnen: `http://<IP-des-OpenKNX-Geräts>/hue/scan`
 2. In der Liste die gewünschten Ziele (Licht/Raum/Zone) inkl. ID erfassen.
 3. In ETS je Kanal **Zieltyp** setzen und **Hue Ziel (Light-/Room-/Zone-ID)** eintragen.
 4. Pro Kanal Lampentyp, Synchronisationsrichtung und Polling prüfen.
@@ -217,10 +217,10 @@ Die Status-LED zeigt den aktuellen Zustand während der Inbetriebnahme:
 Für Inbetriebnahme und Diagnose steht die Hue-Seite im OpenKNX WebUI bereit.
 
 **Aufruf:**
-- `http://<IP-des-OpenKNX-Geräts>/openknx/hue`
+- `http://<IP-des-OpenKNX-Geräts>/hue`
 
 **Beispiel:**
-- `http://192.168.1.100/openknx/hue`
+- `http://192.168.1.100/hue`
 
 Von dort aus sind die Seiten für Pairing, Status und Gerätescan direkt erreichbar.
 
@@ -341,12 +341,14 @@ Verwenden Sie je nach Zieltyp:
 - Zone-ID oder Zone-Name
 
 Ermittlung über:
-- Webinterface: `http://<IP-des-OpenKNX-Geräts>/openknx/hue/scan`
+- Webinterface: `http://<IP-des-OpenKNX-Geräts>/hue/scan`
 - Konsole: `hue scan`
 
 Empfehlung:
 - Für produktive Projekte bevorzugt die ID (RID) eintragen.
 - Namen nur bei eindeutiger Benennung verwenden.
+
+Hinweis: Die Scan-Seite listet Hue-Szenen gesondert auf. Deren IDs sind **keine** gültigen Ziele — ein Kanal mit einer Szenen-ID als Ziel wird nicht angelegt. Hue-Szenen werden über die Szenensteuerung eines Kanals abgerufen. Ein nicht auflösbares Ziel zeigt der Diagnosebericht (`/hue/diagnose.txt`) in der Kanalzeile mit `targetUnresolved=1`.
 
 <!-- DOC HelpContext="Hue-Ziel-Light-Room-Zone-ID-oder-Name" -->
 Primäres Zielfeld für alle Zieltypen. Akzeptiert sowohl eine numerische ID (RID) als auch einen eindeutigen Namen.
@@ -357,12 +359,14 @@ Verwenden Sie je nach Zieltyp:
 - Zone-ID oder Zone-Name
 
 Ermittlung über:
-- Webinterface: `http://<IP-des-OpenKNX-Geräts>/openknx/hue/scan`
+- Webinterface: `http://<IP-des-OpenKNX-Geräts>/hue/scan`
 - Konsole: `hue scan`
 
 Empfehlung:
 - Für produktive Projekte bevorzugt die ID (RID) eintragen.
 - Namen nur bei eindeutiger Benennung verwenden.
+
+Hinweis: Die Scan-Seite listet Hue-Szenen gesondert auf. Deren IDs sind **keine** gültigen Ziele — ein Kanal mit einer Szenen-ID als Ziel wird nicht angelegt. Hue-Szenen werden über die Szenensteuerung eines Kanals abgerufen. Ein nicht auflösbares Ziel zeigt der Diagnosebericht (`/hue/diagnose.txt`) in der Kanalzeile mit `targetUnresolved=1`.
 <!-- DOCEND -->
 
 <!-- DOC -->
@@ -378,7 +382,7 @@ Zielfeld für Gerätetypen, die direkt auf ein einzelnes Hue-Gerät zeigen, insb
 Verwenden Sie hier die von der Hue Bridge gemeldete Geräte-ID oder einen eindeutigen Gerätenamen.
 
 Ermittlung über:
-- Webinterface: `http://<IP-des-OpenKNX-Geräts>/openknx/hue/scan`
+- Webinterface: `http://<IP-des-OpenKNX-Geräts>/hue/scan`
 - Konsole: `hue scan`
 
 Empfehlung:
@@ -398,7 +402,7 @@ Gerätetypen:
 - Steckdose
 
 Ermittlung über:
-- Webinterface: `http://<IP-des-OpenKNX-Geräts>/openknx/hue/scan`
+- Webinterface: `http://<IP-des-OpenKNX-Geräts>/hue/scan`
 - Konsole: `hue scan`
 
 Empfehlung:
@@ -419,7 +423,7 @@ Hinweis:
 - Dieses Feld dient primär der Migration älterer ETS-Projekte.
 
 Ermittlung über:
-- Webinterface: `http://<IP-des-OpenKNX-Geräts>/openknx/hue/scan`
+- Webinterface: `http://<IP-des-OpenKNX-Geräts>/hue/scan`
 - Konsole: `hue scan`
 - Hue API v2 (`/clip/v2/resource/light`)
 
@@ -706,9 +710,11 @@ Jeder Slot kann unabhängig parametriert werden. Ist die **Szenennummer** auf `0
 
 **Hue-Szene**: Referenz auf eine der 8 global konfigurierten Hue-Szenen (→ Abschnitt [Hue Szenen (global)](#hue-szenen-global)). Sichtbar nur bei Aktion „Hue Szene abrufen".
 
+Die Hue-Szene wird über den Szenen-Slot dieses Kanals abgerufen. Der Kanal selbst muss dafür ein gültiges Licht-, Raum- oder Zonenziel haben; ein eigener Kanal mit der Szenen-ID als Ziel funktioniert nicht. Empfehlung: den Slot auf dem Raum- oder Zonen-Kanal der betroffenen Leuchten anlegen und eine Szenennummer wählen, die nicht schon für ETS-Presets verwendet wird.
+
 #### Lichtmanager-Sperre bei Szenen
 
-Wenn einem Kanal ein Lichtmanager zugeordnet ist, **sperrt ein erfolgreicher Szenen-Abruf automatisch die HCL-Kanalausgabe** für diesen Kanal. Damit behält das Licht nach dem Szenen-Abruf seinen Szenen-Wert, ohne dass der Lichtmanager ihn überschreibt.
+Wenn einem Kanal ein Lichtmanager zugeordnet ist, **sperrt ein Szenen-Abruf, der den Kanal einschaltet, automatisch die HCL-Kanalausgabe** für diesen Kanal. Damit behält das Licht nach dem Szenen-Abruf seinen Szenen-Wert, ohne dass der Lichtmanager ihn überschreibt. Szenen, die den Kanal ausschalten, setzen keine Sperre.
 
 Die Sperre wird aufgehoben durch:
 - **Aus-Befehl** per KNX-Schalten-KO → Sperre wird sofort zurückgesetzt
@@ -771,6 +777,7 @@ Hinweise:
 
 Ordnet den Kanal einem Lichtmanager (1..N) zu.
 Bei `Kein Lichtmanager` arbeitet der Kanal ohne automatische Sollwert-Übernahme.
+Verfügbar ab Lampentyp `Dimmbar`. Dimmbare Lampen folgen nur der Helligkeit des Lichtmanagers; dessen HCL-Achsen dürfen dafür nicht auf `Nur Farbtemperatur` stehen.
 
 <!-- DOC -->
 ### Sperre (kanal-spezifisch)
@@ -780,14 +787,14 @@ Andere Kanäle mit gleicher Lichtmanager-Zuordnung bleiben unverändert aktiv.
 Der zugeordnete Lichtmanager selbst läuft weiter und versorgt weiterhin alle anderen ihm zugeordneten Hue-Kanäle.
 
 Sichtbarkeit:
-- Nur bei Lampentyp `Farbtemperatur` oder `Farbe RGB`.
+- Ab Lampentyp `Dimmbar`; dimmbare Lampen folgen nur der Helligkeit.
 - Nur wenn beim Kanal ein Lichtmanager `1..N` zugeordnet ist.
 
 Option je Kanal:
 - **Rückfallzeit nach Sperre** (inkl. Tageswechsel, `kein Rückfall` möglich)
 - **Rückfallstrategie nach Sperre**: zentrale Vorgabe, siehe Abschnitt [Rückfallstrategie nach Sperre](#rückfallstrategie-nach-sperre)
 
-**Automatische Sperre durch Szenen-Abruf**: Wenn ein Kanal einem Lichtmanager zugeordnet ist und eine Szene abgerufen wird, wird die HCL-Kanalsperre automatisch aktiviert. Die Sperre wird aufgehoben durch:
+**Automatische Sperre durch Szenen-Abruf**: Wenn ein Kanal einem Lichtmanager zugeordnet ist und eine Szene abgerufen wird, die den Kanal einschaltet, wird die HCL-Kanalsperre automatisch aktiviert. Die Sperre wird aufgehoben durch:
 - Einen **Aus-Befehl** (KNX-Schalten-KO, Wert 0) → sofortiges Aufheben
 - Ablauf der konfigurierten **Rückfallzeit**
 - Globales Entsperren per KO `Entsperren Trigger`
@@ -800,6 +807,33 @@ Praxisbeispiel:
 - Wohn-/Essbereich mit gemeinsamem Lichtmanager.
 - Am Abend läuft im Essbereich der Lichtmanager weiter, im Wohnzimmer wird per Taster `Sperre` aktiviert, damit dort eine feste, warme Szene bleibt.
 - Am nächsten Morgen hebt die konfigurierte Rückfallzeit die Sperre automatisch auf und der Kanal folgt wieder der Lichtmanager-Kurve.
+
+<!-- DOC HelpContext="Lichtmanager-Auto-Standby" -->
+### Lichtmanager nach manueller Verstellung sperren
+
+Versetzt den Lichtmanager für diesen Hue-Kanal automatisch in den Standby, sobald der Kanal von Hand verstellt wird.
+Ohne diese Option muss die Sperre jedes Mal von Hand über das KO `Sperre Lichtmanager` gesetzt werden.
+
+Sichtbarkeit:
+- Ab Lampentyp `Dimmbar`.
+- Nur wenn beim Kanal ein Lichtmanager `1..N` zugeordnet ist.
+
+Optionen:
+- **Nein**: Der Lichtmanager führt den Kanal nach einer manuellen Verstellung unverändert weiter nach.
+- **Bei Helligkeit und Dimmen**: Ein Helligkeitswert (1 Byte) oder ein relativer Dimmbefehl (4 Bit) löst den Standby aus.
+- **Bei Helligkeit, Dimmen, Farbtemperatur und Farbe**: Zusätzlich lösen Farbtemperatur- und Farbbefehle den Standby aus. Dimmbare Lampen haben keine Farbbefehle; dort wirkt diese Stufe wie **Bei Helligkeit und Dimmen**.
+
+Ein **Schaltbefehl** löst bewusst keinen Standby aus: Ausschalten hebt die Sperre auf, und beim Einschalten soll der Kanal den aktuellen Lichtmanager-Wert übernehmen.
+
+Rückkehr aus dem Standby: Es gelten dieselben Einstellungen wie für die manuelle Sperre, also **Rückfallstrategie nach Sperre** und die zugehörige Rückfallzeit bzw. -uhrzeit. Jede weitere manuelle Verstellung zieht die Rückfallzeit neu auf. Zusätzlich heben ein Aus-Befehl und das globale KO `Entsperren Trigger` die Sperre sofort auf.
+Der Zustand wird über das KO `Status Sperre Lichtmanager` gemeldet.
+
+**Wichtig:** Die KNX-Statusobjekte des Lichtmanagers (`LM x: Status-Soll-Helligkeit` bzw. `Status-Soll-Farbtemperatur`) dürfen nicht auf die Eingangsobjekte desselben Hue-Kanals gelegt werden. Bei aktivem Auto-Standby käme sonst jeder Zyklus des Lichtmanagers als vermeintlich manueller Befehl an und würde den Kanal dauerhaft selbst sperren. Bei interner Zuordnung über `Zuordnung Lichtmanager` besteht diese Gefahr nicht.
+
+Praxisbeispiel:
+- Im Wohnzimmer folgt das Licht tagsüber der Lichtmanager-Kurve.
+- Am Abend wird per Taster gedimmt; der Kanal geht dadurch selbsttätig in den Standby und behält den eingestellten Wert.
+- Nach Ablauf der konfigurierten Rückfallzeit — oder nach dem Ausschalten — folgt der Kanal wieder automatisch dem Lichtmanager.
 
 <!-- DOC -->
 ## Lichtmanager
@@ -816,6 +850,8 @@ Ermittlung der Scene-RID:
 - Hue API v2: `GET /clip/v2/resource/scene`
 
 Hinweis: Eine Hue-Szene wird direkt über die Bridge aktiviert und kann beliebig viele Leuchten umfassen. Sie eignet sich für komplexe Beleuchtungseffekte, die nicht per ETS-Preset abgebildet werden können.
+
+Wichtig: Eine Hue-Szene wird immer über den Szenen-Slot eines normalen Kanals mit gültigem Licht-, Raum- oder Zonenziel abgerufen (Aktion **"Hue Szene abrufen"**). Die Szenen-RID gehört ausschließlich in diese Liste — nicht als **Hue Ziel** eines Kanals.
 
 <!-- DOC -->
 ### Human Centric Lighting
@@ -1051,12 +1087,14 @@ Sichtbar nur wenn **Szenensteuerung aktivieren** am Kanal gesetzt ist.
 - Bei Legacy-Projektierung zusätzlich **Hue Lampen-ID (UUID)** prüfen.
 - Kanal deaktiviert?
 - Sync-Richtung passend?
+- Versehentlich eine Szenen-ID als Ziel eingetragen? Szenen-IDs sind keine gültigen Ziele.
+- Diagnosebericht (`/hue/diagnose.txt`) prüfen: `targetUnresolved=1` in der Kanalzeile zeigt ein nicht auflösbares Ziel.
 
 ### Lichtmanager (HCL) — siehe OFM-LightManager
 
 Troubleshooting zu Lichtmanager-Parametern, HCL-KOs, Saison-Profil und adaptiver Helligkeit ist in der [Applikationsbeschreibung OFM-LightManager](https://github.com/OpenKNX/OFM-LightManager/blob/main/doc/Applikationsbeschreibung-LightManager.md) zusammengefasst.
 
-Hinweis: Im HueGateway muss am Kanal ein CT- oder RGB-Lampentyp gewählt und der gewünschte Lichtmanager über **Lichtmanager Zuordnung** zugewiesen sein, damit HCL-Sollwerte wirken.
+Hinweis: Im HueGateway muss am Kanal mindestens der Lampentyp `Dimmbar` gewählt und der gewünschte Lichtmanager über **Lichtmanager Zuordnung** zugewiesen sein, damit HCL-Sollwerte wirken. Dimmbare Lampen übernehmen nur die Helligkeit.
 
 ### Status fehlt
 - Sync auf **Nur Hue zu KNX** oder **Bidirektional** gesetzt?
@@ -1073,12 +1111,15 @@ Hinweis: Im HueGateway muss am Kanal ein CT- oder RGB-Lampentyp gewählt und der
 - Polling-Intervall zu hoch?
 - Bei vielen Kanälen bewusst größere Werte gesetzt?
 - Hue-App-Änderungen werden nicht sofort gepusht, sondern gemäß Abfrageintervall übernommen.
+- Ist ein Kanalziel nicht auflösbar (`targetUnresolved=1` im Diagnosebericht), verzichtet das Gateway für **alle** Kanäle auf die Live-Rückmeldung der Bridge und arbeitet nur mit Polling. Betroffene Kanäle korrigieren oder deaktivieren.
 
 ### Szenen reagieren nicht wie erwartet
 - DPT 18.001 korrekt verwendet?
 - Richtige Szenennummer im Slot hinterlegt?
 - `Szene speichern` nur aktivieren, wenn Speicherbefehle wirklich genutzt werden.
 - Für Steckdosen sind keine Szenen verfügbar.
+- Hue-Szene abrufen: Liegt der Slot auf einem Kanal mit gültigem Ziel? Ein Kanal mit der Szenen-ID als Ziel funktioniert nicht.
+- Dieselbe Szenennummer nicht gleichzeitig für ETS-Presets und eine Hue-Szene verwenden — sonst überschreiben sie sich gegenseitig.
 
 <!-- DOC -->
 ## Inbetriebnahme-Checkliste

@@ -3,10 +3,10 @@
 Für Inbetriebnahme und Diagnose steht die Hue-Seite im OpenKNX WebUI bereit.
 
 **Aufruf:**
-- `http://<IP-des-OpenKNX-Geräts>/openknx/hue`
+- `http://<IP-des-OpenKNX-Geräts>/hue`
 
 **Beispiel:**
-- `http://192.168.1.100/openknx/hue`
+- `http://192.168.1.100/hue`
 
 Von dort aus sind die Seiten für Pairing, Status und Gerätescan direkt erreichbar.
 
