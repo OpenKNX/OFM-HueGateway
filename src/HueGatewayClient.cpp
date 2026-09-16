@@ -1906,6 +1906,23 @@ bool HueGatewayClient::pingBridgeApiV2()
     return false;
 }
 
+void HueGatewayClient::loopIdleDisconnect()
+{
+    static constexpr unsigned long kHttpIdleCloseMs = 3000UL;
+
+    if (_lastHttpActivityMs == 0) return;
+    if ((millis() - _lastHttpActivityMs) < kHttpIdleCloseMs) return;
+
+    _lastHttpActivityMs = 0;
+    if (!_secureClient.connected()) return;
+
+    _http.end();
+    _secureClient.stop();
+    logInfo("HueGatewayClient", "TIMING idle close (internalFree=%u internalLargest=%u)",
+            static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+            static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)));
+}
+
 bool HueGatewayClient::startEventStream()
 {
     if (!_initialized)
@@ -2536,12 +2553,50 @@ int HueGatewayClient::httpPut(const String& endpoint, const String& payload)
         eventPausedForPut = true;
     }
     
+    // httpGet() puts the client into HTTP/1.0 for good via useHTTP10(true), and that
+    // also clears _reuse. Switch both back on here: without it every command pays a
+    // full TLS handshake, which measured ~1 s per command on this hardware.
+    _http.useHTTP10(false);
+    _http.setReuse(true);
+
+    // Timing probe: cost of one command and whether the TLS connection was reused.
+    const unsigned long timingStartMs = millis();
+    const bool connectionReused = _secureClient.connected();
+
     _http.begin(_secureClient, url);
     _http.addHeader("Content-Type", "application/json");
     _http.addHeader("hue-application-key", _appKey);
-    
+
     int statusCode = _http.PUT(payload);
+
+    // A kept-alive connection the bridge closed while idle only shows up on the next
+    // send. Reconnect once and repeat -- the PUT is idempotent.
+    bool retriedAfterStaleConnection = false;
+    if (statusCode < 0 && connectionReused)
+    {
+        retriedAfterStaleConnection = true;
+        _http.end();
+        _secureClient.stop();
+        _http.useHTTP10(false);
+        _http.setReuse(true);
+        _http.begin(_secureClient, url);
+        _http.addHeader("Content-Type", "application/json");
+        _http.addHeader("hue-application-key", _appKey);
+        statusCode = _http.PUT(payload);
+    }
+
     _diagStats.lastHttpStatusCode = statusCode;
+    _lastHttpActivityMs = millis();
+
+    logInfo("HueGatewayClient", "TIMING PUT %s start=%lu dur=%lums reused=%d retry=%d status=%d internalFree=%u internalLargest=%u",
+            endpoint.c_str(),
+            timingStartMs,
+            millis() - timingStartMs,
+            connectionReused ? 1 : 0,
+            retriedAfterStaleConnection ? 1 : 0,
+            statusCode,
+            static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+            static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)));
 
     if (statusCode < 0)
     {

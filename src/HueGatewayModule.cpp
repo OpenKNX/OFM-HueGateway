@@ -1151,6 +1151,9 @@ void HueGatewayModule::loop()
             configuredChannels = MAX_LIGHTS;
         }
 
+        // Releases the commands' kept-alive connection after a short idle period.
+        _client->loopIdleDisconnect();
+
         const bool suppressEventStreamRetryForSetup = (configuredChannels > 0) && _deviceSetupNeedsRetry;
 
         if (!sEventStreamEnabled)

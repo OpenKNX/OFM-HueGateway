@@ -273,6 +273,14 @@ public:
     bool pingBridgeApiV2();
 
     /**
+    * @brief Closes an idle kept-alive REST connection. Call from the module loop.
+    * Commands keep the TLS connection open so a series of them needs only one
+    * handshake. Once idle it has to go: the TLS context occupies internal RAM, and
+    * that is exactly what the EventStream needs to come up.
+     */
+    void loopIdleDisconnect();
+
+    /**
     * @brief Diagnostics only: sends a raw payload to a resource (fade test).
     * @param resourceType "light" or "grouped_light"
     */
@@ -430,6 +438,7 @@ private:
     String _appKey;
     HTTPClient _http;
     WiFiClientSecure _secureClient;
+    unsigned long _lastHttpActivityMs = 0; // 0 = no kept-alive connection open
     WiFiClientSecure _eventClient;
     bool _eventStreamConnected;
     bool _eventHandshakePending;
