@@ -2484,12 +2484,17 @@ int HueGatewayClient::httpGet(const String& endpoint, JsonDocument& doc, JsonDoc
     _http.setTimeout(timeoutMs);
     const bool eventWasActive = (_eventHandshakePending || _eventStreamConnected || _eventConnectPending);
 
-    // Timing probe, see httpPut. useHTTP10(true) below turns keep-alive off for good,
-    // so a GET normally pays a fresh handshake unless a PUT left a connection open.
+    // HTTP/1.1 with keep-alive, like httpPut. This used to be HTTP/1.0 so the reply
+    // always carries a Content-Length and can be parsed straight off the socket
+    // instead of being held in RAM as a whole -- but that cost a handshake per poll,
+    // measured at ~820 ms against ~18 ms on an open connection. Should the bridge
+    // answer chunked, getSize() returns -1 and the getString() path below takes over;
+    // writeToStream() reassembles the chunks.
     const unsigned long timingStartMs = millis();
     const bool connectionReused = _secureClient.connected();
 
-    _http.useHTTP10(true);
+    _http.useHTTP10(false);
+    _http.setReuse(true);
     _http.begin(_secureClient, url);
     _http.addHeader("hue-application-key", _appKey);
 
@@ -2501,7 +2506,8 @@ int HueGatewayClient::httpGet(const String& endpoint, JsonDocument& doc, JsonDoc
         retryReason = 1;
         _http.end();
         _secureClient.stop();
-        _http.useHTTP10(true);
+        _http.useHTTP10(false);
+        _http.setReuse(true);
         _http.begin(_secureClient, url);
         _http.addHeader("hue-application-key", _appKey);
         statusCode = _http.GET();
@@ -2509,13 +2515,17 @@ int HueGatewayClient::httpGet(const String& endpoint, JsonDocument& doc, JsonDoc
     if (statusCode < 0 && releaseEventStreamForRetry("GET", eventWasActive))
     {
         retryReason = 2;
-        _http.useHTTP10(true);
+        _http.useHTTP10(false);
+        _http.setReuse(true);
         _http.begin(_secureClient, url);
         _http.addHeader("hue-application-key", _appKey);
         statusCode = _http.GET();
     }
 
     _diagStats.lastHttpStatusCode = statusCode;
+    // Also mark GET activity: a connection a poll opened must fall to the idle close
+    // as well, otherwise its TLS context would sit there until the next command.
+    _lastHttpActivityMs = millis();
 
     logInfo("HueGatewayClient", "TIMING GET %s start=%lu dur=%lums reused=%d retry=%u status=%d internalFree=%u internalLargest=%u",
             endpoint.c_str(),
@@ -2611,9 +2621,10 @@ int HueGatewayClient::httpPut(const String& endpoint, const String& payload)
     _http.setTimeout(2000);
     const bool eventWasActive = (_eventHandshakePending || _eventStreamConnected || _eventConnectPending);
 
-    // httpGet() puts the client into HTTP/1.0 for good via useHTTP10(true), and that
-    // also clears _reuse. Switch both back on here: without it every command pays a
-    // full TLS handshake, which measured ~1 s per command on this hardware.
+    // Keep-alive, set per request because useHTTP10() and setReuse() stick to the
+    // shared client object. Without it every command pays a full TLS handshake,
+    // measured at ~1 s per command on this hardware against well under 150 ms on an
+    // open connection.
     _http.useHTTP10(false);
     _http.setReuse(true);
 
