@@ -272,6 +272,7 @@ private:
     void handleWebDiagnose(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
     void handleWebDiagnoseText(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
     void handleWebRetrySetup(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebFadeTest(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
     void handleWebLive(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
     void handleWebLichtmanager(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
     void handleLiveWsConnect(int clientId, bool connected);
@@ -292,6 +293,21 @@ private:
     String buildDiagnosticReport(size_t requestedDepth, const String& testerNote, bool includeNetworkDetails);
     void appendDiagnosticLog(const char* level, const char* category, const String& message);
     void resetDevices();
+
+    // Fade test: drives one channel through a fixed sequence of Hue payloads and
+    // samples the resulting brightness, to determine which payload the bridge
+    // actually ramps and whether it clobbers its stored brightness.
+    enum class FadeTestPhase : uint8_t { Put, Sample, Settle };
+    bool startFadeTest(int channelIndex, String& error);
+    void loopFadeTest();
+    void finishFadeTest();
+    int8_t _fadeTestChannel = -1;
+    uint8_t _fadeTestStep = 0;
+    uint8_t _fadeTestSampleIndex = 0;
+    FadeTestPhase _fadeTestPhase = FadeTestPhase::Put;
+    unsigned long _fadeTestNextMs = 0;
+    bool _fadeTestLockTaken = false;
+    String _fadeTestReport;
     
     // Helper Methods
     bool hasNetworkConnectivity() const;

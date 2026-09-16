@@ -1563,6 +1563,43 @@ bool HueGatewayClient::setGroupedLightColorTemperature(const String& groupedLigh
     return false;
 }
 
+bool HueGatewayClient::diagRawPut(const char* resourceType, const String& rid, const String& payload)
+{
+    if (!_initialized)
+        return false;
+
+    const String endpoint = String("/clip/v2/resource/") + resourceType + "/" + rid;
+    return isHttpSuccessStatus(httpPut(endpoint, payload));
+}
+
+bool HueGatewayClient::diagReadState(const char* resourceType, const String& rid, bool& on, uint8_t& brightnessPercent)
+{
+    if (!_initialized)
+        return false;
+
+    const String endpoint = String("/clip/v2/resource/") + resourceType + "/" + rid;
+
+    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument filterDoc(256);
+    filterDoc.clear();
+    JsonObject filterRoot = filterDoc.to<JsonObject>();
+    JsonObject filterData = filterRoot["data"][0].to<JsonObject>();
+    filterData["on"]["on"] = true;
+    filterData["dimming"]["brightness"] = true;
+    doc.clear();
+    if (!isHttpSuccessStatus(httpGet(endpoint, doc, &filterDoc)))
+        return false;
+
+    JsonVariantConst item = doc["data"][0];
+    if (item.isNull())
+        return false;
+
+    on = item["on"]["on"] | false;
+    const float pct = item["dimming"]["brightness"] | 0.0f;
+    brightnessPercent = static_cast<uint8_t>(roundf(pct));
+    return true;
+}
+
 bool HueGatewayClient::setLightColor(const String& lightId, float x, float y)
 {
     if (!_initialized)

@@ -770,6 +770,18 @@ String HueGatewayModule::buildDiagnosticReport(size_t requestedDepth, const Stri
     }
     report += "\n";
 
+    report += "[FadeTest]\n";
+    if (_fadeTestReport.length() == 0)
+    {
+        report += "NotRun=1 (Start über /hue/fadetest?ch=<n> oder Konsole 'hue fadetest <n>')\n";
+    }
+    else
+    {
+        report += String("Running=") + (_fadeTestChannel >= 0 ? "1" : "0") + "\n";
+        report += _fadeTestReport;
+    }
+    report += "\n";
+
     report += "[HCLLock]\n";
     report += "GlobalLock=" + String(_hclLockActive ? "1" : "0") + "\n";
     report += "GlobalPolicy=" + String(hclFallbackPolicyToText(static_cast<HclLockFallbackPolicy>(_hclFallbackPolicy))) + "\n";
@@ -1078,7 +1090,9 @@ void HueGatewayModule::loop()
     struct tm timeinfo;
     const bool hasTime = getLocalTime(&timeinfo, 0);
     evaluateHclChannelLockFallback(hasTime ? &timeinfo : nullptr, hasTime);
-    
+
+    loopFadeTest();
+
     // Call loop on all active device channels
     for (int i = 0; i < MAX_CHANNELS; i++)
     {
@@ -2211,6 +2225,19 @@ bool HueGatewayModule::processCommand(const std::string cmd, bool diagnoseKo)
         openknx.console.printHelpLine("hue status", "Show current module status");
         openknx.console.printHelpLine("hue hcl", "Show HCL runtime and advanced master settings");
         openknx.console.printHelpLine("hue retry", "Force setupDevices retry (reset backoff/circuit)");
+        openknx.console.printHelpLine("hue fadetest <ch>", "Run bridge fade diagnostic on a channel");
+        return true;
+    }
+
+    if (cmd.rfind("hue fadetest", 0) == 0)
+    {
+        const std::string arg = cmd.substr(strlen("hue fadetest"));
+        const int channel = atoi(arg.c_str()) - 1;
+        String error;
+        if (startFadeTest(channel, error))
+            Serial.println("[HueGatewayModule] Fade test running, result appears in 'hue diagnose' under [FadeTest]");
+        else
+            Serial.printf("[HueGatewayModule] Fade test rejected: %s\n", error.c_str());
         return true;
     }
 
@@ -4502,6 +4529,197 @@ void HueGatewayModule::publishHclManagerLockStatus(uint8_t managerNumber)
     }
 }
 
+namespace
+{
+    constexpr uint16_t kFadeTestSampleMs = 500;
+    constexpr const char* kFadeTestOn80 = R"({"on":{"on":true},"dimming":{"brightness":80}})";
+
+    struct FadeTestStep
+    {
+        const char* label;
+        const char* payload;
+        uint8_t sampleCount;  // brightness samples taken every kFadeTestSampleMs after the PUT
+        uint16_t settleMs;
+        bool readBack;        // read state once after settling and report it
+    };
+
+    // The four variants under test, each preceded by a defined starting point.
+    // Read-backs after V2 and V3 answer the decisive question: does the payload
+    // overwrite the brightness the bridge restores on a plain on-command?
+    const FadeTestStep kFadeTestSteps[] = {
+        {"prep",  kFadeTestOn80,                                                                       0, 2000, false},
+        {"V1 off+dur",        R"({"on":{"on":false},"dynamics":{"duration":4000}})",                  10,  500, false},
+        {"RB-0 plain on",     R"({"on":{"on":true}})",                                                 0, 2000, true},
+        {"prep",  kFadeTestOn80,                                                                       0, 2000, false},
+        {"V2 off+dim0+dur",   R"({"on":{"on":false},"dimming":{"brightness":0},"dynamics":{"duration":4000}})", 10, 500, false},
+        {"RB-A plain on",     R"({"on":{"on":true}})",                                                 0, 2000, true},
+        {"prep",  kFadeTestOn80,                                                                       0, 2000, false},
+        {"V3a dim1+dur",      R"({"dimming":{"brightness":1},"dynamics":{"duration":4000}})",         10,  500, false},
+        {"V3b off",           R"({"on":{"on":false}})",                                                0, 1500, false},
+        {"RB-B plain on",     R"({"on":{"on":true}})",                                                 0, 2000, true},
+        {"prep off",          R"({"on":{"on":false}})",                                                0, 2000, false},
+        {"V4 on+dim80+dur",   R"({"on":{"on":true},"dimming":{"brightness":80},"dynamics":{"duration":4000}})", 10, 500, false},
+        {"restore", kFadeTestOn80,                                                                     0,    0, false},
+    };
+    constexpr uint8_t kFadeTestStepCount = sizeof(kFadeTestSteps) / sizeof(kFadeTestSteps[0]);
+} // namespace
+
+bool HueGatewayModule::startFadeTest(int channelIndex, String& error)
+{
+    if (_fadeTestChannel >= 0)
+    {
+        error = "Es läuft bereits ein Rampen-Test (Kanal " + String(_fadeTestChannel + 1) + ").";
+        return false;
+    }
+    if (channelIndex < 0 || channelIndex >= MAX_LIGHTS)
+    {
+        error = "Kanalnummer außerhalb des gültigen Bereichs.";
+        return false;
+    }
+    if (_client == nullptr || !_client->isInitialized())
+    {
+        error = "Keine Verbindung zur Hue-Bridge.";
+        return false;
+    }
+    auto* light = lightAt(channelIndex);
+    if (light == nullptr)
+    {
+        error = "Kanal " + String(channelIndex + 1) + " ist kein konfigurierter Licht-Kanal.";
+        return false;
+    }
+
+    // The light manager would fight the test for the channel, so park it for the
+    // duration. Channels without an assignment need no lock.
+    _fadeTestLockTaken = false;
+    if (light->getHCLMaster() > 0 && !_hclChannelLockActive[channelIndex])
+    {
+        setHclChannelLock(static_cast<uint8_t>(channelIndex), true, "fade test");
+        _fadeTestLockTaken = true;
+    }
+
+    _fadeTestChannel = static_cast<int8_t>(channelIndex);
+    _fadeTestStep = 0;
+    _fadeTestSampleIndex = 0;
+    _fadeTestPhase = FadeTestPhase::Put;
+    _fadeTestNextMs = millis();
+
+    _fadeTestReport = "";
+    _fadeTestReport.reserve(1024);
+    _fadeTestReport += "Channel=" + String(channelIndex + 1);
+    _fadeTestReport += " target=" + String(light->isGroupedTarget() ? "grouped_light" : "light");
+    _fadeTestReport += " rid=" + light->getLightId();
+    _fadeTestReport += light->getHCLMaster() > 0 ? " hclMaster=" + String(light->getHCLMaster()) : String(" hclMaster=-");
+    _fadeTestReport += _fadeTestLockTaken ? " (Sperre für Testdauer gesetzt)\n" : "\n";
+    _fadeTestReport += "Samples alle " + String(kFadeTestSampleMs) + " ms, Helligkeit in %, 'off@' = Bridge meldet aus\n";
+
+    appendDiagnosticLog("INFO", "FADETEST", "started on channel " + String(channelIndex + 1));
+    Serial.printf("[HueGatewayModule] Fade test started on channel %d\n", channelIndex + 1);
+    return true;
+}
+
+void HueGatewayModule::finishFadeTest()
+{
+    if (_fadeTestLockTaken && _fadeTestChannel >= 0)
+    {
+        setHclChannelLock(static_cast<uint8_t>(_fadeTestChannel), false, "fade test finished");
+    }
+    _fadeTestLockTaken = false;
+    _fadeTestChannel = -1;
+    _fadeTestPhase = FadeTestPhase::Put;
+    appendDiagnosticLog("INFO", "FADETEST", "finished");
+    Serial.println("[HueGatewayModule] Fade test finished");
+}
+
+void HueGatewayModule::loopFadeTest()
+{
+    if (_fadeTestChannel < 0)
+        return;
+    if (static_cast<long>(millis() - _fadeTestNextMs) < 0)
+        return;
+
+    auto* light = lightAt(_fadeTestChannel);
+    if (light == nullptr || _client == nullptr || !_client->isInitialized())
+    {
+        _fadeTestReport += "ABBRUCH: Kanal oder Bridge nicht mehr verfügbar\n";
+        finishFadeTest();
+        return;
+    }
+
+    const char* resourceType = light->isGroupedTarget() ? "grouped_light" : "light";
+    const String rid = light->getLightId();
+    const FadeTestStep& step = kFadeTestSteps[_fadeTestStep];
+
+    switch (_fadeTestPhase)
+    {
+        case FadeTestPhase::Put:
+        {
+            const bool ok = _client->diagRawPut(resourceType, rid, step.payload);
+            _fadeTestReport += String(step.label) + ": put=" + (ok ? "ok" : "FEHLER");
+            _fadeTestSampleIndex = 0;
+            if (step.sampleCount > 0)
+            {
+                _fadeTestReport += " bri=";
+                _fadeTestPhase = FadeTestPhase::Sample;
+                _fadeTestNextMs = millis() + kFadeTestSampleMs;
+            }
+            else
+            {
+                _fadeTestReport += "\n";
+                _fadeTestPhase = FadeTestPhase::Settle;
+                _fadeTestNextMs = millis() + step.settleMs;
+            }
+            return;
+        }
+
+        case FadeTestPhase::Sample:
+        {
+            bool on = false;
+            uint8_t bri = 0;
+            if (_client->diagReadState(resourceType, rid, on, bri))
+                _fadeTestReport += (on ? String("") : String("off@")) + String(bri);
+            else
+                _fadeTestReport += "?";
+
+            _fadeTestSampleIndex++;
+            if (_fadeTestSampleIndex < step.sampleCount)
+            {
+                _fadeTestReport += ",";
+                _fadeTestNextMs = millis() + kFadeTestSampleMs;
+                return;
+            }
+
+            _fadeTestReport += "\n";
+            _fadeTestPhase = FadeTestPhase::Settle;
+            _fadeTestNextMs = millis() + step.settleMs;
+            return;
+        }
+
+        case FadeTestPhase::Settle:
+        {
+            if (step.readBack)
+            {
+                bool on = false;
+                uint8_t bri = 0;
+                if (_client->diagReadState(resourceType, rid, on, bri))
+                    _fadeTestReport += "  -> gespeicherte Helligkeit: " + String(bri) + "%" + (on ? "" : " (aus)") + "\n";
+                else
+                    _fadeTestReport += "  -> Rücklesen FEHLER\n";
+            }
+
+            _fadeTestStep++;
+            _fadeTestPhase = FadeTestPhase::Put;
+            _fadeTestSampleIndex = 0;
+            if (_fadeTestStep >= kFadeTestStepCount)
+            {
+                finishFadeTest();
+                return;
+            }
+            _fadeTestNextMs = millis();
+            return;
+        }
+    }
+}
+
 void HueGatewayModule::publishHclChannelLockStatus(uint8_t channelIndex)
 {
     if (channelIndex >= MAX_LIGHTS)
@@ -5877,6 +6095,7 @@ void HueGatewayModule::setupWebUI()
     openknxNetwork.webserver.addRoute(WEB_GET, "/hue/diagnose", [this](WebRequest& req, WebResponse& res) { handleWebDiagnose(req, res); });
     openknxNetwork.webserver.addRoute(WEB_GET, "/hue/diagnose.txt", [this](WebRequest& req, WebResponse& res) { handleWebDiagnoseText(req, res); });
     openknxNetwork.webserver.addRoute(WEB_GET, "/hue/retry-setup", [this](WebRequest& req, WebResponse& res) { handleWebRetrySetup(req, res); });
+    openknxNetwork.webserver.addRoute(WEB_GET, "/hue/fadetest", [this](WebRequest& req, WebResponse& res) { handleWebFadeTest(req, res); });
     openknxNetwork.webserver.addRoute(WEB_GET, "/hue/live", [this](WebRequest& req, WebResponse& res) { handleWebLive(req, res); });
     openknxNetwork.webserver.addRoute(WEB_GET, "/assets/huelive.css",
         OpenKNX::Network::Webserver::Static("text/css", hueLiveCss));
@@ -6670,6 +6889,45 @@ void HueGatewayModule::handleWebLichtmanager(WebRequest& req, WebResponse& res)
     res.setLayout(true);
     res.setActiveMenu("/hue/lichtmanager");
     send_html(res, html, 200);
+}
+
+void HueGatewayModule::handleWebFadeTest(WebRequest& req, WebResponse& res)
+{
+    const char* hueBaseUri = "/hue";
+    const std::string chParam = req.getQueryParam("ch");
+    const int channel = chParam.empty() ? -1 : (atoi(chParam.c_str()) - 1);
+
+    String error;
+    const bool started = startFadeTest(channel, error);
+    if (started)
+        appendDiagnosticLog("INFO", "WEBUI", "fade test triggered for channel " + String(channel + 1));
+
+    String html;
+    html.reserve(768);
+    html = "<div class='container'>";
+    if (started)
+    {
+        html += String("<meta http-equiv='refresh' content='60;url=") + hueBaseUri + "/diagnose'>";
+        html += "<h1>Rampen-Test gestartet</h1>";
+        html += "<p>Kanal " + String(channel + 1) + " wird rund eine Minute lang durchgeschaltet. ";
+        html += "Solange bitte nicht über KNX oder die Hue-App eingreifen.</p>";
+        html += "<p>Das Ergebnis erscheint anschließend im Diagnosebericht unter <b>[FadeTest]</b>. ";
+        html += "Diese Seite wechselt nach 60 Sekunden automatisch dorthin.</p>";
+    }
+    else
+    {
+        html += "<h1>Rampen-Test nicht gestartet</h1>";
+        html += "<p>" + error + "</p>";
+        html += "<p>Aufruf: <code>/hue/fadetest?ch=&lt;Kanalnummer&gt;</code></p>";
+    }
+    html += "<p>";
+    html += String("<a href='") + hueBaseUri + "/diagnose'>Diagnose</a>&nbsp;&nbsp;";
+    html += String("<a href='") + hueBaseUri + "'>← Zurück</a>";
+    html += "</p>";
+    html += "</div>";
+    res.setLayout(true);
+    res.setActiveMenu("/hue");
+    send_html(res, html, started ? 200 : 400);
 }
 
 void HueGatewayModule::handleWebRetrySetup(WebRequest& req, WebResponse& res)

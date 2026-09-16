@@ -272,6 +272,17 @@ public:
 
     bool pingBridgeApiV2();
 
+    /**
+    * @brief Diagnostics only: sends a raw payload to a resource (fade test).
+    * @param resourceType "light" or "grouped_light"
+    */
+    bool diagRawPut(const char* resourceType, const String& rid, const String& payload);
+
+    /**
+    * @brief Diagnostics only: reads on-state and brightness percent of a resource.
+    */
+    bool diagReadState(const char* resourceType, const String& rid, bool& on, uint8_t& brightnessPercent);
+
     bool startEventStream();
     void stopEventStream();
     bool isEventStreamConnected() { return _eventStreamConnected && _eventClient.connected(); }
