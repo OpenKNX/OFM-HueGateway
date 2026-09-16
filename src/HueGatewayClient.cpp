@@ -2419,12 +2419,26 @@ int HueGatewayClient::httpGet(const String& endpoint, JsonDocument& doc, JsonDoc
         eventPausedForGet = true;
     }
     
+    // Timing probe, see httpPut. useHTTP10(true) below turns keep-alive off for good,
+    // so a GET normally pays a fresh handshake unless a PUT left a connection open.
+    const unsigned long timingStartMs = millis();
+    const bool connectionReused = _secureClient.connected();
+
     _http.useHTTP10(true);
     _http.begin(_secureClient, url);
     _http.addHeader("hue-application-key", _appKey);
-    
+
     int statusCode = _http.GET();
     _diagStats.lastHttpStatusCode = statusCode;
+
+    logInfo("HueGatewayClient", "TIMING GET %s start=%lu dur=%lums reused=%d status=%d internalFree=%u internalLargest=%u",
+            endpoint.c_str(),
+            timingStartMs,
+            millis() - timingStartMs,
+            connectionReused ? 1 : 0,
+            statusCode,
+            static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+            static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)));
 
     if (statusCode < 0)
     {
