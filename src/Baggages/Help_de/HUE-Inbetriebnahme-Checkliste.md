@@ -13,4 +13,5 @@
 - Szenensteuerung: Szenennummern, Aktionen, Preset-Werte und optionales Speichern geprüft
 - Bei Szene + Lichtmanager: Verhalten nach Aus-Befehl bzw. Entsperren verifiziert
 - Bei Taster/Schalter: Gewerk, Kurz-/Langdruck und Native-Hue-Aktion geprüft
+- Bei aktivem Saison-Profil: Saison-Modus gewählt, Sommer-Stützpunkte eingetragen, Umschaltung im laufenden Betrieb verifiziert
 

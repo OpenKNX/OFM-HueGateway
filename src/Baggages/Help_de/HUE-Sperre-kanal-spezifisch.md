@@ -5,14 +5,14 @@ Andere Kanäle mit gleicher Lichtmanager-Zuordnung bleiben unverändert aktiv.
 Der zugeordnete Lichtmanager selbst läuft weiter und versorgt weiterhin alle anderen ihm zugeordneten Hue-Kanäle.
 
 Sichtbarkeit:
-- Nur bei Lampentyp `Farbtemperatur` oder `Farbe RGB`.
-- Nur wenn beim Kanal ein Lichtmanager `1..8` zugeordnet ist.
+- Ab Lampentyp `Dimmbar`; dimmbare Lampen folgen nur der Helligkeit.
+- Nur wenn beim Kanal ein Lichtmanager `1..N` zugeordnet ist.
 
 Option je Kanal:
 - **Rückfallzeit nach Sperre** (inkl. Tageswechsel, `kein Rückfall` möglich)
-- **Rückfallstrategie nach Sperre**: zentrale Vorgabe, siehe Abschnitt Rückfallstrategie nach Sperre
+- **Rückfallstrategie nach Sperre**: zentrale Vorgabe, siehe Applikationsbeschreibung OFM-LightManager, Abschnitt Rückfallstrategie nach Sperre
 
-**Automatische Sperre durch Szenen-Abruf**: Wenn ein Kanal einem Lichtmanager zugeordnet ist und eine Szene abgerufen wird, wird die HCL-Kanalsperre automatisch aktiviert. Die Sperre wird aufgehoben durch:
+**Automatische Sperre durch Szenen-Abruf**: Wenn ein Kanal einem Lichtmanager zugeordnet ist und eine Szene abgerufen wird, die den Kanal einschaltet, wird die HCL-Kanalsperre automatisch aktiviert. Die Sperre wird aufgehoben durch:
 - Einen **Aus-Befehl** (KNX-Schalten-KO, Wert 0) → sofortiges Aufheben
 - Ablauf der konfigurierten **Rückfallzeit**
 - Globales Entsperren per KO `Entsperren Trigger`

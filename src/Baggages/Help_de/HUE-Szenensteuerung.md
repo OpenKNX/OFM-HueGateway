@@ -13,24 +13,13 @@ Legt fest, ob das Szenen-KO auch Speicherbefehle (DPT 18.001, Bit 7 = 1) auswert
 - **Deaktiviert**: Nur Abruf (DPT 17.001-kompatibel, Bit 7 wird ignoriert)
 - **Aktiviert**: Abruf und Speichern (DPT 18.001); ein Speicherbefehl sichert den aktuellen Istzustand in den jeweiligen Slot
 
-#### Szene 1..8 (Slots)
+#### Szene A..H (Slots)
 
 Jeder Slot kann unabhängig parametriert werden. Ist die **Szenennummer** auf `0` (inaktiv) gesetzt, wird der Slot ignoriert.
 
 **Szenennummer**: KNX-Szenennummer 1..64 (entspricht Bit 0..5 im DPT, also KNX-intern 0..63)
 
-**Aktion**: Legt fest, was beim Abruf dieser Szene passiert. Die verfügbaren Optionen hängen vom **Lampentyp** des Kanals ab:
-
-| Aktion | Beschreibung | Lampentyp |
-|---|---|---|
-| Ausschalten | Licht aus | alle |
-| Einschalten | Licht ein (letzte Helligkeit) | alle |
-| Helligkeit setzen | Ein + Helligkeitswert | Dimmbar, CT, RGB |
-| Farbtemperatur setzen | Ein + CT-Wert | CT, RGB |
-| Helligkeit + Farbtemperatur | Ein + Helligkeit + CT | CT, RGB |
-| Farbe (RGB) setzen | Ein + RGB-Wert | RGB |
-| Helligkeit + Farbe (RGB) | Ein + Helligkeit + RGB | RGB |
-| Hue Szene abrufen | Ruft eine Hue-Szene per RID ab | alle (außer Steckdose) |
+**Aktion**: Legt fest, was beim Abruf dieser Szene passiert. Die verfügbaren Optionen hängen vom **Lampentyp** des Kanals ab.
 
 **Helligkeit**: Prozentwert 0..100 % (wird bei Aktionen mit Helligkeit verwendet)
 
@@ -40,9 +29,11 @@ Jeder Slot kann unabhängig parametriert werden. Ist die **Szenennummer** auf `0
 
 **Hue-Szene**: Referenz auf eine der 8 global konfigurierten Hue-Szenen (→ Abschnitt Hue Szenen (global)). Sichtbar nur bei Aktion „Hue Szene abrufen".
 
+Die Hue-Szene wird über den Szenen-Slot dieses Kanals abgerufen. Der Kanal selbst muss dafür ein gültiges Licht-, Raum- oder Zonenziel haben; ein eigener Kanal mit der Szenen-ID als Ziel funktioniert nicht. Empfehlung: den Slot auf dem Raum- oder Zonen-Kanal der betroffenen Leuchten anlegen und eine Szenennummer wählen, die nicht schon für ETS-Presets verwendet wird.
+
 #### Lichtmanager-Sperre bei Szenen
 
-Wenn einem Kanal ein Lichtmanager zugeordnet ist, **sperrt ein erfolgreicher Szenen-Abruf automatisch die HCL-Kanalausgabe** für diesen Kanal. Damit behält das Licht nach dem Szenen-Abruf seinen Szenen-Wert, ohne dass der Lichtmanager ihn überschreibt.
+Wenn einem Kanal ein Lichtmanager zugeordnet ist, **sperrt ein Szenen-Abruf, der den Kanal einschaltet, automatisch die HCL-Kanalausgabe** für diesen Kanal. Damit behält das Licht nach dem Szenen-Abruf seinen Szenen-Wert, ohne dass der Lichtmanager ihn überschreibt. Szenen, die den Kanal ausschalten, setzen keine Sperre.
 
 Die Sperre wird aufgehoben durch:
 - **Aus-Befehl** per KNX-Schalten-KO → Sperre wird sofort zurückgesetzt

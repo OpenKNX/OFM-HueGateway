@@ -11,3 +11,4 @@ __pycache__
 .gcc-flags.json
 platformio.ini.user
 .github/
+src/HueGatewayModule.share.xml.bak

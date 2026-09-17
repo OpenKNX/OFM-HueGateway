@@ -4,7 +4,7 @@ OpenKNX Funktionsmodul zur Integration von Philips Hue Geräten in KNX-Systeme.
 
 ## Status
 
-🧪 **Beta-Kandidat** - Version 0.2.x
+🧪 **Beta**
 
 ### Bekannte Einschränkungen
 
@@ -21,13 +21,47 @@ OpenKNX Funktionsmodul zur Integration von Philips Hue Geräten in KNX-Systeme.
   - Dimmen (0-100%)
   - Farbtemperatur (2000-6500K)
   - RGB Farben
+- Zieltyp Raum/Zone (`grouped_light`) zusätzlich zu einzelnen Leuchten
+- Gerätetyp Steckdose (Schalten, eigene reduzierte Szenensteuerung)
+- Gerätetyp Bewegungsmelder (Präsenz, optional Temperatur, Helligkeit/Lux, Batterie)
+- Gerätetyp Kontaktsensor (Kontaktstatus, optional Sabotage, Batterie)
+- Gerätetyp Taster/Schalter (bis zu 4 Tasten, Kurz-/Langdruck frei belegbar, Drehregler-Unterstützung)
+- Szenensteuerung (DPT 18.001, bis zu 8 Slots je Kanal; Abruf und optionales Speichern; inkl. Abruf global konfigurierter Hue-Szenen)
+- Webinterface für Pairing, Gerätescan und Diagnose (`/hue`)
 - Bidirektionale Status-Updates (Event Stream)
 - ETS-Konfiguration
+- Anbindung an [OFM-LightManager](../OFM-LightManager) (HCL — Human Centric Lighting); die Anbindung selbst ist Pflicht, nur ihre Nutzung ist pro Kanal optional (siehe unten)
+  - Partial-Sink-Vertrag: achsenweise Gültigkeitsmaske via `onLightManagerPartial()` — Kanäle mit `HCL-Achsen = Nur CT` senden keine Helligkeitswerte und umgekehrt
+
+## Abhängigkeiten
+
+- **OFM-LightManager ≥ 0.3** *(Pflichtabhängigkeit zum Bauen — nicht optional)*
+  - Formell definiert in `HueGatewayModule.share.xml` per
+    `<op:minModuleVersion prefix="LMG" dependency="forceUsage" value="0.3" />`;
+    der OpenKNXproducer (≥ 4.0.1) bricht den Build ab, wenn das Modul fehlt
+    oder älter ist. Ab 0.3 gibt es den Partial-Sink-Vertrag
+    (`onLightManagerPartial`) und die KO-Blockgröße, auf die HUE aufbaut.
+  - Sowohl der C++-Code (`openknxLightManagerModule`, siehe `HueGatewayModule.cpp`)
+    als auch die ETS-XML (`ParameterType` `PT-LMGMasterSelect`, siehe
+    `HueGatewayModule.share.xml`) setzen `OFM-LightManager` unbedingt voraus.
+    Ohne dieses Modul im Build bzw. im kombinierten ETS-Projekt lässt sich
+    `OFM-HueGatewayModule` weder kompilieren noch zu einem gültigen
+    `.knxprod` zusammenbauen; `library.json` listet die Abhängigkeit daher
+    auch unbedingt (`"OFM-LightManager": "*"`).
+  - Liefert die HCL-Master (Brightness/ColorTemperature-Verläufe); optional
+    ist lediglich deren *Nutzung* je Kanal, nicht die Modulabhängigkeit selbst.
+  - Stellt den gemeinsamen ETS-`ParameterType` `PT-LMGMasterSelect` bereit,
+    der von der HueGateway-Kanalkonfiguration referenziert wird
+    (Dropdown *„Zuordnung Lichtmanager"*).
+  - Pro Kanal wird über `ParamHUE_CHHCLMaster` ein Master (1..N) ausgewählt;
+    `0` deaktiviert lediglich die HCL-Kopplung für diesen Kanal, ändert aber
+    nichts an der Pflichtabhängigkeit des Moduls selbst.
+  - Integrationsdetails siehe `OFM-LightManager/doc/integration.md`.
 
 ## Development
 
 ```bash
-git clone https://github.com/estebanri87/OFM-HueGatewayModule
+git clone https://github.com/OpenKNX/OFM-HueGateway OFM-HueGatewayModule
 cd OFM-HueGatewayModule
 pio run
 ```

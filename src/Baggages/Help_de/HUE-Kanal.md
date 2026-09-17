@@ -7,5 +7,5 @@ Mögliche Zieltypen:
 - **Raum**
 - **Zone**
 
-Die Zielzuordnung erfolgt primär über **Hue Ziel (Light-/Room-/Zone-ID oder Name)**.
+Die Zielzuordnung erfolgt primär über **Hue Ziel (Light-/Room-/Zone-ID)**.
 
