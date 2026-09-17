@@ -13,6 +13,7 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 
 ### Geändert
 - Schwelle für die Farbtemperatur-Nachführung durch den Lichtmanager von 12 K auf 20 K angehoben, um bei langsamen HCL-Verläufen nicht bei jeder für das Auge nicht wahrnehmbaren Kelvin-Änderung einen Bridge-Schreibzugriff auszulösen.
+- ETS prüft Eingaben in den Hue-ID-Feldern per RegEx (#7): **Hue Lampen-ID (UUID)** akzeptiert nur noch leer oder eine UUID im Format `8-4-4-4-12` (Hex). **Hue Ziel-ID** akzeptiert weiterhin UUIDs, Namen und die Präfixe `room:`/`zone:`, lehnt aber führende/abschließende Leerzeichen ab. Beide Felder haben dafür eigene ParameterTypes (`PT-HUELightUUID`, `PT-HUETargetRID`) statt des gemeinsam genutzten `PT-Text40Byte`.
 
 ### Hinzugefügt
 - Diagnose-Log-Zeilen `TIMING GET`/`TIMING PUT` (Dauer, Verbindungswiederverwendung, freier interner RAM je Anfrage) sowie `TIMING idle close` beim Schließen einer Leerlaufverbindung — zur Fehlersuche bei Bridge-Kommunikation über die Gerätekonsole abrufbar.

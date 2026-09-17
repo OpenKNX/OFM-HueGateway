@@ -13,12 +13,12 @@
               </Parameter>
               
               <!-- Hue-Lampen-UUID -->
-              <Parameter Id="%AID%_P-%TT%5%CC%001" Name="CH%C%LightUUID" ParameterType="%AID%_PT-Text40Byte" Text="Hue Lampen-ID (UUID)" Value="01234567-89ab-cdef-0123-456789abcdef">
+              <Parameter Id="%AID%_P-%TT%5%CC%001" Name="CH%C%LightUUID" ParameterType="%AID%_PT-HUELightUUID" Text="Hue Lampen-ID (UUID)" Value="01234567-89ab-cdef-0123-456789abcdef">
                 <Memory CodeSegment="%MID%" Offset="5" BitOffset="0" />
               </Parameter>
 
               <!-- Allgemeines Ziel (Light-/Room-/Zone-ID) -->
-              <Parameter Id="%AID%_P-%TT%5%CC%008" Name="CH%C%TargetRID" ParameterType="%AID%_PT-Text40Byte" Text="Hue Ziel-ID" Value="">
+              <Parameter Id="%AID%_P-%TT%5%CC%008" Name="CH%C%TargetRID" ParameterType="%AID%_PT-HUETargetRID" Text="Hue Ziel-ID" Value="">
                 <Memory CodeSegment="%MID%" Offset="45" BitOffset="0" />
               </Parameter>
               

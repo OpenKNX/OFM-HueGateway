@@ -324,6 +324,16 @@
               <ParameterType Id="%AID%_PT-HUEHueSceneRID" Name="HUEHueSceneRID">
                 <TypeText SizeInBit="320" />
               </ParameterType>
+              <!-- Legacy-Feld CH%C%LightUUID: leer oder Hue-UUID (8-4-4-4-12 Hex) -->
+              <ParameterType Id="%AID%_PT-HUELightUUID" Name="HUELightUUID">
+                <TypeText SizeInBit="320" Pattern="^$|^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$" />
+              </ParameterType>
+              <!-- CH%C%TargetRID: akzeptiert UUID, Namen und room:/zone:-Präfix (siehe
+                   resolveSingleTarget in HueGatewayModule.cpp), daher nur leer oder
+                   ohne führende/abschließende Leerzeichen -->
+              <ParameterType Id="%AID%_PT-HUETargetRID" Name="HUETargetRID">
+                <TypeText SizeInBit="320" Pattern="^$|^\S(.*\S)?$" />
+              </ParameterType>
 
               <!-- ===== Taster: Kurzdruck-Typ (DPT-basierte Funktionsauswahl) ===== -->
               <ParameterType Id="%AID%_PT-HUEKurzTyp" Name="HUEKurzTyp">
