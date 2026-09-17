@@ -42,7 +42,7 @@
               
               <!-- Kanalanzahl -->
               <ParameterType Id="%AID%_PT-HUEChannelCount" Name="HUEChannelCount">
-                <TypeNumber SizeInBit="8" Type="unsignedInt" minInclusive="0" maxInclusive="32" />
+                <TypeNumber SizeInBit="8" Type="unsignedInt" minInclusive="%N%" maxInclusive="%N%" />
               </ParameterType>
               
               <!-- Lampentyp -->
@@ -93,16 +93,29 @@
                 <TypeNumber SizeInBit="8" Type="unsignedInt" minInclusive="1" maxInclusive="100" />
               </ParameterType>
               
-              <!-- Gerätetyp pro Kanal -->
-              <ParameterType Id="%AID%_PT-HUEDeviceType" Name="HUEDeviceType">
+              <!-- Kanaltyp (mit Speicher): 0 = Deaktiviert, blendet den Kanal im Baum aus -->
+              <ParameterType Id="%AID%_PT-HUEChannelType" Name="HUEChannelType">
                 <TypeRestriction Base="Value" SizeInBit="3" UIHint="DropDown">
-                  <Enumeration Text="Licht" Value="0" Id="%ENID%" />
-                    <Enumeration Text="Bewegungsmelder (Beta)" Value="1" Id="%ENID%" />
-                  <Enumeration Text="Taster/Schalter (Beta)" Value="2" Id="%ENID%" />
-                  <Enumeration Text="Kontaktsensor" Value="3" Id="%ENID%" />
-                  <Enumeration Text="Steckdose" Value="4" Id="%ENID%" />
+                  <Enumeration Text="Deaktiviert" Value="0" Id="%ENID%" />
+                  <Enumeration Text="Licht" Value="1" Id="%ENID%" />
+                  <Enumeration Text="Bewegungsmelder (Beta)" Value="2" Id="%ENID%" />
+                  <Enumeration Text="Taster/Schalter (Beta)" Value="3" Id="%ENID%" />
+                  <Enumeration Text="Kontaktsensor" Value="4" Id="%ENID%" />
+                  <Enumeration Text="Steckdose" Value="5" Id="%ENID%" />
                 </TypeRestriction>
               </ParameterType>
+
+              <!-- Kanaltyp im Kanalkopf (ohne Speicher, ohne "Deaktiviert"), gekoppelt per BASE_SyncChannelType -->
+              <ParameterType Id="%AID%_PT-HUEChannelTypeSelect" Name="HUEChannelTypeSelect">
+                <TypeRestriction Base="Value" SizeInBit="8" UIHint="DropDown">
+                  <Enumeration Text="Licht" Value="1" Id="%ENID%" />
+                  <Enumeration Text="Bewegungsmelder (Beta)" Value="2" Id="%ENID%" />
+                  <Enumeration Text="Taster/Schalter (Beta)" Value="3" Id="%ENID%" />
+                  <Enumeration Text="Kontaktsensor" Value="4" Id="%ENID%" />
+                  <Enumeration Text="Steckdose" Value="5" Id="%ENID%" />
+                </TypeRestriction>
+              </ParameterType>
+
 
               <!-- Anzahl Tasten (Taster-Kanal) -->
               <ParameterType Id="%AID%_PT-HUEButtonCount" Name="HUEButtonCount">
@@ -486,7 +499,7 @@
                 <Memory CodeSegment="%MID%" Offset="1037" BitOffset="0" />
                 </Parameter>
               
-              <Parameter Id="%AID%_P-%TT%00005" Name="HUEChannelCount" ParameterType="%AID%_PT-HUEChannelCount" Text="Anzahl aktiver Kanäle" Value="4" SuffixText=" von 32">
+              <Parameter Id="%AID%_P-%TT%00005" Name="HUEChannelCount" ParameterType="%AID%_PT-HUEChannelCount" Text="Verfügbare Kanäle" Value="%N%" Access="None">
                 <Memory CodeSegment="%MID%" Offset="29" BitOffset="0" />
                 </Parameter>
               
@@ -586,9 +599,6 @@
                 <ParameterSeparator Id="%AID%_PS-HUEVersion" Text="Version: %ModuleVersion%" />
                 <ParameterSeparator Id="%AID%_PS-HUELine1" Text="" UIHint="HorizontalRuler" />
 
-                <ParameterSeparator Id="%AID%_PS-HUEDevices" Text="Kanalauswahl" UIHint="Headline" />
-                <ParameterRefRef RefId="%AID%_P-%TT%00005_R-%TT%0000501" HelpContext="HUE-Anzahl-aktiver-Kanaele" />
-                <ParameterSeparator Id="%AID%_PS-HUELineDevices" Text="" UIHint="HorizontalRuler" />
                 
                 <ParameterSeparator Id="%AID%_PS-HUEBridge" Text="Bridge-Konfiguration" UIHint="Headline" />
                 <ParameterRefRef RefId="%AID%_P-%TT%00001_R-%TT%0000101" HelpContext="HUE-Bridge-Erkennung" />
@@ -651,8 +661,26 @@
                 </when>
               </choose>
               
-              <!-- Light-Channel-Template einbinden (Lampen-Kanäle unter Philips Hue verschachtelt) -->
-              <op:include href="HueGatewayModule.templ.xml" xpath="//Dynamic/ChannelIndependentBlock/*" type="template" prefix="HUE" IsInner="true" />
+              <!-- Kanalauswahl: je Kanal eine einzeilige Tabelle (OpenKNX-Standard) -->
+              <ParameterBlock Id="%AID%_PB-HUEChannelSelect" Name="HueChannelSelect" Text="Kanalauswahl" Icon="format-list-bulleted-type" HelpContext="BASE-ChannelSelect">
+                <ParameterBlock Id="%AID%_PB-HUEChannelSelectHead" Inline="true" Layout="Grid">
+                  <Rows>
+                    <Row Id="%AID%_PB-HUEChannelSelectHead_R-1" />
+                  </Rows>
+                  <Columns>
+                    <Column Id="%AID%_PB-HUEChannelSelectHead_C-1" Width="10%" />
+                    <Column Id="%AID%_PB-HUEChannelSelectHead_C-2" Width="35%" />
+                    <Column Id="%AID%_PB-HUEChannelSelectHead_C-3" Width="55%" />
+                  </Columns>
+                  <ParameterSeparator Id="%AID%_PS-HUEChannelSelectHead1" Cell="1,1" UIHint="Headline" Text="Kanal" />
+                  <ParameterSeparator Id="%AID%_PS-HUEChannelSelectHead2" Cell="1,2" UIHint="Headline" Text="Gerätetyp" />
+                  <ParameterSeparator Id="%AID%_PS-HUEChannelSelectHead3" Cell="1,3" UIHint="Headline" Text="Beschreibung" />
+                </ParameterBlock>
+                <op:include href="HueGatewayModule.templ.xml" xpath="//Dynamic/ChannelIndependentBlock/ParameterBlock[@Name='ChannelSelection']/*" type="template" prefix="HUE" IsInner="true" />
+              </ParameterBlock>
+
+              <!-- Kanalseiten (nur Kanäle mit gewähltem Gerätetyp) -->
+              <op:include href="HueGatewayModule.templ.xml" xpath="//Dynamic/ChannelIndependentBlock/ParameterBlock[@Name='ChannelDefinition']/*" type="template" prefix="HUE" IsInner="true" />
               
             </Channel>
           </Dynamic>

@@ -10,7 +10,7 @@
 ### Hue-Ziel reagiert nicht
 - Zieltyp und **Hue Ziel (Light-/Room-/Zone-ID)** prüfen.
 - Bei Legacy-Projektierung zusätzlich **Hue Lampen-ID (UUID)** prüfen.
-- Kanal deaktiviert?
+- Kanal in der Kanalauswahl auf `Deaktiviert` gesetzt oder suspendiert?
 - Sync-Richtung passend?
 - Versehentlich eine Szenen-ID als Ziel eingetragen? Szenen-IDs sind keine gültigen Ziele.
 - Diagnosebericht (`/hue/diagnose.txt`) prüfen: `targetUnresolved=1` in der Kanalzeile zeigt ein nicht auflösbares Ziel.

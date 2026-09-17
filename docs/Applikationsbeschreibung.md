@@ -31,12 +31,13 @@ Die Kommunikation erfolgt über die Hue Bridge (Hue API v2).
   * [Authentication zurücksetzen](#authentication-zurücksetzen)
   * [Pairing-Zeitfenster](#pairing-zeitfenster)
   * [Status Verbindung](#status-verbindung)
-  * [Anzahl aktiver Kanäle](#anzahl-aktiver-kanäle)
   * [Einschaltverhalten](#einschaltverhalten)
   * [Relatives Dimmen](#relatives-dimmen)
   * [Hue Szenen aktivieren](#hue-szenen-aktivieren)
+* [**Kanalauswahl**](#kanalauswahl)
 * [**Kanal 1-n (Hue Ziele)**](#kanal-1-n-hue-ziele)
-  * [Kanalbezeichnung](#kanalbezeichnung)
+  * [Beschreibung](#beschreibung)
+  * [Suspendiert](#suspendiert)
   * [Zieltyp](#zieltyp)
   * [Hue Ziel (Light-/Room-/Zone-ID)](#hue-ziel-light-room-zone-id)
   * [Hue Ziel (Geräte-ID)](#hue-ziel-geräte-id)
@@ -48,7 +49,6 @@ Die Kommunikation erfolgt über die Hue Bridge (Hue API v2).
     * [Taste Kurzdruck](#taste-kurzdruck) / [Taste Langdruck](#taste-langdruck)
     * [Drehregler](#drehregler)
   * [Lampentyp](#lampentyp)
-  * [Kanal deaktivieren](#kanal-deaktivieren)
   * [Synchronisationsrichtung](#synchronisationsrichtung)
   * [Polling-Intervall](#polling-intervall)
   * [Statusverhalten bei Zieltyp Raum/Zone](#statusverhalten-bei-zieltyp-raumzone)
@@ -321,15 +321,6 @@ Blendet das KO **Bridge Verbindungsstatus** ein.
 - `1`: verbunden
 
 <!-- DOC -->
-### Anzahl aktiver Kanäle
-
-Legt fest, wie viele Hue-Kanäle (0-24) in ETS sichtbar/aktiv sind.
-Empfehlung: nur tatsächlich benötigte Kanäle aktivieren.
-
-Hinweis:
-- Viele aktive Kanäle erhöhen Parametrierungsumfang, Kommunikationsobjekte und die Größe der ETS-Projektierung.
-
-<!-- DOC -->
 ### Einschaltverhalten
 
 Globale Einstellung für die Übergangszeit bei Zustandswechseln aller Hue-Kanäle.
@@ -367,6 +358,22 @@ Aktiviert die globale Szenen-Zuordnungsseite (Reiter **Hue Szenen**), auf der bi
 
 Hinweis: Kanalspezifische Szenensteuerung (DPT 18.001) wird separat je Kanal unter **Szenensteuerung** konfiguriert.
 
+## Kanalauswahl
+
+Auf der Seite **Kanalauswahl** werden die Kanäle aktiviert. Sie steht direkt über dem ersten Kanal und zeigt je Kanal eine Zeile:
+
+| Spalte | Bedeutung |
+|---|---|
+| **Kanal** | Feste Bezeichnung des Kanals (`Hue 1` … `Hue 32`) |
+| **Gerätetyp** | `Deaktiviert` oder der Gerätetyp des Kanals (Licht, Bewegungsmelder, Taster/Schalter, Kontaktsensor, Steckdose) |
+| **Beschreibung** | Freier Text des Kanals, auch bei `Deaktiviert` eingebbar |
+
+Hinweise:
+- Ein Kanal erscheint erst im Baum links, wenn ein Gerätetyp ungleich `Deaktiviert` gewählt ist. Beim ersten Öffnen ist kein Kanal aktiv.
+- Der Gerätetyp lässt sich hier oder im Kanalkopf ändern; beide Felder sind synchron. Im Kanalkopf fehlt der Wert `Deaktiviert`, dort wird ein Kanal über die Kanalauswahl abgeschaltet.
+- Suspendierte Kanäle (siehe [Suspendiert](#suspendiert)) bleiben in der Liste und im Baum, sind dort aber mit einem Sperrsymbol gekennzeichnet.
+- Nur aktive Kanäle belegen Kommunikationsobjekte und werden von der Firmware verarbeitet.
+
 <!-- DOC HelpContext="Kanal" -->
 ## Kanal 1-n (Hue Ziele)
 
@@ -380,14 +387,24 @@ Mögliche Zieltypen:
 Die Zielzuordnung erfolgt primär über **Hue Ziel (Light-/Room-/Zone-ID)**.
 
 <!-- DOC -->
-### Kanalbezeichnung
+### Beschreibung
 
-Dient zur besseren Lesbarkeit in ETS und wird in KO-Bezeichnungen übernommen.
+Text des Kanals. Er steht im Kanalkopf an erster Stelle, erscheint im Baum links, in der Kanalauswahl und in den KO-Bezeichnungen.
 
 Beispiele:
 - Wohnzimmer
 - Küche Decke
 - Flur Spots
+
+<!-- DOC -->
+### Suspendiert
+
+Nimmt einen projektierten Kanal vorübergehend außer Betrieb, ohne die Parametrierung zu verlieren.
+
+- **Nein**: Der Kanal arbeitet normal.
+- **Ja**: Die Firmware legt für diesen Kanal kein Gerät an, verarbeitet keine Telegramme und fragt die Bridge nicht ab. Kanalseite, Kommunikationsobjekte und alle Einstellungen bleiben erhalten.
+
+Der Kanal bleibt im Baum sichtbar und wird dort mit einem Sperrsymbol (⛔) vor der Beschreibung gekennzeichnet. Wer einen Kanal dauerhaft nicht braucht, setzt den Gerätetyp in der [Kanalauswahl](#kanalauswahl) stattdessen auf `Deaktiviert`.
 
 <!-- DOC -->
 ### Zieltyp
@@ -500,10 +517,11 @@ Wichtig: Die UUID muss je Kanal exakt zur gewünschten Leuchte passen.
 <!-- DOC -->
 ### Gerätetyp
 
-Legt fest, welche Art von Hue-Gerät der Kanal steuert. Je nach Gerätetyp werden unterschiedliche Parameter und KOs sichtbar:
+Legt fest, welche Art von Hue-Gerät der Kanal steuert. Je nach Gerätetyp werden unterschiedliche Parameter und KOs sichtbar. Der Wert steht sowohl in der [Kanalauswahl](#kanalauswahl) als auch im Kanalkopf; in der Kanalauswahl kommt zusätzlich der Wert `Deaktiviert` hinzu.
 
 | Gerätetyp | Beschreibung | Verfügbare Funktionen |
 |---|---|---|
+| **Deaktiviert** *(nur Kanalauswahl)* | Kanal wird nicht verwendet | keine; der Kanal erscheint nicht im Baum |
 | **Licht** | Hue-Leuchte (On/Off, Dimmbar, CT, RGB) | Schalten, Dimmen, CT, RGB, Szenen, HCL |
 | **Steckdose** | Smart Plug | Schalten, Szenen |
 | **Taster/Schalter** | Hue-Schalter mit Tasten | KOs je Taste (Kurz/Lang), Drehregler |
@@ -689,11 +707,6 @@ Hinweis: Sichtbar nur bei Gerätetyp **Licht**.
 Hinweise:
 - Für Zieltyp **Raum/Zone** sind Schalten, Dimmen, Farbtemperatur und RGB grundsätzlich nutzbar.
 - Die tatsächliche Wirkung hängt von den Fähigkeiten der im Raum/der Zone enthaltenen Leuchten und der Bridge-Antwort ab.
-
-<!-- DOC -->
-### Kanal deaktivieren
-
-Deaktiviert den Kanal ohne Verlust der Parametrierung.
 
 <!-- DOC -->
 ### Synchronisationsrichtung
@@ -996,7 +1009,7 @@ Empfehlungen für typische Projekte:
 | Große Installation | >15 | `15..30 s` | Nur wirklich benötigte Kanäle und Status-KOs aktivieren |
 
 Faustregeln:
-- Nicht benötigte Kanäle deaktivieren.
+- Nicht benötigte Kanäle in der Kanalauswahl auf `Deaktiviert` setzen.
 - Status-KOs nur einblenden, wenn sie im KNX-Projekt wirklich verwendet werden.
 - Räume/Zonen bevorzugen, wenn nicht jede Einzelleuchte separat benötigt wird.
 - Bei vielen HCL-Kanälen `Aktualisierungsintervall` und `Überblendzeit` konservativ wählen.
@@ -1220,7 +1233,7 @@ Sichtbar nur wenn **Szenensteuerung aktivieren** am Kanal gesetzt ist.
 ### Hue-Ziel reagiert nicht
 - Zieltyp und **Hue Ziel (Light-/Room-/Zone-ID)** prüfen.
 - Bei Legacy-Projektierung zusätzlich **Hue Lampen-ID (UUID)** prüfen.
-- Kanal deaktiviert?
+- Kanal in der Kanalauswahl auf `Deaktiviert` gesetzt oder suspendiert?
 - Sync-Richtung passend?
 - Versehentlich eine Szenen-ID als Ziel eingetragen? Szenen-IDs sind keine gültigen Ziele.
 - Diagnosebericht (`/hue/diagnose.txt`) prüfen: `targetUnresolved=1` in der Kanalzeile zeigt ein nicht auflösbares Ziel.

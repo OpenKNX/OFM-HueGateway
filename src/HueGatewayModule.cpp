@@ -629,15 +629,15 @@ String HueGatewayModule::buildDiagnosticReport(size_t requestedDepth, const Stri
     report += "HasUnresolvedTarget=" + String(_diagLastHasUnresolvedTarget ? "1" : "0") + "\n\n";
 
     report += "[ChannelSnapshot]\n";
-    uint8_t configuredChannels = ParamHUE_HUEChannelCount;
-    if (configuredChannels > MAX_LIGHTS)
-    {
-        configuredChannels = MAX_LIGHTS;
-    }
-
+    const uint8_t configuredChannels = MAX_LIGHTS;
     for (uint8_t ch = 0; ch < configuredChannels; ch++)
     {
         uint8_t _channelIndex = ch;
+        const int8_t channelDevType = channelDeviceType(ch);
+        if (channelDevType < 0)  // Kanaltyp "Deaktiviert"
+        {
+            continue;
+        }
         const bool channelDisabled = ParamHUE_CHDisabled;
         String targetRid = "";
         #ifdef ParamHUE_CHTargetRIDStr
@@ -657,10 +657,7 @@ String HueGatewayModule::buildDiagnosticReport(size_t requestedDepth, const Stri
         targetType = ParamHUE_CHTargetType;
         #endif
 
-        uint8_t devType = 0;
-        #ifdef ParamHUE_CHDeviceType
-        devType = ParamHUE_CHDeviceType;
-        #endif
+        const uint8_t devType = static_cast<uint8_t>(channelDevType);
 
         uint8_t syncDir = ParamHUE_CHSyncDir;
         if (syncDir > 2)
@@ -1145,11 +1142,7 @@ void HueGatewayModule::loop()
 
     if (_client && _client->isInitialized() && !_authPending)
     {
-        uint8_t configuredChannels = ParamHUE_HUEChannelCount;
-        if (configuredChannels > MAX_LIGHTS)
-        {
-            configuredChannels = MAX_LIGHTS;
-        }
+        const uint8_t configuredChannels = countEnabledChannels();
 
         // Releases the commands' kept-alive connection after a short idle period.
         _client->loopIdleDisconnect();
@@ -1338,11 +1331,7 @@ void HueGatewayModule::loop()
             }
             else if (initClientWithAppKey())
             {
-                uint8_t configuredChannels = ParamHUE_HUEChannelCount;
-                if (configuredChannels > MAX_LIGHTS)
-                {
-                    configuredChannels = MAX_LIGHTS;
-                }
+                const uint8_t configuredChannels = countEnabledChannels();
 
                 const bool requiresDeviceSetup = configuredChannels > 0;
                 bool bridgeReachable = true;
@@ -1389,11 +1378,7 @@ void HueGatewayModule::loop()
 
     if (_client && _client->isInitialized() && !_authPending)
     {
-        uint8_t configuredChannels = ParamHUE_HUEChannelCount;
-        if (configuredChannels > MAX_LIGHTS)
-        {
-            configuredChannels = MAX_LIGHTS;
-        }
+        const uint8_t configuredChannels = countEnabledChannels();
 
         if (configuredChannels > 0 && _deviceSetupNeedsRetry)
         {
@@ -1773,6 +1758,13 @@ void HueGatewayModule::processInputKo(GroupObject& ko)
 
     uint8_t koType = static_cast<uint8_t>((koNumber - HUE_KoBlockOffset) % HUE_KoBlockSize);
     uint32_t nowMs = millis();
+
+    // Deaktivierte und suspendierte Kanäle verarbeiten keine Telegramme und lösen
+    // insbesondere kein erneutes setupDevices() aus.
+    if (!channelConfigured(static_cast<uint8_t>(channel)))
+    {
+        return;
+    }
 
     if (koType == 9)
     {
@@ -2726,11 +2718,7 @@ void HueGatewayModule::setupDevices()
         }
     };
 
-    uint8_t channelCount = ParamHUE_HUEChannelCount;
-    if (channelCount > MAX_LIGHTS)
-    {
-        channelCount = MAX_LIGHTS;
-    }
+    const uint8_t channelCount = MAX_LIGHTS;
     
     if (!_client || !_client->isInitialized())
     {
@@ -2865,7 +2853,7 @@ void HueGatewayModule::setupDevices()
     for (uint8_t ch = 0; ch < channelCount; ch++)
     {
         uint8_t _channelIndex = ch;
-        if (ParamHUE_CHDisabled)
+        if (!channelConfigured(ch))
         {
             continue;
         }
@@ -2955,9 +2943,10 @@ void HueGatewayModule::setupDevices()
         uint8_t _channelIndex = ch;
         _diagTargetUnresolved[ch] = false;
 
-        if (ParamHUE_CHDisabled)
+        if (!channelConfigured(ch))
         {
-            Serial.printf("[HueGatewayModule] Channel %d: Disabled\n", ch + 1);
+            Serial.printf("[HueGatewayModule] Channel %d: %s\n", ch + 1,
+                          (channelDeviceType(ch) < 0) ? "Deaktiviert" : "Suspendiert");
             if (_devices[ch] != nullptr)
             {
                 delete _devices[ch];
@@ -2997,9 +2986,8 @@ void HueGatewayModule::setupDevices()
         }
 
         // ---- Non-light device types (1-3): bypass bridge resolution ----
-        #ifdef ParamHUE_CHDeviceType
         {
-            const uint8_t devType = ParamHUE_CHDeviceType;
+            const uint8_t devType = static_cast<uint8_t>(channelDeviceType(ch));
             Serial.printf("[HueGatewayModule] Channel %d: DeviceType=%u (0=Licht,1=Sensor,2=Taster,3=Kontakt,4=Steckdose)\n",
                           ch + 1, static_cast<unsigned>(devType));
             if (devType >= 1 && devType <= 3)
@@ -3230,7 +3218,6 @@ void HueGatewayModule::setupDevices()
                 }
             }
         }
-        #endif
 
         const HueGatewayLightState* selectedLight = nullptr;
         HueGatewayLightState fallbackLight;
@@ -3484,11 +3471,7 @@ void HueGatewayModule::setupDevices()
         uint16_t koStatusColorTemp = koBase + 6;
         uint16_t koStatusColorRGB = koBase + 8;
         
-        #ifdef ParamHUE_CHDeviceType
-        const uint8_t chDevType = ParamHUE_CHDeviceType;
-        #else
-        const uint8_t chDevType = 0;
-        #endif
+        const uint8_t chDevType = static_cast<uint8_t>(channelDeviceType(ch));
 
         const bool needsRecreate = (_devices[ch] == nullptr)
             || !_devices[ch]->getResourceId().equalsIgnoreCase(selectedLight->id)
@@ -3756,11 +3739,7 @@ void HueGatewayModule::processBehaviorInstanceAutoDelete()
 
     Serial.println("[HueGatewayModule] processBehaviorInstanceAutoDelete: checking channels...");
 
-    #ifdef ParamHUE_HUEChannelCount
-    const uint8_t configuredChannels = min(static_cast<uint8_t>(ParamHUE_HUEChannelCount), static_cast<uint8_t>(MAX_LIGHTS));
-    #else
     const uint8_t configuredChannels = MAX_LIGHTS;
-    #endif
 
     int totalDeleted = 0;
     for (uint8_t ch = 0; ch < configuredChannels; ch++)
@@ -3874,11 +3853,7 @@ void HueGatewayModule::checkConnection()
         }
     };
 
-    uint8_t configuredChannels = ParamHUE_HUEChannelCount;
-    if (configuredChannels > MAX_LIGHTS)
-    {
-        configuredChannels = MAX_LIGHTS;
-    }
+    const uint8_t configuredChannels = countEnabledChannels();
     const bool blockConnectedStatusUntilSetup = (configuredChannels > 0)
         && (_deviceSetupNeedsRetry || _lightCount <= 0);
 
@@ -4315,10 +4290,9 @@ void HueGatewayModule::refreshLightStatus(bool fastTrackOnly)
         }
 
         // ---- Sensor-/Steckdosen-Polling (kein Licht-Snapshot) ----
-        #ifdef ParamHUE_CHDeviceType
         if (_devices[i] != nullptr && lightAt(i) == nullptr)
         {
-            const uint8_t devType = ParamHUE_CHDeviceType;
+            const uint8_t devType = static_cast<uint8_t>(channelDeviceType(i));
             if (devType == 1)  // Bewegungsmelder
             {
                 HueGatewayMotionState ms;
@@ -4353,7 +4327,6 @@ void HueGatewayModule::refreshLightStatus(bool fastTrackOnly)
                 }
             }
         }
-        #endif
 
     }
 
@@ -4403,19 +4376,43 @@ bool HueGatewayModule::hasNetworkConnectivity() const
     return WiFi.status() == WL_CONNECTED;
 }
 
-uint8_t HueGatewayModule::countEnabledChannels() const
+int8_t HueGatewayModule::channelDeviceType(uint8_t channelIndex) const
 {
-    uint8_t channelCount = ParamHUE_HUEChannelCount;
-    if (channelCount > MAX_LIGHTS)
+    if (channelIndex >= MAX_LIGHTS)
     {
-        channelCount = MAX_LIGHTS;
+        return -1;
     }
 
-    uint8_t enabled = 0;
-    for (uint8_t ch = 0; ch < channelCount; ch++)
+    uint8_t _channelIndex = channelIndex;
+    #ifdef ParamHUE_CHChannelType
+    const uint8_t channelType = ParamHUE_CHChannelType;
+    if (channelType == 0)  // Kanaltyp "Deaktiviert"
     {
-        uint8_t _channelIndex = ch;
-        if (!ParamHUE_CHDisabled)
+        return -1;
+    }
+    return static_cast<int8_t>(channelType - 1);
+    #else
+    return 0;
+    #endif
+}
+
+bool HueGatewayModule::channelConfigured(uint8_t channelIndex) const
+{
+    if (channelDeviceType(channelIndex) < 0)
+    {
+        return false;
+    }
+
+    uint8_t _channelIndex = channelIndex;
+    return !ParamHUE_CHDisabled;
+}
+
+uint8_t HueGatewayModule::countEnabledChannels() const
+{
+    uint8_t enabled = 0;
+    for (uint8_t ch = 0; ch < MAX_LIGHTS; ch++)
+    {
+        if (channelConfigured(ch))
         {
             enabled++;
         }
@@ -5506,11 +5503,7 @@ bool HueGatewayModule::initClientWithAppKey()
                   static_cast<int>(OPENKNX_HUE_EVENTSTREAM_POLICY_DEFAULT),
                   sEventStreamEnabled ? "yes" : "no");
 
-    uint8_t configuredChannels = ParamHUE_HUEChannelCount;
-    if (configuredChannels > MAX_LIGHTS)
-    {
-        configuredChannels = MAX_LIGHTS;
-    }
+    const uint8_t configuredChannels = countEnabledChannels();
     const bool requiresDeviceSetup = configuredChannels > 0;
     const bool inWarmupWindow = (_bootStartMs != 0)
         && ((millis() - _bootStartMs) < kBootEventStreamWarmupMs);
@@ -6431,20 +6424,21 @@ void HueGatewayModule::handleWebStatus(WebRequest& req, WebResponse& res)
 
     // --- KANÄLE ---
     {
-        const uint8_t configuredChannels = (ParamHUE_HUEChannelCount < MAX_LIGHTS) ? ParamHUE_HUEChannelCount : MAX_LIGHTS;
         static const char* kDevTypeNames[]    = { "Licht", "Bewegungsmelder", "Taster", "Kontakt", "Steckdose" };
         static const char* kTargetTypeNames[] = { "Licht-ID", "Raum-ID", "Zone-ID" };
         html += "<h2>Kan\u00e4le</h2>";
         html += "<table>";
         html += "<tr><th>Nr</th><th>Bezeichnung</th><th>Typ</th><th>Zieltyp</th><th>Hue-ID</th><th>Lichtmanager</th><th>Status</th></tr>";
-        for (uint8_t ch = 0; ch < configuredChannels; ch++)
+        for (uint8_t ch = 0; ch < MAX_LIGHTS; ch++)
         {
             uint8_t _channelIndex = ch;
+            const int8_t chDevTypeSigned = channelDeviceType(ch);
+            if (chDevTypeSigned < 0)  // Kanaltyp "Deaktiviert": nicht anzeigen
+            {
+                continue;
+            }
             const bool disabled = ParamHUE_CHDisabled;
-            uint8_t devType = 0;
-            #ifdef ParamHUE_CHDeviceType
-            devType = ParamHUE_CHDeviceType;
-            #endif
+            const uint8_t devType = static_cast<uint8_t>(chDevTypeSigned);
             const char* devTypeName = (devType <= 4) ? kDevTypeNames[devType] : "-";
             uint8_t targetType = 0;
             #ifdef ParamHUE_CHTargetType
@@ -6808,7 +6802,7 @@ void HueGatewayModule::handleWebLichtmanager(WebRequest& req, WebResponse& res)
 
             // Zugeordnete Hue-Kanäle
             {
-                const uint8_t hueChCount = (ParamHUE_HUEChannelCount < MAX_LIGHTS) ? ParamHUE_HUEChannelCount : MAX_LIGHTS;
+                const uint8_t hueChCount = MAX_LIGHTS;
                 bool anyHueCh = false;
                 for (uint8_t hCh = 0; hCh < hueChCount; hCh++)
                 {
@@ -6865,9 +6859,8 @@ void HueGatewayModule::handleWebLichtmanager(WebRequest& req, WebResponse& res)
         }
 
         // Kanal-Sperren
-        #ifdef ParamHUE_HUEChannelCount
         {
-            const uint8_t configuredChannels = min(static_cast<uint8_t>(ParamHUE_HUEChannelCount), static_cast<uint8_t>(MAX_LIGHTS));
+            const uint8_t configuredChannels = MAX_LIGHTS;
             bool anyChannelLock = false;
             for (uint8_t ch = 0; ch < configuredChannels; ch++)
             {
@@ -6897,7 +6890,6 @@ void HueGatewayModule::handleWebLichtmanager(WebRequest& req, WebResponse& res)
                 html += "<tr><td>Kanal-Sperren (KO Sperre Kx)</td><td><span class='green'>Keine aktiv</span></td></tr>";
             }
         }
-        #endif
 
         html += "</table>";
     }
