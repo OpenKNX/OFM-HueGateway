@@ -11,7 +11,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/estebanri87/OFM-HueGatewayModule"
+        "url": "https://github.com/OpenKNX/OFM-HueGateway"
     },
     "build": {
         "srcFilter": "+<*> -<main.cpp>"
