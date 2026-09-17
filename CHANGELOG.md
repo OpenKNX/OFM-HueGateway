@@ -22,6 +22,7 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 - Applikationsbeschreibung um einen Abschnitt „ETS Konfiguration" ergänzt, der die tatsächliche Seiten-/Tab-Struktur der ETS-Applikation als verschachtelten Baum mit Links auf die Detailbeschreibungen zeigt (#9).
 - Kommunikationsobjekte als Tabellen zusammengefasst (global und pro Kanal, mit KO-Nummer/Offset und DPT je Objekt), verlinkt zu den bestehenden Detailabschnitten (#10, #11).
 - Sperr- und Sollwert-Objekte des Lichtmanagers in der KO-Übersicht als Objekte von OFM-LightManager gekennzeichnet, da sie nicht zu diesem Modul gehören.
+- Präfixe `room:`/`zone:` für die Hue Ziel-ID nur noch für Namen empfohlen: Eine ID ist eindeutig und braucht kein Präfix, und `room:`/`zone:` plus UUID (41 Zeichen) passt nicht in das 40-Zeichen-Feld.
 
 ### Entfernt
 - Ungenutztes ETS-Scan-Skript `HueGatewayModule.script.js` entfernt (FunctionProperty-Aufruf `0xA0`). Es war seit dem ersten Commit in keiner XML-Seite verdrahtet und hatte im Firmware-Code nie einen passenden `0xA0`-Handler; die Scan-Funktion läuft seit Längerem über das Webinterface (`/hue/scan`) (#1).

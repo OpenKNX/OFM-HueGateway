@@ -240,7 +240,7 @@ Nach erfolgreicher Kopplung (LED grün dauerhaft) erfolgt die eigentliche Gerät
 Empfehlungen für robuste Inbetriebnahme:
 - Primär die jeweilige **ID (RID)** verwenden, nicht den Namen.
 - Namen nur verwenden, wenn sie im Hue-System eindeutig sind.
-- Optional können Präfixe genutzt werden: `room:<id|name>` bzw. `zone:<id|name>`.
+- Bei Namen, die für Licht, Raum und Zone gleich lauten, kann ein Präfix die Suche eingrenzen: `room:<name>` bzw. `zone:<name>`. Eine ID braucht kein Präfix, sie ist eindeutig (zudem passt `room:`/`zone:` plus ID nicht in das 40-Zeichen-Feld).
 
 Empfehlung: Erst mit 1-2 Kanälen testen, danach auf alle Kanäle ausrollen.
 
