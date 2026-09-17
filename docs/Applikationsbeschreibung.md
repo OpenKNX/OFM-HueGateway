@@ -18,6 +18,51 @@ Die Kommunikation erfolgt über die Hue Bridge (Hue API v2).
 - [Häufige Fehler und Lösungen](#häufige-fehler-und-lösungen)
 - [Inbetriebnahme-Checkliste](#inbetriebnahme-checkliste)
 
+### ETS Konfiguration
+
+Übersicht der Konfigurationsseiten der ETS-Applikation und Links zur jeweiligen Detailbeschreibung:
+
+* [**Bridge-Konfiguration**](#bridge-konfiguration)
+  * [Bridge Erkennung](#bridge-erkennung) / [Bridge IP-Adresse](#bridge-ip-adresse)
+  * [Erstinbetriebnahme und Authentifizierung](#erstinbetriebnahme-und-authentifizierung)
+  * [Nächste Schritte nach dem Pairing](#nächste-schritte-nach-dem-pairing)
+  * [LED-Signale](#led-signale)
+  * [Zugriff auf das Webinterface](#zugriff-auf-das-webinterface)
+  * [Authentication zurücksetzen](#authentication-zurücksetzen)
+  * [Pairing-Zeitfenster](#pairing-zeitfenster)
+  * [Status Verbindung](#status-verbindung)
+  * [Anzahl aktiver Kanäle](#anzahl-aktiver-kanäle)
+  * [Einschaltverhalten](#einschaltverhalten)
+  * [Relatives Dimmen](#relatives-dimmen)
+  * [Hue Szenen aktivieren](#hue-szenen-aktivieren)
+* [**Kanal 1-n (Hue Ziele)**](#kanal-1-n-hue-ziele)
+  * [Kanalbezeichnung](#kanalbezeichnung)
+  * [Zieltyp](#zieltyp)
+  * [Hue Ziel (Light-/Room-/Zone-ID)](#hue-ziel-light-room-zone-id)
+  * [Hue Ziel (Geräte-ID)](#hue-ziel-geräte-id)
+  * [Hue Lampen-ID (UUID)](#hue-lampen-id-uuid)
+  * [Gerätetyp](#gerätetyp)
+  * [Optionale Kommunikationsobjekte](#optionale-kommunikationsobjekte)
+    * [Gerät erreichbar verwenden](#gerät-erreichbar-verwenden) / [Batterie verwenden](#batterie-verwenden) / [Temperatur verwenden](#temperatur-verwenden) / [Helligkeit verwenden](#helligkeit-verwenden) / [Sabotage verwenden](#sabotage-verwenden)
+  * [**Taster/Schalter – Konfiguration**](#tasterschalter--konfiguration)
+    * [Taste Kurzdruck](#taste-kurzdruck) / [Taste Langdruck](#taste-langdruck)
+    * [Drehregler](#drehregler)
+  * [Lampentyp](#lampentyp)
+  * [Kanal deaktivieren](#kanal-deaktivieren)
+  * [Synchronisationsrichtung](#synchronisationsrichtung)
+  * [Polling-Intervall](#polling-intervall)
+  * [Statusverhalten bei Zieltyp Raum/Zone](#statusverhalten-bei-zieltyp-raumzone)
+  * [Minimale Helligkeit](#minimale-helligkeit)
+  * [**Szenensteuerung**](#szenensteuerung)
+  * [**Szenensteuerung Steckdose**](#szenensteuerung-steckdose) / [Szenen Steckdose](#szenen-steckdose)
+  * [Lichtmanager Zuordnung](#lichtmanager-zuordnung)
+  * [Sperre (kanal-spezifisch)](#sperre-kanal-spezifisch)
+  * [Lichtmanager nach manueller Verstellung sperren](#lichtmanager-nach-manueller-verstellung-sperren)
+* [**Lichtmanager**](#lichtmanager)
+  * [Hue Szenen (global)](#hue-szenen-global)
+  * [Human Centric Lighting](#human-centric-lighting)
+  * [Lichtmanager-Konfiguration übertragen (ConfigTransfer)](#lichtmanager-konfiguration-übertragen-configtransfer)
+
 <!-- DOC -->
 ## Allgemein
 
@@ -929,6 +974,44 @@ Faustregeln:
 
 <!-- DOC -->
 ## Kommunikationsobjekte
+
+### Übersicht
+
+Die folgenden Tabellen fassen alle Kommunikationsobjekte zusammen. Details zu Sichtbarkeit und Verhalten stehen in den jeweiligen Abschnitten weiter unten.
+
+#### Globale Kommunikationsobjekte
+
+| KO | DPT | Bezeichnung | Erklärung |
+|---:|---|---|---|
+| 0 | 1.001 | [Bridge Verbindungsstatus](#bridge-verbindungsstatus) | Optionales Statusobjekt (0=offline, 1=online) |
+| 1 | 1.017 | [Pairing Trigger](#pairing-trigger) | Eingang zum Auslösen des ETS-gestützten Pairings |
+| (LMG) | 1.003 / 1.011 | [Sperre (global) / Status Sperre](#sperre-global--status-sperre) | Globale Lichtmanager-Sperre inkl. Statusrückmeldung |
+| (LMG) | 1.017 | [Entsperren Trigger](#entsperren-trigger) | Hebt globale, manager- und kanal-spezifische Sperren gleichzeitig auf |
+| (LMG) | 1.003 / 1.011 | [Sperre Lichtmanager 1..8 / Status](#sperre-lichtmanager-18--status) | Sperrobjekte je Lichtmanager; Sichtbarkeit abhängig von der Anzahl konfigurierter Lichtmanager |
+| (LMG) | 5.001 / 7.600 | [Lichtmanager Status Helligkeit Soll / Farbtemperatur Soll](#lichtmanager-status-helligkeit-soll--farbtemperatur-soll) | Je Lichtmanager zwei Sollwert-KOs; Sichtbarkeit abhängig von Option „Status-KOs je Lichtmanager" |
+
+(LMG) = Objekt des Moduls [OFM-LightManager](https://github.com/OpenKNX/OFM-LightManager/blob/main/doc/Applikationsbeschreibung-LightManager.md), das im kombinierten Gerät gemeinsam mit den Hue-spezifischen Objekten erscheint; KO-Nummer siehe dessen Applikationsbeschreibung.
+
+#### Pro-Kanal Kommunikationsobjekte
+
+Jeder Hue-Kanal belegt einen festen Block von 12 aufeinanderfolgenden KOs (Offset `+0`..`+11`, absolute Nummer abhängig vom Kanalindex). Je nach **Gerätetyp** werden dieselben 12 Slots unterschiedlich belegt — die Tabelle zeigt die Belegung für Gerätetyp **Licht**:
+
+| KO | DPT | Bezeichnung | Erklärung |
+|---:|---|---|---|
+| +0 | 1.001 | [Schalten](#schalten) | Eingang: Ein/Aus |
+| +1 | 5.001 | [Helligkeit](#helligkeit) | Eingang: Prozentwert 0..100 % |
+| +2 | 3.007 | [Dimmen](#dimmen) | Eingang: relatives Dimmen |
+| +3 | 1.001 | [Status Schalten](#status-schalten) | Ausgang: Ein/Aus |
+| +4 | 5.001 | [Status Helligkeit](#status-helligkeit) | Ausgang: Prozentwert |
+| +5 | 7.600 | [Farbtemperatur](#farbtemperatur--status-farbtemperatur) | Eingang: Kelvin 2000..6500K |
+| +6 | 7.600 | Status Farbtemperatur | Ausgang: Kelvin |
+| +7 | 232.600 | [Farbe RGB](#farbe-rgb--status-rgb) | Eingang: RGB |
+| +8 | 232.600 | Status RGB | Ausgang: RGB |
+| +9 | 1.003 | [Sperre (kanal-spezifisch)](#sperre-kanal-spezifisch--status-sperre) | Eingang: kanal-spezifische Lichtmanager-Sperre |
+| +10 | 1.011 | Status Sperre | Ausgang: Sperrstatus |
+| +11 | 18.001 | [Szenen](#szenen) | Eingang: Szenenabruf/-speicherung (nur wenn **Szenensteuerung aktivieren** gesetzt ist) |
+
+Bei den Gerätetypen **Bewegungsmelder**, **Kontaktsensor** und **Steckdose** werden dieselben Slots stattdessen für die dort relevanten Objekte genutzt (z. B. Slot `+0` als "Status Bewegung" bzw. "Status Kontakt offen", Slot `+3` zusätzlich für "Gerät erreichbar"/"Sabotage", Slot `+4`/`+5`/`+6` für Batterie/Temperatur/Helligkeit) — siehe [Optionale Kommunikationsobjekte](#optionale-kommunikationsobjekte). Bei Gerätetyp **Taster/Schalter** belegen bis zu 4 Tasten (Kurz-/Langdruck) sowie ein optionaler Drehregler dieselben 12 Slots — siehe [Taster/Schalter – Konfiguration](#tasterschalter--konfiguration).
 
 ### Globale Kommunikationsobjekte
 
