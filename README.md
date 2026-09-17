@@ -21,6 +21,13 @@ OpenKNX Funktionsmodul zur Integration von Philips Hue Geräten in KNX-Systeme.
   - Dimmen (0-100%)
   - Farbtemperatur (2000-6500K)
   - RGB Farben
+- Zieltyp Raum/Zone (`grouped_light`) zusätzlich zu einzelnen Leuchten
+- Gerätetyp Steckdose (Schalten, eigene reduzierte Szenensteuerung)
+- Gerätetyp Bewegungsmelder (Präsenz, optional Temperatur, Helligkeit/Lux, Batterie)
+- Gerätetyp Kontaktsensor (Kontaktstatus, optional Sabotage, Batterie)
+- Gerätetyp Taster/Schalter (bis zu 4 Tasten, Kurz-/Langdruck frei belegbar, Drehregler-Unterstützung)
+- Szenensteuerung (DPT 18.001, bis zu 8 Slots je Kanal; Abruf und optionales Speichern; inkl. Abruf global konfigurierter Hue-Szenen)
+- Webinterface für Pairing, Gerätescan und Diagnose (`/hue`)
 - Bidirektionale Status-Updates (Event Stream)
 - ETS-Konfiguration
 - Anbindung an [OFM-LightManager](../OFM-LightManager) (HCL — Human Centric Lighting); die Anbindung selbst ist Pflicht, nur ihre Nutzung ist pro Kanal optional (siehe unten)
