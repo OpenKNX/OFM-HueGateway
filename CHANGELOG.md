@@ -22,6 +22,9 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 - Kommunikationsobjekte als Tabellen zusammengefasst (global und pro Kanal, mit KO-Nummer/Offset und DPT je Objekt), verlinkt zu den bestehenden Detailabschnitten (#10, #11).
 - Sperr- und Sollwert-Objekte des Lichtmanagers in der KO-Übersicht als Objekte von OFM-LightManager gekennzeichnet, da sie nicht zu diesem Modul gehören.
 
+### Entfernt
+- Ungenutztes ETS-Scan-Skript `HueGatewayModule.script.js` entfernt (FunctionProperty-Aufruf `0xA0`). Es war seit dem ersten Commit in keiner XML-Seite verdrahtet und hatte im Firmware-Code nie einen passenden `0xA0`-Handler; die Scan-Funktion läuft seit Längerem über das Webinterface (`/hue/scan`) (#1).
+
 ## [0.7.3] — intern übersprungen, nie an Feldtester ausgeliefert
 
 `library.json` trug diese Nummer kurz zwischen dem Release-Commit von [0.7.2]
