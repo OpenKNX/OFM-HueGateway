@@ -98,7 +98,7 @@ Eine Prüfung auf bestimmte Modell- oder Herstellernamen findet nicht statt – 
 | **Steckdose** | `light` + Archetype enthält *plug*, *socket* oder *outlet* | Archetype-Substring-Prüfung | Schalten Ein/Aus |
 | **Taster/Schalter** | `button`, `relative_rotary` | Service-Typ einer Geräte-Ressource | Tastenereignisse (Kurz-/Langdruck), Drehregler |
 | **Bewegungsmelder** | `motion` | Service-Typ einer Geräte-Ressource | Präsenz, optional Temperatur, Helligkeit, Batterie |
-| **Kontaktsensor** | `contact_sensor` | Service-Typ einer Geräte-Ressource | Kontaktstatus, optional Manipulation, Temperatur, Batterie |
+| **Kontaktsensor** | `contact_sensor` | Service-Typ einer Geräte-Ressource | Kontaktstatus, optional Manipulation, Batterie |
 | **Raum/Zone** | `grouped_light` | Aggregierte Lichtressource eines Raumes oder einer Zone | Schalten, Dimmen, Farbtemperatur, RGB (je nach enthaltenen Leuchten) |
 
 Die Fähigkeiten einer Leuchte (dimmbar, Farbtemperatur, Farbe) werden automatisch anhand der von der Bridge gemeldeten JSON-Felder erkannt:
@@ -679,8 +679,8 @@ Wenn der Hue-Schalter über einen Drehregler verfügt (z. B. Hue Tap Dial):
 ### Lampentyp
 
 Der Lampentyp bestimmt, welche KOs sichtbar/aktiv sind:
-- **Nur schalten**: Schalten + Status Schalten
-- **Dimmbar**: zusätzlich Helligkeit/Dimmen + Status Helligkeit
+- **Nur schalten**: Schalten (ein KO „Status Schalten" gibt es erst ab Lampentyp **Dimmbar**)
+- **Dimmbar**: zusätzlich Helligkeit/Dimmen + Status Schalten + Status Helligkeit
 - **Farbtemperatur**: zusätzlich Farbtemperatur + Status Farbtemperatur
 - **Farbe RGB**: zusätzlich RGB + Status RGB
 
@@ -700,7 +700,7 @@ Deaktiviert den Kanal ohne Verlust der Parametrierung.
 Es stehen drei Betriebsarten zur Verfügung:
 
 1. **Nur KNX zu Hue**: Telegramme steuern Hue, Statusrückmeldungen aus Hue werden ignoriert. Sichtbar sind nur die Steuer-KOs.
-2. **Nur Hue zu KNX**: KNX-Kommandos werden blockiert, Status wird aus Hue übernommen. Sichtbar sind nur die Status-KOs.
+2. **Nur Hue zu KNX**: KNX-Kommandos werden blockiert, Status wird aus Hue übernommen. Sichtbar sind die Status-KOs; das KO **Schalten** bleibt ebenfalls eingeblendet.
 3. **Bidirektional**: KNX-Kommandos und Hue-Statusübernahme aktiv. Sichtbar sind Steuer- und Status-KOs. (Standardempfehlung)
 
 Hinweis:
@@ -1023,24 +1023,46 @@ Die folgenden Tabellen fassen alle Kommunikationsobjekte zusammen. Details zu Si
 
 #### Pro-Kanal Kommunikationsobjekte
 
-Jeder Hue-Kanal belegt einen festen Block von 12 aufeinanderfolgenden KOs (Offset `+0`..`+11`, absolute Nummer abhängig vom Kanalindex). Je nach **Gerätetyp** werden dieselben 12 Slots unterschiedlich belegt — die Tabelle zeigt die Belegung für Gerätetyp **Licht**:
+Jeder Hue-Kanal belegt einen festen Block von 12 aufeinanderfolgenden KOs (Offset `+0`..`+11`, absolute Nummer abhängig vom Kanalindex). Je nach **Gerätetyp** werden dieselben Slots unterschiedlich belegt, teils mit anderem DPT. Welche KOs eingeblendet werden, steht in der Spalte Erklärung.
 
-| KO | DPT | Bezeichnung | Erklärung |
-|---:|---|---|---|
-| +0 | 1.001 | [Schalten](#schalten) | Eingang: Ein/Aus |
-| +1 | 5.001 | [Helligkeit](#helligkeit) | Eingang: Prozentwert 0..100 % |
-| +2 | 3.007 | [Dimmen](#dimmen) | Eingang: relatives Dimmen |
-| +3 | 1.001 | [Status Schalten](#status-schalten) | Ausgang: Ein/Aus |
-| +4 | 5.001 | [Status Helligkeit](#status-helligkeit) | Ausgang: Prozentwert |
-| +5 | 7.600 | [Farbtemperatur](#farbtemperatur--status-farbtemperatur) | Eingang: Kelvin 2000..6500K |
-| +6 | 7.600 | Status Farbtemperatur | Ausgang: Kelvin |
-| +7 | 232.600 | [Farbe RGB](#farbe-rgb--status-rgb) | Eingang: RGB |
-| +8 | 232.600 | Status RGB | Ausgang: RGB |
-| +9 | 1.003 | [Sperre (kanal-spezifisch)](#sperre-kanal-spezifisch--status-sperre) | Eingang: kanal-spezifische Lichtmanager-Sperre |
-| +10 | 1.011 | Status Sperre | Ausgang: Sperrstatus |
-| +11 | 18.001 | [Szenen](#szenen) | Eingang: Szenenabruf/-speicherung (nur wenn **Szenensteuerung aktivieren** gesetzt ist) |
+|  KO | Geräte-Typ | DPT | Bezeichnung | Erklärung |
+|----:|---|---:|---|---|
+|  +0 | Licht | 1.001 | [Schalten](#schalten) | Eingang Ein/Aus. Bei jeder Synchronisationsrichtung eingeblendet |
+|  +0 | Steckdose | 1.001 | Schalten | Eingang Ein/Aus |
+|  +0 | Bewegungsmelder | 1.008 | Status Bewegung | Ausgang, 1 = Bewegung erkannt |
+|  +0 | Kontaktsensor | 1.009 | Status Kontakt offen | Ausgang, 1 = offen, 0 = geschlossen |
+|  +0 | Taster/Schalter | ¹ | Taste 1: Kurzdruck | Ausgang, wenn Kurzdruck ≠ *Keine Aktion* |
+|  +1 | Licht | 5.001 | [Helligkeit](#helligkeit) | Eingang 0..100 %. Ab Lampentyp *Dimmbar*, nicht bei *Nur Hue zu KNX* |
+|  +1 | Taster/Schalter | ² | Taste 1: Langdruck | Ausgang, wenn Langdruck ≠ *Kein Langdruck* |
+|  +2 | Licht | 3.007 | [Dimmen](#dimmen) | Eingang relatives Dimmen. Wie +1 |
+|  +2 | Taster/Schalter | ¹ | Taste 2: Kurzdruck | Wie +0, ab 2 Tasten |
+|  +3 | Licht | 1.001 | [Status Schalten](#status-schalten) | Ausgang Ein/Aus. Ab Lampentyp *Dimmbar*, nicht bei *Nur KNX zu Hue* |
+|  +3 | Steckdose | 1.001 | Status Schalten | Ausgang Ein/Aus |
+|  +3 | Bewegungsmelder | 1.002 | Gerät erreichbar | Ausgang, 1 = erreichbar. Optional, siehe [Gerät erreichbar verwenden](#gerät-erreichbar-verwenden) |
+|  +3 | Kontaktsensor | 1.001 | Sabotage | Ausgang, 1 = Sabotagekontakt ausgelöst. Optional, siehe [Sabotage verwenden](#sabotage-verwenden) |
+|  +3 | Taster/Schalter | ² | Taste 2: Langdruck | Wie +1, ab 2 Tasten |
+|  +4 | Licht | 5.001 | [Status Helligkeit](#status-helligkeit) | Ausgang 0..100 %. Wie +3 |
+|  +4 | Bewegungsmelder, Kontaktsensor | 5.001 | Batterie | Ausgang Ladung 0..100 %. Optional, siehe [Batterie verwenden](#batterie-verwenden) |
+|  +4 | Taster/Schalter | ¹ | Taste 3: Kurzdruck | Wie +0, ab 3 Tasten |
+|  +5 | Licht | 7.600 | [Farbtemperatur](#farbtemperatur--status-farbtemperatur) | Eingang Kelvin. Ab Lampentyp *Farbtemperatur*, nicht bei *Nur Hue zu KNX* |
+|  +5 | Bewegungsmelder | 9.001 | Temperatur | Ausgang °C. Optional, siehe [Temperatur verwenden](#temperatur-verwenden) |
+|  +5 | Taster/Schalter | ² | Taste 3: Langdruck | Wie +1, ab 3 Tasten |
+|  +6 | Licht | 7.600 | Status Farbtemperatur | Ausgang Kelvin. Ab Lampentyp *Farbtemperatur*, nicht bei *Nur KNX zu Hue* |
+|  +6 | Bewegungsmelder | 9.004 | Helligkeit (Lux) | Ausgang Lux. Optional, siehe [Helligkeit verwenden](#helligkeit-verwenden) |
+|  +6 | Taster/Schalter | ¹ | Taste 4: Kurzdruck | Wie +0, bei 4 Tasten |
+|  +7 | Licht | 232.600 | [Farbe RGB](#farbe-rgb--status-rgb) | Eingang RGB. Nur Lampentyp *Farbe RGB*, nicht bei *Nur Hue zu KNX* |
+|  +7 | Taster/Schalter | ² | Taste 4: Langdruck | Wie +1, bei 4 Tasten |
+|  +8 | Licht | 232.600 | Status RGB | Ausgang RGB. Nur Lampentyp *Farbe RGB*, nicht bei *Nur KNX zu Hue* |
+|  +8 | Taster/Schalter | 3.007 / 5.001 / 3.007 / 7.600 | Drehregler | Ausgang, DPT je Funktion Dimmen / Wertgeber / Lautstärke / Farbtemperatur. Nur mit [Drehregler](#drehregler) |
+|  +9 | Licht | 1.003 | [Sperre Lichtmanager](#sperre-kanal-spezifisch--status-sperre) | Eingang, 1 = gesperrt. Ab Lampentyp *Dimmbar* mit Lichtmanager-Zuordnung |
+|  +9 | Kontaktsensor, Steckdose | 1.002 | Gerät erreichbar | Ausgang, 1 = erreichbar. Optional, siehe [Gerät erreichbar verwenden](#gerät-erreichbar-verwenden) |
+| +10 | Licht | 1.011 | Status Sperre Lichtmanager | Ausgang. Wie +9 |
+| +11 | Licht, Steckdose | 18.001 / 17.001 | [Szene](#szenen) | Eingang, nur mit Szenensteuerung. DPT 18.001 wenn *Szene speichern* aktiv, sonst 17.001 (nur Abruf) |
 
-Bei den Gerätetypen **Bewegungsmelder**, **Kontaktsensor** und **Steckdose** werden dieselben Slots stattdessen für die dort relevanten Objekte genutzt (z. B. Slot `+0` als "Status Bewegung" bzw. "Status Kontakt offen", Slot `+3` zusätzlich für "Gerät erreichbar"/"Sabotage", Slot `+4`/`+5`/`+6` für Batterie/Temperatur/Helligkeit) — siehe [Optionale Kommunikationsobjekte](#optionale-kommunikationsobjekte). Bei Gerätetyp **Taster/Schalter** belegen bis zu 4 Tasten (Kurz-/Langdruck) sowie ein optionaler Drehregler dieselben 12 Slots — siehe [Taster/Schalter – Konfiguration](#tasterschalter--konfiguration).
+¹ Kurzdruck, DPT je Option: 1.001 Schalten, 3.007 Dimmen relativ, 18.001 Szenennummer, 1.007 Schritt/Stop, 5.001 Prozentwert, 9.001 Temperaturwert, 5.010 1-Byte Wert, 7.001 2-Byte Wert — siehe [Taste Kurzdruck](#taste-kurzdruck).<br>
+² Langdruck, DPT je Option: wie ¹, zusätzlich 1.008 Fahren — siehe [Taste Langdruck](#taste-langdruck).
+
+Slots, die für einen Gerätetyp nicht aufgeführt sind, bleiben dort ungenutzt.
 
 ### Globale Kommunikationsobjekte
 
