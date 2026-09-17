@@ -92,68 +92,87 @@ Eine Prüfung auf bestimmte Modell- oder Herstellernamen findet nicht statt – 
 
 ### Gerätekategorien im Modul
 
-- **Licht** (`light`): Alle Light-Ressourcen ohne Steckdosen-Archetype — Schalten, Dimmen, Farbtemperatur, RGB (je nach Fähigkeit)
-- **Steckdose** (`light` + Archetype enthält *plug*, *socket* oder *outlet*): Archetype-Substring-Prüfung — Schalten Ein/Aus
-- **Taster/Schalter** (`button`, `relative_rotary`): Service-Typ einer Geräte-Ressource — Tastenereignisse (Kurz-/Langdruck), Drehregler
-- **Bewegungsmelder** (`motion`): Service-Typ einer Geräte-Ressource — Präsenz, optional Temperatur, Helligkeit, Batterie
-- **Kontaktsensor** (`contact_sensor`): Service-Typ einer Geräte-Ressource — Kontaktstatus, optional Manipulation, Temperatur, Batterie
-- **Raum/Zone** (`grouped_light`): Aggregierte Lichtressource eines Raumes oder einer Zone — Schalten, Dimmen, Farbtemperatur, RGB (je nach enthaltenen Leuchten)
+| ETS-Gerätetyp | Hue API v2 Ressource | Erkennung | KNX-Funktionen |
+|---|---|---|---|
+| **Licht** | `light` | Alle Light-Ressourcen ohne Steckdosen-Archetype | Schalten, Dimmen, Farbtemperatur, RGB (je nach Fähigkeit) |
+| **Steckdose** | `light` + Archetype enthält *plug*, *socket* oder *outlet* | Archetype-Substring-Prüfung | Schalten Ein/Aus |
+| **Taster/Schalter** | `button`, `relative_rotary` | Service-Typ einer Geräte-Ressource | Tastenereignisse (Kurz-/Langdruck), Drehregler |
+| **Bewegungsmelder** | `motion` | Service-Typ einer Geräte-Ressource | Präsenz, optional Temperatur, Helligkeit, Batterie |
+| **Kontaktsensor** | `contact_sensor` | Service-Typ einer Geräte-Ressource | Kontaktstatus, optional Manipulation, Temperatur, Batterie |
+| **Raum/Zone** | `grouped_light` | Aggregierte Lichtressource eines Raumes oder einer Zone | Schalten, Dimmen, Farbtemperatur, RGB (je nach enthaltenen Leuchten) |
 
 Die Fähigkeiten einer Leuchte (dimmbar, Farbtemperatur, Farbe) werden automatisch anhand der von der Bridge gemeldeten JSON-Felder erkannt:
 
-- **Ein/Aus**: Nur `on/off`-Feld vorhanden
-- **Dimmbar**: `dimming`-Feld vorhanden
-- **Farbtemperatur**: `color_temperature`-Feld vorhanden (Mirek 153–500)
-- **Farbe (RGB)**: `color`-Feld vorhanden (CIE 1931 XY)
+| Lampentyp in ETS | Voraussetzung auf Bridge-Seite |
+|---|---|
+| Ein/Aus | Nur `on/off`-Feld vorhanden |
+| Dimmbar | `dimming`-Feld vorhanden |
+| Farbtemperatur | `color_temperature`-Feld vorhanden (Mirek 153–500) |
+| Farbe (RGB) | `color`-Feld vorhanden (CIE 1931 XY) |
 
 ### Philips Hue Produkte (Signify)
 
 #### Leuchten
 
-- Hue White (E27, E14, GU10, A19, BR30, PAR38): Dimmbar — Ja
-- Hue White Ambiance (E27, E14, GU10, A19, BR30, Lightstrip): Farbtemperatur — Ja
-- Hue White and Color Ambiance (E27, E14, GU10, A19, BR30, Lightstrip Plus): Farbe (RGB) — Ja
-- Hue Filament (ST64, G93, G125, A60, ST72, T75): Farbtemperatur — Nein
-- Hue Lightguide (Ellipse, Triangle, Globe): Farbe (RGB) — Nein
-- Hue Gradient Lightstrip (Lightstrip, Signe Tisch-/Stehleuchte, Tube): Farbe (RGB) — Ja
-- Hue Play (Light Bar): Farbe (RGB) — Nein
-- Hue Go (Portable): Farbe (RGB) — Nein
-- Hue Iris, Bloom (Tischleuchten): Farbe (RGB) — Nein
-- Hue Centura, Fugato, Perifo, Xamento (Einbau-/Decken-/Schienensysteme): Farbe (RGB) — Nein
-- Hue Aurelle (Deckenleuchte Panel): Farbtemperatur — Ja
-- Hue Being, Fair, Still, Cher, enrave (Decken-/Pendelleuchten): Farbtemperatur — Nein
-- Hue Outdoor (Lily, Calla, Appear, Nyro, Impress, Econic u.a.): je nach Modell Farbtemperatur oder Farbe (RGB) — Nein
+| Produktreihe | Typ | Lampentyp in ETS | Getestet |
+|---|---|---|---|
+| Hue White | E27, E14, GU10, A19, BR30, PAR38 | Dimmbar | Ja |
+| Hue White Ambiance | E27, E14, GU10, A19, BR30, Lightstrip | Farbtemperatur | Ja |
+| Hue White and Color Ambiance | E27, E14, GU10, A19, BR30, Lightstrip Plus | Farbe (RGB) | Ja |
+| Hue Filament | ST64, G93, G125, A60, ST72, T75 | Farbtemperatur | Nein |
+| Hue Lightguide | Ellipse, Triangle, Globe | Farbe (RGB) | Nein |
+| Hue Gradient Lightstrip | Lightstrip, Signe Tisch-/Stehleuchte, Tube | Farbe (RGB) | Ja |
+| Hue Play | Light Bar | Farbe (RGB) | Nein |
+| Hue Go | Portable | Farbe (RGB) | Nein |
+| Hue Iris | Tischleuchte | Farbe (RGB) | Nein |
+| Hue Bloom | Tischleuchte | Farbe (RGB) | Nein |
+| Hue Centura | Einbaustrahler | Farbe (RGB) | Nein |
+| Hue Fugato | Deckenstrahler | Farbe (RGB) | Nein |
+| Hue Perifo | Schienensystem | Farbe (RGB) | Nein |
+| Hue Xamento | Badezimmer-Einbaustrahler | Farbe (RGB) | Nein |
+| Hue Aurelle | Deckenleuchte (Panel) | Farbtemperatur | Ja |
+| Hue Being, Fair, Still | Deckenleuchten | Farbtemperatur | Nein |
+| Hue Cher, enrave | Pendelleuchten | Farbtemperatur | Nein |
+| Hue Outdoor (Lily, Calla, Appear, Nyro, Impress, Econic, Resonate, Attract, Lucca, Turaco, Daylo) | Außenleuchten | je nach Modell: Farbtemperatur oder Farbe (RGB) | Nein |
 
 #### Smart Plugs
 
-- Hue Smart Plug (EU): Archetype `plug` — Steckdose (Ein/Aus) — Nein
+| Produkt | Archetype | Lampentyp | Getestet |
+|---|---|---|---|
+| Hue Smart Plug (EU) | `plug` | Steckdose (Ein/Aus) | Nein |
 
 #### Sensoren
 
-- Hue Motion Sensor (Indoor): `motion`, Zusatzdaten: Temperatur, Helligkeit, Batterie — Nein
-- Hue Outdoor Sensor: `motion`, Zusatzdaten: Temperatur, Helligkeit, Batterie — Nein
-- Hue Secure Contact Sensor: `contact_sensor`, Zusatzdaten: Temperatur, Manipulation, Batterie — Nein
+| Produkt | Hue API Ressource | Zusatzdaten | Getestet |
+|---|---|---|---|
+| Hue Motion Sensor (Indoor) | `motion` | Temperatur, Helligkeit, Batterie | Nein |
+| Hue Outdoor Sensor | `motion` | Temperatur, Helligkeit, Batterie | Nein |
+| Hue Secure Contact Sensor | `contact_sensor` | Temperatur, Manipulation, Batterie | Nein |
 
 #### Taster und Schalter
 
-- Hue Dimmer Switch (V1/V2): 4 Tasten, `button` — Ja
-- Hue Tap Dial Switch: 4 Tasten + 1 Drehregler, `button` + `relative_rotary` — Ja
-- Hue Wall Switch Module: 2 Tasten, `button` — Nein
-- Hue Tap Mini: 4 Tasten, `button` — Nein
+| Produkt | Tasten | Drehregler | Hue API Ressource | Getestet |
+|---|---|---|---|---|
+| Hue Dimmer Switch (V1/V2) | 4 | – | `button` | Ja |
+| Hue Tap Dial Switch | 4 | 1 | `button` + `relative_rotary` | Ja |
+| Hue Wall Switch Module | 2 | – | `button` | Nein |
+| Hue Tap Mini | 4 | – | `button` | Nein |
 
 ### Friends of Hue (Zigbee Green Power)
 
 Friends-of-Hue-Schalter werden vom Modul als **Taster/Schalter** mit `button`-Ressourcen erkannt.
 
-- Busch-Jaeger Friends of Hue (1-fach, 2-fach): 1–4 Tasten — Nein
-- Gira Friends of Hue (1-fach, 2-fach): 1–4 Tasten — Nein
-- JUNG Friends of Hue (1-fach, 2-fach): 1–4 Tasten — Nein
-- Niko Friends of Hue (1-fach, 2-fach): 1–4 Tasten — Nein
-- Vimar Friends of Hue: 1–4 Tasten — Nein
-- Feller Friends of Hue (Schweiz): 1–4 Tasten — Nein
-- illumra EnOcean/Zigbee Green Power Schalter: 1–4 Tasten — Nein
-- Senic / Nuimo Friends of Hue Smart Switch: 1–4 Tasten — Nein
-- RunLessWire Friends of Hue Click: 1–4 Tasten — Nein
+| Hersteller | Produkt | Tasten | Getestet |
+|---|---|---|---|
+| Busch-Jaeger | Friends of Hue (1-fach, 2-fach) | 1–4 | Nein |
+| Gira | Friends of Hue (1-fach, 2-fach) | 1–4 | Nein |
+| JUNG | Friends of Hue (1-fach, 2-fach) | 1–4 | Nein |
+| Niko | Friends of Hue (1-fach, 2-fach) | 1–4 | Nein |
+| Vimar | Friends of Hue | 1–4 | Nein |
+| Feller | Friends of Hue (Schweiz) | 1–4 | Nein |
+| illumra | EnOcean/Zigbee Green Power Schalter | 1–4 | Nein |
+| Senic / Nuimo | Friends of Hue Smart Switch | 1–4 | Nein |
+| RunLessWire | Friends of Hue Click | 1–4 | Nein |
 
 ### Drittanbieter-Leuchten und -Steckdosen
 
@@ -165,19 +184,23 @@ Nach erfolgreicher Kopplung an der Bridge werden sie vom Modul wie native Hue-Le
 
 #### Leuchten
 
-- innr (E27, E14, GU10, LED-Strips, Deckenleuchten): ✓ offiziell, je nach Modell Dimmbar / CT / RGB — Nein
-- IKEA TRÅDFRI / DIRIGERA (E27, E14, GU10, LED-Panels): erfahrungsgemäß (Touchlink), je nach Modell Dimmbar / CT / RGB — Nein
-- OSRAM/LEDVANCE Smart+ (E27, E14, GU10, LED-Strips ältere ZLL-Modelle): teilweise, je nach Modell Dimmbar / CT / RGB — Nein
-- Müller-Licht tint (E27, E14, GU10, LED-Panels): teilweise, je nach Modell Dimmbar / CT — Nein
-- GLEDOPTO (Zigbee LED-Controller RGB, RGBW, CCT): erfahrungsgemäß, CT / RGB — Nein
-- Sengled (Smart LED Bulbs E27, BR30): teilweise, Dimmbar / CT — Nein
-- Paulmann (SmartHome Zigbee Leuchtmittel): teilweise, je nach Modell Dimmbar / CT — Nein
+| Hersteller | Beispiele | Hue-Bridge-Kompatibilität | Lampentyp | Getestet |
+|---|---|---|---|---|
+| innr | E27, E14, GU10, LED-Strips, Deckenleuchten | ✓ offiziell | je nach Modell: Dimmbar / CT / RGB | Nein |
+| IKEA TRÅDFRI (DIRIGERA) | E27, E14, GU10, LED-Panels | erfahrungsgemäß (Touchlink) | je nach Modell: Dimmbar / CT / RGB | Nein |
+| OSRAM/LEDVANCE Smart+ | E27, E14, GU10, LED-Strips (ältere ZLL-Modelle) | teilweise | je nach Modell: Dimmbar / CT / RGB | Nein |
+| Müller-Licht tint | E27, E14, GU10, LED-Panels | teilweise | je nach Modell: Dimmbar / CT | Nein |
+| GLEDOPTO | Zigbee LED-Controller (RGB, RGBW, CCT) | erfahrungsgemäß | CT / RGB | Nein |
+| Sengled | Smart LED Bulbs (E27, BR30) | teilweise | Dimmbar / CT | Nein |
+| Paulmann | SmartHome Zigbee Leuchtmittel | teilweise | je nach Modell: Dimmbar / CT | Nein |
 
 #### Steckdosen
 
-- innr Smart Plug (SP 120, SP 220, SP 224): ✓ offiziell, Archetype `plug` — Nein
-- OSRAM/LEDVANCE Smart+ Plug: teilweise, Archetype `plug` — Nein
-- IKEA TRÅDFRI ASKVADER Steckdose: erfahrungsgemäß (Touchlink), Archetype `plug` — Nein
+| Hersteller | Produkt | Hue-Bridge-Kompatibilität | Archetype | Getestet |
+|---|---|---|---|---|
+| innr | Smart Plug (SP 120, SP 220, SP 224) | ✓ offiziell | `plug` | Nein |
+| OSRAM/LEDVANCE | Smart+ Plug | teilweise | `plug` | Nein |
+| IKEA TRÅDFRI | ASKVADER Steckdose | erfahrungsgemäß (Touchlink) | `plug` | Nein |
 
 ### Hinweise zur Gerätekompatibilität
 
@@ -479,11 +502,13 @@ Wichtig: Die UUID muss je Kanal exakt zur gewünschten Leuchte passen.
 
 Legt fest, welche Art von Hue-Gerät der Kanal steuert. Je nach Gerätetyp werden unterschiedliche Parameter und KOs sichtbar:
 
-- **Licht**: Hue-Leuchte (On/Off, Dimmbar, CT, RGB) — Schalten, Dimmen, CT, RGB, Szenen, HCL
-- **Steckdose**: Smart Plug — Schalten
-- **Taster/Schalter**: Hue-Schalter mit Tasten — KOs je Taste (Kurz/Lang), Drehregler
-- **Bewegungsmelder**: Hue-Bewegungssensor — Präsenz-KO, optional Lux/Temperatur
-- **Kontaktsensor**: Hue-Tür-/Fensterkontakt — Kontakt-KO
+| Gerätetyp | Beschreibung | Verfügbare Funktionen |
+|---|---|---|
+| **Licht** | Hue-Leuchte (On/Off, Dimmbar, CT, RGB) | Schalten, Dimmen, CT, RGB, Szenen, HCL |
+| **Steckdose** | Smart Plug | Schalten, Szenen |
+| **Taster/Schalter** | Hue-Schalter mit Tasten | KOs je Taste (Kurz/Lang), Drehregler |
+| **Bewegungsmelder** | Hue-Bewegungssensor | Präsenz-KO, optional Lux/Temperatur |
+| **Kontaktsensor** | Hue-Tür-/Fensterkontakt | Kontakt-KO |
 
 <!-- DOC -->
 ### Optionale Kommunikationsobjekte
@@ -603,15 +628,17 @@ Sinnvoll, wenn ein Hue-Taster nicht für Licht, sondern für eine KNX-Jalousie-F
 
 Bestimmt die Aktion beim kurzen Tastendruck. Je nach Wahl werden zusätzliche Sub-Parameter eingeblendet:
 
-- **Keine Aktion**: kein KNX-Telegramm, kein Kurzdruck-KO in ETS
-- **Schalten** (DPT 1.001): Sub-Parameter „Schaltwert": Toggle / Ein / Aus
-- **Dimmen relativ** (DPT 3.007): Sub-Parameter „Richtung" (Heller / Dunkler), „Schrittweite" (2–25 %)
-- **Szenennummer** (DPT 18.001): Sub-Parameter „Szenennummer" (1..64)
-- **Schritt/Stop** (DPT 1.007): Sub-Parameter „Richtung" (Auf / Ab)
-- **Prozentwert** (DPT 5.001): Sub-Parameter „Prozentwert" (0..100 %)
-- **Temperaturwert** (DPT 9.001): Sub-Parameter „Temperatur" (5..40 °C)
-- **1-Byte Wert** (DPT 5.010): Sub-Parameter „Wert" (0..255)
-- **2-Byte Wert** (DPT 7.001): Sub-Parameter „Wert" (0..65535)
+| Option | DPT | Sub-Parameter |
+|---|---|---|
+| **Keine Aktion** | — | — |
+| **Schalten** | DPT 1.001 | **Schaltwert**: Toggle / Ein / Aus |
+| **Dimmen relativ** | DPT 3.007 | **Richtung** (Heller / Dunkler), **Schrittweite** (2–25 %) |
+| **Szenennummer** | DPT 18.001 | **Szenennummer** (1..64) |
+| **Schritt/Stop** | DPT 1.007 | **Richtung** (Auf / Ab) |
+| **Prozentwert** | DPT 5.001 | **Prozentwert** (0..100 %) |
+| **Temperaturwert** | DPT 9.001 | **Temperatur** (5..40 °C) |
+| **1-Byte Wert** | DPT 5.010 | **Wert** (0..255) |
+| **2-Byte Wert** | DPT 7.001 | **Wert** (0..65535) |
 
 Hinweis: Bei **Keine Aktion** wird für diese Taste kein Kurzdruck-KO in ETS eingeblendet.
 
@@ -620,16 +647,18 @@ Hinweis: Bei **Keine Aktion** wird für diese Taste kein Kurzdruck-KO in ETS ein
 
 Bestimmt die Aktion beim langen Tastendruck. Je nach Wahl werden zusätzliche Sub-Parameter eingeblendet:
 
-- **Kein Langdruck**: kein KNX-Telegramm, kein Langdruck-KO in ETS
-- **Schalten** (DPT 1.001): Sub-Parameter „Schaltwert": Ein / Aus
-- **Dimmen Start/Stop** (DPT 3.007): Sub-Parameter „Richtung" (Heller / Dunkler), „Schrittweite" (2–25 %)
-- **Szenennummer** (DPT 18.001): Sub-Parameter „Szenennummer" (1..64)
-- **Fahren** (DPT 1.008): Sub-Parameter „Richtung" (Auf / Ab)
-- **Schritt/Stop** (DPT 1.007): Sub-Parameter „Richtung" (Auf / Ab)
-- **Prozentwert** (DPT 5.001): Sub-Parameter „Prozentwert" (0..100 %)
-- **Temperaturwert** (DPT 9.001): Sub-Parameter „Temperatur" (5..40 °C)
-- **1-Byte Wert** (DPT 5.010): Sub-Parameter „Wert" (0..255)
-- **2-Byte Wert** (DPT 7.001): Sub-Parameter „Wert" (0..65535)
+| Option | DPT | Sub-Parameter |
+|---|---|---|
+| **Kein Langdruck** | — | — |
+| **Schalten** | DPT 1.001 | **Schaltwert**: Ein / Aus |
+| **Dimmen Start/Stop** | DPT 3.007 | **Richtung** (Heller / Dunkler), **Schrittweite** (2–25 %) |
+| **Szenennummer** | DPT 18.001 | **Szenennummer** (1..64) |
+| **Fahren** | DPT 1.008 | **Richtung** (Auf / Ab) |
+| **Schritt/Stop** | DPT 1.007 | **Richtung** (Auf / Ab) |
+| **Prozentwert** | DPT 5.001 | **Prozentwert** (0..100 %) |
+| **Temperaturwert** | DPT 9.001 | **Temperatur** (5..40 °C) |
+| **1-Byte Wert** | DPT 5.010 | **Wert** (0..255) |
+| **2-Byte Wert** | DPT 7.001 | **Wert** (0..65535) |
 
 Hinweis: Bei **Kein Langdruck** wird für diese Taste kein Langdruck-KO in ETS eingeblendet.
 

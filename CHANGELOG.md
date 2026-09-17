@@ -23,6 +23,7 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 - Applikationsbeschreibung um einen Abschnitt „ETS Konfiguration" ergänzt, der die tatsächliche Seiten-/Tab-Struktur der ETS-Applikation als verschachtelten Baum mit Links auf die Detailbeschreibungen zeigt (#9).
 - Kommunikationsobjekte als Tabellen zusammengefasst (global und pro Kanal, mit KO-Nummer/Offset und DPT je Objekt), verlinkt zu den bestehenden Detailabschnitten (#10, #11).
 - Sperr- und Sollwert-Objekte des Lichtmanagers in der KO-Übersicht als Objekte von OFM-LightManager gekennzeichnet, da sie nicht zu diesem Modul gehören.
+- Tabellen in der Applikationsbeschreibung wiederhergestellt, die am 2026-05-10 in Aufzählungen umgewandelt worden waren (Gerätekategorien, unterstützte Hue- und Drittanbieter-Geräte, Friends of Hue, Gerätetyp, Taste Kurz-/Langdruck). Dabei korrigiert: überzählige Spalte in der Zeile „Licht", Smart-Plug-Archetype `plug`, Steckdose mit Szenen.
 - Präfixe `room:`/`zone:` für die Hue Ziel-ID nur noch für Namen empfohlen: Eine ID ist eindeutig und braucht kein Präfix, und `room:`/`zone:` plus UUID (41 Zeichen) passt nicht in das 40-Zeichen-Feld.
 
 ### Entfernt
