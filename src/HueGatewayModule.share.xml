@@ -676,11 +676,11 @@
                   <ParameterSeparator Id="%AID%_PS-HUEChannelSelectHead2" Cell="1,2" UIHint="Headline" Text="Gerätetyp" />
                   <ParameterSeparator Id="%AID%_PS-HUEChannelSelectHead3" Cell="1,3" UIHint="Headline" Text="Beschreibung" />
                 </ParameterBlock>
-                <op:include href="HueGatewayModule.templ.xml" xpath="//Dynamic/ChannelIndependentBlock/ParameterBlock[@Name='ChannelSelection']/*" type="template" prefix="HUE" IsInner="true" />
+                <op:include href="HueGatewayModule.templ.xml" xpath="//Dynamic/ChannelIndependentBlock/ParameterBlock[@Name='Settings']/*" type="template" prefix="HUE" IsInner="true" />
               </ParameterBlock>
 
               <!-- Kanalseiten (nur Kanäle mit gewähltem Gerätetyp) -->
-              <op:include href="HueGatewayModule.templ.xml" xpath="//Dynamic/ChannelIndependentBlock/ParameterBlock[@Name='ChannelDefinition']/*" type="template" prefix="HUE" IsInner="true" />
+              <op:include href="HueGatewayModule.templ.xml" xpath="//Dynamic/ChannelIndependentBlock/ParameterBlock[@Name='Channel']/*" type="template" prefix="HUE" IsInner="true" />
               
             </Channel>
           </Dynamic>

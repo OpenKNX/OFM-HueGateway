@@ -767,7 +767,7 @@
           <Dynamic>
             <ChannelIndependentBlock>
               <!-- Zeile der Kanalauswahl-Tabelle (eine einzeilige Tabelle je Kanal) -->
-              <ParameterBlock Id="%AID%_PB-%TT%5%CC%CS" Name="ChannelSelection">
+              <ParameterBlock Id="%AID%_PB-%TT%5%CC%CS" Name="Settings">
                 <ParameterBlock Id="%AID%_PB-%TT%5%CC%CSRow" Inline="true" Layout="Grid">
                   <Rows>
                     <Row Id="%AID%_PB-%TT%5%CC%CSRow_R-1" />
@@ -783,13 +783,12 @@
                 </ParameterBlock>
               </ParameterBlock>
 
-              <ParameterBlock Id="%AID%_PB-%TT%5%CC%CD" Name="ChannelDefinition">
+              <ParameterBlock Id="%AID%_PB-%TT%5%CC%CD" Name="Channel">
                 <choose ParamRefId="%AID%_UP-%TT%5%CC%996_R-%TT%5%CC%99601">
                   <when test="&gt;0">
                   <ParameterBlock Id="%AID%_PB-%TT%5%CC%CH%C%" Name="HUE_CH%C%" Text="Hue %C%: {{0: ...}}" TextParameterRefId="%AID%_P-%TT%5%CC%999_R-%TT%5%CC%99901" Icon="lightbulb-outline" ShowInComObjectTree="true" HelpContext="HUE-Kanal">
                     <ParameterBlock Id="%AID%_PB-%TT%5%CC%01" Name="HUE%C%Wrapper" Inline="true">
                       <ParameterSeparator Id="%AID%_PS-%TT%5%CC%CH%C%_Title" Text="Kanaldefinition" UIHint="Headline" />
-                      <ParameterSeparator Id="%AID%_PS-%TT%5%CC%CH%C%_Line1" Text="" UIHint="HorizontalRuler" />
                       <!-- Beschreibung -->
                       <ParameterRefRef RefId="%AID%_P-%TT%5%CC%000_R-%TT%5%CC%00001" HelpContext="BASE-ChannelName" />
                       <!-- Gerätetyp (ohne "Deaktiviert", synchron zur Kanalauswahl) -->
