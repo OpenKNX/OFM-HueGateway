@@ -17,6 +17,11 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 ### Hinzugefügt
 - Diagnose-Log-Zeilen `TIMING GET`/`TIMING PUT` (Dauer, Verbindungswiederverwendung, freier interner RAM je Anfrage) sowie `TIMING idle close` beim Schließen einer Leerlaufverbindung — zur Fehlersuche bei Bridge-Kommunikation über die Gerätekonsole abrufbar.
 
+### Dokumentation
+- Applikationsbeschreibung um einen Abschnitt „ETS Konfiguration" ergänzt, der die tatsächliche Seiten-/Tab-Struktur der ETS-Applikation als verschachtelten Baum mit Links auf die Detailbeschreibungen zeigt (#9).
+- Kommunikationsobjekte als Tabellen zusammengefasst (global und pro Kanal, mit KO-Nummer/Offset und DPT je Objekt), verlinkt zu den bestehenden Detailabschnitten (#10, #11).
+- Sperr- und Sollwert-Objekte des Lichtmanagers in der KO-Übersicht als Objekte von OFM-LightManager gekennzeichnet, da sie nicht zu diesem Modul gehören.
+
 ## [0.7.3] — intern übersprungen, nie an Feldtester ausgeliefert
 
 `library.json` trug diese Nummer kurz zwischen dem Release-Commit von [0.7.2]
