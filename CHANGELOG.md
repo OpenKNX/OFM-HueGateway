@@ -17,7 +17,14 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 ### Hinzugefügt
 - Diagnose-Log-Zeilen `TIMING GET`/`TIMING PUT` (Dauer, Verbindungswiederverwendung, freier interner RAM je Anfrage) sowie `TIMING idle close` beim Schließen einer Leerlaufverbindung — zur Fehlersuche bei Bridge-Kommunikation über die Gerätekonsole abrufbar.
 
-## [0.7.3] - 2026-09-16
+## [0.7.3] — intern übersprungen, nie an Feldtester ausgeliefert
+
+`library.json` trug diese Nummer kurz zwischen dem Release-Commit von [0.7.2]
+und dem Versionssprung auf [0.7.4], aber es wurde nie ein Build unter 0.7.3
+an Feldtester oder sonst jemanden ausgegeben. Die an Feldtester ausgelieferte
+Version war [0.7.2] (siehe dort).
+
+## [0.7.2] - 2026-09-16
 
 ### Behoben
 - **Statusrückmeldung der kanal-spezifischen Lichtmanager-Sperre fehlte vollständig.** `publishHclChannelLockStatus()` übergab `HUE_KoCHHCLLockStatus` — den **kanalrelativen Index 10** — direkt an `knx.getGroupObject()` statt der absoluten KO-Nummer. Der Status ging damit an das globale Objekt 10 statt an `HUE_KoBlockOffset + Kanal × HUE_KoBlockSize + 10`. Die Sperre selbst arbeitete korrekt, nur die Rückmeldung erreichte das projektierte KO nie; zusätzlich wurde ein unbeteiligtes Objekt beschrieben. Die KO-Nummer wird jetzt analog zu `LightManagerModule::processInputKo` von Hand berechnet (der Makro `KoHUE_CHHCLLockStatus` ist im Modul-Scope nicht nutzbar, da er `_channelIndex` voraussetzt). Betraf alle Kanäle.
@@ -43,12 +50,6 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 - Fehlersuche um nicht auflösbare Ziele und deren Auswirkung auf die Live-Rückmeldung ergänzt.
 - Veraltete Pfade `/openknx/hue/…` auf `/hue/…` korrigiert.
 - Abschnitt „Lichtmanager nach manueller Verstellung sperren" in die Applikationsbeschreibung übernommen, aus der die Kontexthilfe erzeugt wird.
-
-## [0.7.2] — nie veröffentlicht
-
-Als Arbeitstitel für die nachfolgend als [0.7.3] gelistete Version geplant. Die
-Änderungen sind vollständig in [0.7.3] enthalten; `library.json` sprang direkt
-von 0.7.1 auf 0.7.3, ohne dass je ein 0.7.2 gebaut oder ausgeliefert wurde.
 
 ## [0.7.1] - 2026-06-15
 
