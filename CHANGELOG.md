@@ -44,6 +44,12 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 - Veraltete Pfade `/openknx/hue/…` auf `/hue/…` korrigiert.
 - Abschnitt „Lichtmanager nach manueller Verstellung sperren" in die Applikationsbeschreibung übernommen, aus der die Kontexthilfe erzeugt wird.
 
+## [0.7.2] — nie veröffentlicht
+
+Als Arbeitstitel für die nachfolgend als [0.7.3] gelistete Version geplant. Die
+Änderungen sind vollständig in [0.7.3] enthalten; `library.json` sprang direkt
+von 0.7.1 auf 0.7.3, ohne dass je ein 0.7.2 gebaut oder ausgeliefert wurde.
+
 ## [0.7.1] - 2026-06-15
 
 ### Behoben (Helligkeit & Status)
