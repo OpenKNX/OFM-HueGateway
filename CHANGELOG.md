@@ -2,6 +2,23 @@
 
 Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumentiert.
 
+## [0.7.5] - 2026-09-17 — Kanalauswahl nach OpenKNX-Standard
+
+> **Breaking (ETS):** Der Gerätetyp je Kanal liegt jetzt in einem neuen Parameter mit dem Wert `Deaktiviert` an Position 0. Nach dem Applikations-Update steht jeder Kanal auf `Deaktiviert` und muss einmalig neu typisiert werden. Alle übrigen Kanaleinstellungen (Ziel, Lampentyp, Szenen, Taster, Lichtmanager) bleiben erhalten, das Speicherlayout ist unverändert.
+
+### Geändert
+
+- **Kanalauswahl als eigene Seite** (#13), direkt über dem ersten Kanal, mit je einer Zeile pro Kanal: Kanal, Gerätetyp, Beschreibung. Das Feld „Anzahl aktiver Kanäle" auf der Seite „Allgemein" entfällt; welche Kanäle sichtbar sind, ergibt sich allein aus dem Gerätetyp.
+- **Deaktivierte Kanäle erscheinen nicht mehr im Baum.** Beim ersten Öffnen ist kein Kanal aktiv, statt bisher vier.
+- **Einheitlicher Kanalkopf**: Beschreibung, Gerätetyp (ohne `Deaktiviert`, synchron zur Kanalauswahl) und `Suspendiert`. Der Gerätetyp wird über `BASE_SyncChannelType` aus OGM-Common abgeglichen.
+- **„Kanal deaktivieren (zu Testzwecken)" heißt jetzt „Suspendiert"** (Nein/Ja, `PT-Suspended`) und steht für alle Gerätetypen zur Verfügung, bisher nur beim Gerätetyp Licht. Suspendierte Kanäle sind im Baum mit ⛔ markiert.
+- „Bezeichnung" heißt jetzt „Beschreibung" (OpenKNX-Glossar).
+- Firmware: Ein Kanal wird nur noch angelegt, wenn ein Gerätetyp gewählt und der Kanal nicht suspendiert ist. Telegramme an deaktivierte oder suspendierte Kanäle werden verworfen und lösen kein wiederholtes `setupDevices()` mehr aus.
+- Kanalauswahl gegen das Muster in `OGM-Common/.claude/agents/openknx-channelselect.md` geprüft: Template-Blöcke heißen jetzt `Settings` und `Channel`, und die Trennlinie hinter der Überschrift „Kanaldefinition" entfällt. `VisibleChannels` bleibt als versteckte Konstante, wie es der Abschnitt „Änderungen share.xml" des Musters und die Module OFM-LogicModule und OFM-NetworkBridge vorsehen.
+
+### Hinzugefügt
+- VS-Code-Task „OpenKNXproducer Documentation" wird jetzt mitversioniert (`.vscode/tasks.json`), damit die Kontexthilfe überall gleich erzeugt wird (#14). Das doppelte Skript `createDoc.ps1` entfällt.
+
 ## [0.7.4] - 2026-09-16
 
 ### Behoben (Performance & Bridge-Kommunikation)
@@ -15,15 +32,6 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 - Schwelle für die Farbtemperatur-Nachführung durch den Lichtmanager von 12 K auf 20 K angehoben, um bei langsamen HCL-Verläufen nicht bei jeder für das Auge nicht wahrnehmbaren Kelvin-Änderung einen Bridge-Schreibzugriff auszulösen.
 - Abhängigkeit zu OFM-LightManager formell definiert (#6): `op:minModuleVersion prefix="LMG" dependency="forceUsage" value="0.3"` und `op:minOpenKNXproducerVersion value="4.0.1"` in `HueGatewayModule.share.xml`. Der Producer bricht den Build nun mit klarer Meldung ab, wenn OFM-LightManager fehlt oder älter als 0.3 ist, statt erst beim unauflösbaren `PT-LMGMasterSelect`.
 - ETS prüft Eingaben in den Hue-ID-Feldern per RegEx (#7): **Hue Lampen-ID (UUID)** akzeptiert nur noch leer oder eine UUID im Format `8-4-4-4-12` (Hex). **Hue Ziel-ID** akzeptiert weiterhin UUIDs, Namen und die Präfixe `room:`/`zone:`, lehnt aber führende/abschließende Leerzeichen ab. Beide Felder haben dafür eigene ParameterTypes (`PT-HUELightUUID`, `PT-HUETargetRID`) statt des gemeinsam genutzten `PT-Text40Byte`.
-
-> **Breaking (ETS):** Der Gerätetyp je Kanal liegt jetzt in einem neuen Parameter mit dem Wert `Deaktiviert` an Position 0. Nach dem Applikations-Update steht jeder Kanal auf `Deaktiviert` und muss einmalig neu typisiert werden. Alle übrigen Kanaleinstellungen (Ziel, Lampentyp, Szenen, Taster, Lichtmanager) bleiben erhalten, das Speicherlayout ist unverändert.
-
-- **Kanalauswahl als eigene Seite** (#13), direkt über dem ersten Kanal, mit je einer Zeile pro Kanal: Kanal, Gerätetyp, Beschreibung. Das Feld „Anzahl aktiver Kanäle" auf der Seite „Allgemein" entfällt; welche Kanäle sichtbar sind, ergibt sich allein aus dem Gerätetyp.
-- **Deaktivierte Kanäle erscheinen nicht mehr im Baum.** Beim ersten Öffnen ist kein Kanal aktiv, statt bisher vier.
-- **Einheitlicher Kanalkopf**: Beschreibung, Gerätetyp (ohne `Deaktiviert`, synchron zur Kanalauswahl) und `Suspendiert`. Der Gerätetyp wird über `BASE_SyncChannelType` aus OGM-Common abgeglichen.
-- **„Kanal deaktivieren (zu Testzwecken)" heißt jetzt „Suspendiert"** (Nein/Ja, `PT-Suspended`) und steht für alle Gerätetypen zur Verfügung, bisher nur beim Gerätetyp Licht. Suspendierte Kanäle sind im Baum mit ⛔ markiert.
-- „Bezeichnung" heißt jetzt „Beschreibung" (OpenKNX-Glossar).
-- Firmware: Ein Kanal wird nur noch angelegt, wenn ein Gerätetyp gewählt und der Kanal nicht suspendiert ist. Telegramme an deaktivierte oder suspendierte Kanäle werden verworfen und lösen kein wiederholtes `setupDevices()` mehr aus.
 
 ### Hinzugefügt
 - Diagnose-Log-Zeilen `TIMING GET`/`TIMING PUT` (Dauer, Verbindungswiederverwendung, freier interner RAM je Anfrage) sowie `TIMING idle close` beim Schließen einer Leerlaufverbindung — zur Fehlersuche bei Bridge-Kommunikation über die Gerätekonsole abrufbar.
