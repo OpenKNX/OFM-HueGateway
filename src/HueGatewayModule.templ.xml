@@ -22,9 +22,8 @@
                 <Memory CodeSegment="%MID%" Offset="45" BitOffset="0" />
               </Parameter>
               
-              <!-- Lichtmanager-Master-Zuordnung. PFLICHTABHÄNGIGKEIT: %AID%_PT-LMGMasterSelect
-                   ist in OFM-LightManager/src/LightManagerModule.share.xml definiert, siehe
-                   Abhängigkeitshinweis bei PT-LMGMasterSelect in HueGatewayModule.share.xml. -->
+              <!-- Lichtmanager-Master-Zuordnung. %AID%_PT-LMGMasterSelect stammt aus OFM-LightManager,
+                   Abhängigkeit per op:minModuleVersion in HueGatewayModule.share.xml. -->
               <Parameter Id="%AID%_P-%TT%5%CC%007" Name="CH%C%HCLMaster" ParameterType="%AID%_PT-LMGMasterSelect" Text="Zuordnung Lichtmanager" Value="0">
                 <Memory CodeSegment="%MID%" Offset="4" BitOffset="0" />
               </Parameter>

@@ -35,7 +35,12 @@ OpenKNX Funktionsmodul zur Integration von Philips Hue Geräten in KNX-Systeme.
 
 ## Abhängigkeiten
 
-- **OFM-LightManager** *(Pflichtabhängigkeit zum Bauen — nicht optional)*
+- **OFM-LightManager ≥ 0.3** *(Pflichtabhängigkeit zum Bauen — nicht optional)*
+  - Formell definiert in `HueGatewayModule.share.xml` per
+    `<op:minModuleVersion prefix="LMG" dependency="forceUsage" value="0.3" />`;
+    der OpenKNXproducer (≥ 4.0.1) bricht den Build ab, wenn das Modul fehlt
+    oder älter ist. Ab 0.3 gibt es den Partial-Sink-Vertrag
+    (`onLightManagerPartial`) und die KO-Blockgröße, auf die HUE aufbaut.
   - Sowohl der C++-Code (`openknxLightManagerModule`, siehe `HueGatewayModule.cpp`)
     als auch die ETS-XML (`ParameterType` `PT-LMGMasterSelect`, siehe
     `HueGatewayModule.share.xml`) setzen `OFM-LightManager` unbedingt voraus.

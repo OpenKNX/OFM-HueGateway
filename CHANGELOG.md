@@ -13,6 +13,7 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 
 ### Geändert
 - Schwelle für die Farbtemperatur-Nachführung durch den Lichtmanager von 12 K auf 20 K angehoben, um bei langsamen HCL-Verläufen nicht bei jeder für das Auge nicht wahrnehmbaren Kelvin-Änderung einen Bridge-Schreibzugriff auszulösen.
+- Abhängigkeit zu OFM-LightManager formell definiert (#6): `op:minModuleVersion prefix="LMG" dependency="forceUsage" value="0.3"` und `op:minOpenKNXproducerVersion value="4.0.1"` in `HueGatewayModule.share.xml`. Der Producer bricht den Build nun mit klarer Meldung ab, wenn OFM-LightManager fehlt oder älter als 0.3 ist, statt erst beim unauflösbaren `PT-LMGMasterSelect`.
 - ETS prüft Eingaben in den Hue-ID-Feldern per RegEx (#7): **Hue Lampen-ID (UUID)** akzeptiert nur noch leer oder eine UUID im Format `8-4-4-4-12` (Hex). **Hue Ziel-ID** akzeptiert weiterhin UUIDs, Namen und die Präfixe `room:`/`zone:`, lehnt aber führende/abschließende Leerzeichen ab. Beide Felder haben dafür eigene ParameterTypes (`PT-HUELightUUID`, `PT-HUETargetRID`) statt des gemeinsam genutzten `PT-Text40Byte`.
 
 ### Hinzugefügt

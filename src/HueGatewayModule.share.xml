@@ -2,6 +2,9 @@
 <?xml-model href="../../../../Organization/knxprod-support/knx_project_20/knx-editor.xsd" type="application/xml" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <KNX xmlns:op="http://github.com/OpenKNX/OpenKNXproducer" xmlns="http://knx.org/xml/project/20" CreatedBy="KNX MT" ToolVersion="5.1.255.16695">
 
+  <op:minOpenKNXproducerVersion value="4.0.1" />
+  <op:minModuleVersion prefix="LMG" dependency="forceUsage" value="0.3" /><!-- HUE nutzt PT-LMGMasterSelect und den Partial-Sink-Vertrag (onLightManagerPartial) aus LMG >= 0.3 -->
+
   <!-- Intentional overlapping parameters in Unions (type-dispatch pattern via Visibility conditions) -->
   <op:nowarn id="10" regex="HUE_CH\d+Scene\d+Action" />
   <op:nowarn id="10" regex="HUE_CH\d+Btn\d+(Kurz|Lang)" />
@@ -111,19 +114,10 @@
                 </TypeRestriction>
               </ParameterType>
               
-              <!-- ============================================================
-                   PFLICHTABHÄNGIGKEIT: OFM-LightManager
-                   Der Parameter "Zuordnung Lichtmanager" (CH%C%HCLMaster in
-                   templ.xml) referenziert den ParameterType
-                   %AID%_PT-LMGMasterSelect. Dieser wird ausschließlich in
-                   OFM-LightManager/src/LightManagerModule.share.xml definiert
-                   und hier NICHT dupliziert. Ein ETS-Projekt, das dieses
-                   Modul einbindet, muss daher auch die XML-Fragmente von
-                   OFM-LightManager enthalten — sonst bleibt der Typ-Verweis
-                   unaufgelöst und das kombinierte .knxprod lässt sich nicht
-                   erzeugen. Siehe auch library.json ("OFM-LightManager": "*")
-                   und README.md, Abschnitt "Abhängigkeiten".
-                   ============================================================ -->
+              <!-- Auswahl Lichtmanager: %AID%_PT-LMGMasterSelect ist in
+                   OFM-LightManager (LightManagerModule.share.xml) definiert und
+                   wird hier nicht dupliziert. Abhängigkeit siehe
+                   op:minModuleVersion prefix="LMG" am Dateianfang. -->
 
               <!-- HCL-Kelvin (2000-6500) - genutzt von CH%C%Scene*ColorTemp im templ -->
               <ParameterType Id="%AID%_PT-HUEHCLKelvin" Name="HUEHCLKelvin">
