@@ -23,18 +23,27 @@ OpenKNX Funktionsmodul zur Integration von Philips Hue Geräten in KNX-Systeme.
   - RGB Farben
 - Bidirektionale Status-Updates (Event Stream)
 - ETS-Konfiguration
-- Optionale Anbindung an [OFM-LightManager](../OFM-LightManager) (HCL — Human Centric Lighting)
+- Anbindung an [OFM-LightManager](../OFM-LightManager) (HCL — Human Centric Lighting); die Anbindung selbst ist Pflicht, nur ihre Nutzung ist pro Kanal optional (siehe unten)
   - Partial-Sink-Vertrag: achsenweise Gültigkeitsmaske via `onLightManagerPartial()` — Kanäle mit `HCL-Achsen = Nur CT` senden keine Helligkeitswerte und umgekehrt
 
 ## Abhängigkeiten
 
-- **OFM-LightManager** *(optional, aber Voraussetzung für HCL-Funktion)*
-  - Liefert die HCL-Master (Brightness/ColorTemperature-Verläufe).
+- **OFM-LightManager** *(Pflichtabhängigkeit zum Bauen — nicht optional)*
+  - Sowohl der C++-Code (`openknxLightManagerModule`, siehe `HueGatewayModule.cpp`)
+    als auch die ETS-XML (`ParameterType` `PT-LMGMasterSelect`, siehe
+    `HueGatewayModule.share.xml`) setzen `OFM-LightManager` unbedingt voraus.
+    Ohne dieses Modul im Build bzw. im kombinierten ETS-Projekt lässt sich
+    `OFM-HueGatewayModule` weder kompilieren noch zu einem gültigen
+    `.knxprod` zusammenbauen; `library.json` listet die Abhängigkeit daher
+    auch unbedingt (`"OFM-LightManager": "*"`).
+  - Liefert die HCL-Master (Brightness/ColorTemperature-Verläufe); optional
+    ist lediglich deren *Nutzung* je Kanal, nicht die Modulabhängigkeit selbst.
   - Stellt den gemeinsamen ETS-`ParameterType` `PT-LMGMasterSelect` bereit,
     der von der HueGateway-Kanalkonfiguration referenziert wird
     (Dropdown *„Zuordnung Lichtmanager"*).
   - Pro Kanal wird über `ParamHUE_CHHCLMaster` ein Master (1..N) ausgewählt;
-    `0` deaktiviert die HCL-Kopplung.
+    `0` deaktiviert lediglich die HCL-Kopplung für diesen Kanal, ändert aber
+    nichts an der Pflichtabhängigkeit des Moduls selbst.
   - Integrationsdetails siehe `OFM-LightManager/doc/integration.md`.
 
 ## Development

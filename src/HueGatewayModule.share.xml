@@ -111,9 +111,19 @@
                 </TypeRestriction>
               </ParameterType>
               
-              <!-- Auswahl Lichtmanager: ParameterType liegt jetzt zentral im
-                   OFM-LightManager (PT-LMGMasterSelect, share.xml). Refs aus
-                   templ.xml verwenden %AID%_PT-LMGMasterSelect. -->
+              <!-- ============================================================
+                   PFLICHTABHÄNGIGKEIT: OFM-LightManager
+                   Der Parameter "Zuordnung Lichtmanager" (CH%C%HCLMaster in
+                   templ.xml) referenziert den ParameterType
+                   %AID%_PT-LMGMasterSelect. Dieser wird ausschließlich in
+                   OFM-LightManager/src/LightManagerModule.share.xml definiert
+                   und hier NICHT dupliziert. Ein ETS-Projekt, das dieses
+                   Modul einbindet, muss daher auch die XML-Fragmente von
+                   OFM-LightManager enthalten — sonst bleibt der Typ-Verweis
+                   unaufgelöst und das kombinierte .knxprod lässt sich nicht
+                   erzeugen. Siehe auch library.json ("OFM-LightManager": "*")
+                   und README.md, Abschnitt "Abhängigkeiten".
+                   ============================================================ -->
 
               <!-- HCL-Kelvin (2000-6500) - genutzt von CH%C%Scene*ColorTemp im templ -->
               <ParameterType Id="%AID%_PT-HUEHCLKelvin" Name="HUEHCLKelvin">
