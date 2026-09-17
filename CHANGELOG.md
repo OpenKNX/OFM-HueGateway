@@ -25,6 +25,7 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 - Sperr- und Sollwert-Objekte des Lichtmanagers in der KO-Übersicht als Objekte von OFM-LightManager gekennzeichnet, da sie nicht zu diesem Modul gehören.
 - KO-Übersicht je Kanal als Tabelle mit Spalte „Geräte-Typ" für alle fünf Gerätetypen, inkl. abweichender DPTs und Einblendbedingungen (#10). Die Belegung ist aus den `ComObjectRef`-Sichtbarkeitsregeln der ETS-Applikation abgeleitet.
 - Doku an das tatsächliche ETS-Verhalten angeglichen: Lampentyp *Nur schalten* hat kein KO „Status Schalten"; bei *Nur Hue zu KNX* bleibt „Schalten" eingeblendet; Kontaktsensor ohne Temperatur-KO.
+- Tote Links korrigiert: Verweis auf „Rückfallstrategie nach Sperre" zeigt jetzt auf die Applikationsbeschreibung von OFM-LightManager; LightManager-Links auf Branch `v1` statt des nicht existierenden `main`; Projektlink auf `OpenKNX/OFM-HueGateway`. Hilfetext „Kommunikationsobjekte" um die KO-Übersicht ergänzt.
 - Tabellen in der Applikationsbeschreibung wiederhergestellt, die am 2026-05-10 in Aufzählungen umgewandelt worden waren (Gerätekategorien, unterstützte Hue- und Drittanbieter-Geräte, Friends of Hue, Gerätetyp, Taste Kurz-/Langdruck). Dabei korrigiert: überzählige Spalte in der Zeile „Licht", Smart-Plug-Archetype `plug`, Steckdose mit Szenen.
 - Präfixe `room:`/`zone:` für die Hue Ziel-ID nur noch für Namen empfohlen: Eine ID ist eindeutig und braucht kein Präfix, und `room:`/`zone:` plus UUID (41 Zeichen) passt nicht in das 40-Zeichen-Feld.
 

@@ -68,7 +68,7 @@ Die Kommunikation erfolgt über die Hue Bridge (Hue API v2).
 
 (c) OpenKNX, Steffen Rittmeier 2026
 
-Die vollständige Projektdokumentation ist unter https://github.com/OpenKNX/OFM-HueGatewayModule verfügbar.
+Die vollständige Projektdokumentation ist unter https://github.com/OpenKNX/OFM-HueGateway verfügbar.
 
 Das Modul übernimmt die Kopplung:
 
@@ -866,7 +866,7 @@ Sichtbarkeit:
 
 Option je Kanal:
 - **Rückfallzeit nach Sperre** (inkl. Tageswechsel, `kein Rückfall` möglich)
-- **Rückfallstrategie nach Sperre**: zentrale Vorgabe, siehe Abschnitt [Rückfallstrategie nach Sperre](#rückfallstrategie-nach-sperre)
+- **Rückfallstrategie nach Sperre**: zentrale Vorgabe, siehe [Applikationsbeschreibung OFM-LightManager, Abschnitt Rückfallstrategie nach Sperre](https://github.com/OpenKNX/OFM-LightManager/blob/v1/doc/Applikationsbeschreibung-LightManager.md#rückfallstrategie-nach-sperre)
 
 **Automatische Sperre durch Szenen-Abruf**: Wenn ein Kanal einem Lichtmanager zugeordnet ist und eine Szene abgerufen wird, die den Kanal einschaltet, wird die HCL-Kanalsperre automatisch aktiviert. Die Sperre wird aufgehoben durch:
 - Einen **Aus-Befehl** (KNX-Schalten-KO, Wert 0) → sofortiges Aufheben
@@ -932,7 +932,7 @@ Wichtig: Eine Hue-Szene wird immer über den Szenen-Slot eines normalen Kanals m
 
 Die Konfiguration und Funktionsweise des Lichtmanagers (HCL-Kurven, Saison-Profil, adaptive Helligkeit, globale und manager-spezifische Sperren) ist im separaten Modul **OFM-LightManager** dokumentiert.
 
-Siehe: [Applikationsbeschreibung OFM-LightManager](https://github.com/OpenKNX/OFM-LightManager/blob/main/doc/Applikationsbeschreibung-LightManager.md)
+Siehe: [Applikationsbeschreibung OFM-LightManager](https://github.com/OpenKNX/OFM-LightManager/blob/v1/doc/Applikationsbeschreibung-LightManager.md)
 
 Im HueGatewayModule wird der Lichtmanager pro Kanal über den Parameter **Lichtmanager Zuordnung** ausgewählt; die berechneten Sollwerte werden vom HueGatewayModule an die zugeordnete Hue-Leuchte ausgegeben.
 
@@ -1019,7 +1019,7 @@ Die folgenden Tabellen fassen alle Kommunikationsobjekte zusammen. Details zu Si
 | (LMG) | 1.003 / 1.011 | [Sperre Lichtmanager 1..8 / Status](#sperre-lichtmanager-18--status) | Sperrobjekte je Lichtmanager; Sichtbarkeit abhängig von der Anzahl konfigurierter Lichtmanager |
 | (LMG) | 5.001 / 7.600 | [Lichtmanager Status Helligkeit Soll / Farbtemperatur Soll](#lichtmanager-status-helligkeit-soll--farbtemperatur-soll) | Je Lichtmanager zwei Sollwert-KOs; Sichtbarkeit abhängig von Option „Status-KOs je Lichtmanager" |
 
-(LMG) = Objekt des Moduls [OFM-LightManager](https://github.com/OpenKNX/OFM-LightManager/blob/main/doc/Applikationsbeschreibung-LightManager.md), das im kombinierten Gerät gemeinsam mit den Hue-spezifischen Objekten erscheint; KO-Nummer siehe dessen Applikationsbeschreibung.
+(LMG) = Objekt des Moduls [OFM-LightManager](https://github.com/OpenKNX/OFM-LightManager/blob/v1/doc/Applikationsbeschreibung-LightManager.md), das im kombinierten Gerät gemeinsam mit den Hue-spezifischen Objekten erscheint; KO-Nummer siehe dessen Applikationsbeschreibung.
 
 #### Pro-Kanal Kommunikationsobjekte
 
@@ -1059,7 +1059,8 @@ Jeder Hue-Kanal belegt einen festen Block von 12 aufeinanderfolgenden KOs (Offse
 | +10 | Licht | 1.011 | Status Sperre Lichtmanager | Ausgang. Wie +9 |
 | +11 | Licht, Steckdose | 18.001 / 17.001 | [Szene](#szenen) | Eingang, nur mit Szenensteuerung. DPT 18.001 wenn *Szene speichern* aktiv, sonst 17.001 (nur Abruf) |
 
-¹ Kurzdruck, DPT je Option: 1.001 Schalten, 3.007 Dimmen relativ, 18.001 Szenennummer, 1.007 Schritt/Stop, 5.001 Prozentwert, 9.001 Temperaturwert, 5.010 1-Byte Wert, 7.001 2-Byte Wert — siehe [Taste Kurzdruck](#taste-kurzdruck).<br>
+¹ Kurzdruck, DPT je Option: 1.001 Schalten, 3.007 Dimmen relativ, 18.001 Szenennummer, 1.007 Schritt/Stop, 5.001 Prozentwert, 9.001 Temperaturwert, 5.010 1-Byte Wert, 7.001 2-Byte Wert — siehe [Taste Kurzdruck](#taste-kurzdruck).
+
 ² Langdruck, DPT je Option: wie ¹, zusätzlich 1.008 Fahren — siehe [Taste Langdruck](#taste-langdruck).
 
 Slots, die für einen Gerätetyp nicht aufgeführt sind, bleiben dort ungenutzt.
@@ -1226,7 +1227,7 @@ Sichtbar nur wenn **Szenensteuerung aktivieren** am Kanal gesetzt ist.
 
 ### Lichtmanager (HCL) — siehe OFM-LightManager
 
-Troubleshooting zu Lichtmanager-Parametern, HCL-KOs, Saison-Profil und adaptiver Helligkeit ist in der [Applikationsbeschreibung OFM-LightManager](https://github.com/OpenKNX/OFM-LightManager/blob/main/doc/Applikationsbeschreibung-LightManager.md) zusammengefasst.
+Troubleshooting zu Lichtmanager-Parametern, HCL-KOs, Saison-Profil und adaptiver Helligkeit ist in der [Applikationsbeschreibung OFM-LightManager](https://github.com/OpenKNX/OFM-LightManager/blob/v1/doc/Applikationsbeschreibung-LightManager.md) zusammengefasst.
 
 Hinweis: Im HueGateway muss am Kanal mindestens der Lampentyp `Dimmbar` gewählt und der gewünschte Lichtmanager über **Lichtmanager Zuordnung** zugewiesen sein, damit HCL-Sollwerte wirken. Dimmbare Lampen übernehmen nur die Helligkeit.
 

@@ -2,7 +2,7 @@
 
 (c) OpenKNX, Steffen Rittmeier 2026
 
-Die vollständige Projektdokumentation ist unter https://github.com/OpenKNX/OFM-HueGatewayModule verfügbar.
+Die vollständige Projektdokumentation ist unter https://github.com/OpenKNX/OFM-HueGateway verfügbar.
 
 Das Modul übernimmt die Kopplung:
 

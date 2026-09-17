@@ -10,7 +10,7 @@ Sichtbarkeit:
 
 Option je Kanal:
 - **Rückfallzeit nach Sperre** (inkl. Tageswechsel, `kein Rückfall` möglich)
-- **Rückfallstrategie nach Sperre**: zentrale Vorgabe, siehe Abschnitt Rückfallstrategie nach Sperre
+- **Rückfallstrategie nach Sperre**: zentrale Vorgabe, siehe Applikationsbeschreibung OFM-LightManager, Abschnitt Rückfallstrategie nach Sperre
 
 **Automatische Sperre durch Szenen-Abruf**: Wenn ein Kanal einem Lichtmanager zugeordnet ist und eine Szene abgerufen wird, die den Kanal einschaltet, wird die HCL-Kanalsperre automatisch aktiviert. Die Sperre wird aufgehoben durch:
 - Einen **Aus-Befehl** (KNX-Schalten-KO, Wert 0) → sofortiges Aufheben
