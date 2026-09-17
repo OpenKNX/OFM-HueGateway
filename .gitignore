@@ -1,6 +1,7 @@
 .pio
 .github/
-.vscode
+.vscode/*
+!.vscode/tasks.json
 .DS_Store
 *.pyc
 __pycache__
