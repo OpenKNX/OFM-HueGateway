@@ -2,7 +2,22 @@
 
 Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumentiert.
 
-## Geplantes folgendes Release [0.7.2]
+## [0.7.4] - 2026-09-16
+
+### Behoben (Performance & Bridge-Kommunikation)
+- **Jeder Schaltbefehl kostete einen vollen TLS-Handshake zur Bridge (~900 ms–1000 ms), auch wenn kurz zuvor schon ein Befehl lief.** `httpGet()` schaltete den gemeinsam genutzten `HTTPClient` per `useHTTP10(true)` dauerhaft auf HTTP/1.0 und damit `_reuse` ab — das betraf danach auch jeden PUT. Drei Lampen kurz hintereinander geschaltet brauchten dadurch gut 3 s. `httpGet()`/`httpPut()`/`httpDelete()` aktivieren Keep-Alive jetzt für ihre eigene Anfrage; eine offene Verbindung bleibt 15 s im Leerlauf bestehen (Wert von aiohttp/Home-Assistant übernommen, da die Bridge selbst keine öffentliche Angabe dazu macht) und wird danach automatisch geschlossen. Gemessen: erster Befehl einer Serie weiterhin ~900 ms, jeder folgende innerhalb der 15 s zwischen 50–150 ms. Eine Verbindung, die die Bridge zwischenzeitlich beendet hat, wird einmal automatisch neu aufgebaut und der Befehl wiederholt.
+- **Polling-Abfragen (Lampen, Räume, Zonen, Geräte) blockierten die Hauptschleife aus demselben Grund mit bis zu ~850 ms pro Aufruf.** Laufen jetzt ebenfalls über eine wiederverwendete Verbindung: 16–30 ms statt ~850 ms, gemessen auf REG1-LAN-TP-Base.
+- **Der EventStream verband sich auf dieser Hardware praktisch nie dauerhaft.** Jede HTTPS-Anfrage prüfte vorab den freien internen RAM und trennte den EventStream vorsorglich, sobald weniger als ~46 KB frei bzw. 32 KB am Stück verfügbar waren — was bei laufendem EventStream nahezu immer zutraf, weil dessen eigener TLS-Kontext genau diesen Speicher belegte. Die Trennung erfolgt jetzt nur noch, wenn eine Anfrage tatsächlich fehlgeschlagen ist, gefolgt von einem Wiederholversuch.
+- **mbedTLS nahm seine Sitzungspuffer aus internem RAM,** wovon auf REG1-LAN-TP-Base nur für einen TLS-Kontext gleichzeitig Platz war — EventStream und ein Schaltbefehl konnten dadurch nie gleichzeitig bestehen. Ein zur Laufzeit eingehängter Allokator (`mbedtls_platform_set_calloc_free`) verlegt die Puffer ins PSRAM, ohne dass die Firmware-Toolchain dafür angepasst werden muss. Freier interner RAM stieg dadurch von ca. 23 KB auf ca. 60 KB, ohne messbaren Tempoverlust beim Handshake. Geräte ohne PSRAM verhalten sich unverändert.
+- **Ein Schaltbefehl konnte mehrere Status-Telegramme auf den Bus bringen, obwohl sich nur ein Wert geändert hatte.** `GroupObject::value()` sendet unabhängig davon, ob der neue Wert vom alten abweicht. `sendStatusToKnx()` nutzt jetzt bei Leuchten, Sensoren, Kontakten und Steckdosen `valueCompare()`, das nur bei tatsächlicher Änderung sendet. Betraf u. a. wiederholte Schalt-/Helligkeits-/Farbtemperatur-Telegramme nach jedem Bestätigungs-Poll sowie bei Sensoren und Kontakten zyklisch wiederholte, unveränderte Temperatur-/Lux-/Batteriewerte.
+
+### Geändert
+- Schwelle für die Farbtemperatur-Nachführung durch den Lichtmanager von 12 K auf 20 K angehoben, um bei langsamen HCL-Verläufen nicht bei jeder für das Auge nicht wahrnehmbaren Kelvin-Änderung einen Bridge-Schreibzugriff auszulösen.
+
+### Hinzugefügt
+- Diagnose-Log-Zeilen `TIMING GET`/`TIMING PUT` (Dauer, Verbindungswiederverwendung, freier interner RAM je Anfrage) sowie `TIMING idle close` beim Schließen einer Leerlaufverbindung — zur Fehlersuche bei Bridge-Kommunikation über die Gerätekonsole abrufbar.
+
+## [0.7.3] - 2026-09-16
 
 ### Behoben
 - **Statusrückmeldung der kanal-spezifischen Lichtmanager-Sperre fehlte vollständig.** `publishHclChannelLockStatus()` übergab `HUE_KoCHHCLLockStatus` — den **kanalrelativen Index 10** — direkt an `knx.getGroupObject()` statt der absoluten KO-Nummer. Der Status ging damit an das globale Objekt 10 statt an `HUE_KoBlockOffset + Kanal × HUE_KoBlockSize + 10`. Die Sperre selbst arbeitete korrekt, nur die Rückmeldung erreichte das projektierte KO nie; zusätzlich wurde ein unbeteiligtes Objekt beschrieben. Die KO-Nummer wird jetzt analog zu `LightManagerModule::processInputKo` von Hand berechnet (der Makro `KoHUE_CHHCLLockStatus` ist im Modul-Scope nicht nutzbar, da er `_channelIndex` voraussetzt). Betraf alle Kanäle.
