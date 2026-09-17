@@ -2,7 +2,7 @@
 
 Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumentiert.
 
-## [0.7.5] - 2026-09-17 — Kanalauswahl nach OpenKNX-Standard
+## [0.8.0] - 2026-09-17 — Kanalauswahl nach OpenKNX-Standard
 
 > **Breaking (ETS):** Der Gerätetyp je Kanal liegt jetzt in einem neuen Parameter mit dem Wert `Deaktiviert` an Position 0. Nach dem Applikations-Update steht jeder Kanal auf `Deaktiviert` und muss einmalig neu typisiert werden. Alle übrigen Kanaleinstellungen (Ziel, Lampentyp, Szenen, Taster, Lichtmanager) bleiben erhalten, das Speicherlayout ist unverändert.
 
