@@ -4565,6 +4565,9 @@ namespace
         {"V3b off",           R"({"on":{"on":false}})",                                                0, 1500, false},
         {"RB-B plain on",     R"({"on":{"on":true}})",                                                 0, 2000, true},
         {"prep off",          R"({"on":{"on":false}})",                                                0, 2000, false},
+        {"V5 dim80 while off", R"({"dimming":{"brightness":80}})",                                   4, 1000, false},
+        {"RB-C plain on",      R"({"on":{"on":true}})",                                               0, 2000, true},
+        {"prep off",           R"({"on":{"on":false}})",                                              0, 2000, false},
         {"V4 on+dim80+dur",   R"({"on":{"on":true},"dimming":{"brightness":80},"dynamics":{"duration":4000}})", 10, 500, false},
         {"restore", kFadeTestOn80,                                                                     0,    0, false},
     };
@@ -4618,6 +4621,8 @@ bool HueGatewayModule::startFadeTest(int channelIndex, String& error)
     _fadeTestReport += light->getHCLMaster() > 0 ? " hclMaster=" + String(light->getHCLMaster()) : String(" hclMaster=-");
     _fadeTestReport += _fadeTestLockTaken ? " (Sperre für Testdauer gesetzt)\n" : "\n";
     _fadeTestReport += "Samples alle " + String(kFadeTestSampleMs) + " ms, Helligkeit in %, 'off@' = Bridge meldet aus\n";
+    _fadeTestReport += "Bei Raum/Zone meldet die Bridge den Zielwert, nicht den Zwischenstand - ob eine Variante weich rampt, ist nur per Augenschein beurteilbar.\n";
+    _fadeTestReport += "RB-Schritte schalten zum Ruecklesen bewusst wieder ein.\n";
 
     appendDiagnosticLog("INFO", "FADETEST", "started on channel " + String(channelIndex + 1));
     Serial.printf("[HueGatewayModule] Fade test started on channel %d\n", channelIndex + 1);
@@ -6903,12 +6908,12 @@ void HueGatewayModule::handleWebFadeTest(WebRequest& req, WebResponse& res)
     html = "<div class='container'>";
     if (started)
     {
-        html += String("<meta http-equiv='refresh' content='60;url=") + hueBaseUri + "/diagnose'>";
+        html += String("<meta http-equiv='refresh' content='75;url=") + hueBaseUri + "/diagnose'>";
         html += "<h1>Rampen-Test gestartet</h1>";
-        html += "<p>Kanal " + String(channel + 1) + " wird rund eine Minute lang durchgeschaltet. ";
+        html += "<p>Kanal " + String(channel + 1) + " wird gut eine Minute lang durchgeschaltet. ";
         html += "Solange bitte nicht über KNX oder die Hue-App eingreifen.</p>";
         html += "<p>Das Ergebnis erscheint anschließend im Diagnosebericht unter <b>[FadeTest]</b>. ";
-        html += "Diese Seite wechselt nach 60 Sekunden automatisch dorthin.</p>";
+        html += "Diese Seite wechselt nach 75 Sekunden automatisch dorthin.</p>";
     }
     else
     {
