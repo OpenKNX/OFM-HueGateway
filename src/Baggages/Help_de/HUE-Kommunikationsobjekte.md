@@ -12,7 +12,7 @@ Die folgenden Tabellen fassen alle Kommunikationsobjekte zusammen. Details zu Si
 | 1 | 1.017 | Pairing Trigger | Eingang zum Auslösen des ETS-gestützten Pairings |
 | (LMG) | 1.003 / 1.011 | Sperre (global) / Status Sperre | Globale Lichtmanager-Sperre inkl. Statusrückmeldung |
 | (LMG) | 1.017 | Entsperren Trigger | Hebt globale, manager- und kanal-spezifische Sperren gleichzeitig auf |
-| (LMG) | 1.003 / 1.011 | Sperre Lichtmanager 1..8 / Status | Sperrobjekte je Lichtmanager; Sichtbarkeit abhängig von der Anzahl konfigurierter Lichtmanager |
+| (LMG) | 1.003 / 1.011 | Sperre Lichtmanager 1..8 / Status | Sperrobjekte je Lichtmanager; sichtbar nur für in der Kanalauswahl aktivierte Lichtmanager |
 | (LMG) | 5.001 / 7.600 | Lichtmanager Status Helligkeit Soll / Farbtemperatur Soll | Je Lichtmanager zwei Sollwert-KOs; Sichtbarkeit abhängig von Option „Status-KOs je Lichtmanager" |
 
 (LMG) = Objekt des Moduls OFM-LightManager, das im kombinierten Gerät gemeinsam mit den Hue-spezifischen Objekten erscheint; KO-Nummer siehe dessen Applikationsbeschreibung.

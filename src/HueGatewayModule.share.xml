@@ -3,7 +3,7 @@
 <KNX xmlns:op="http://github.com/OpenKNX/OpenKNXproducer" xmlns="http://knx.org/xml/project/20" CreatedBy="KNX MT" ToolVersion="5.1.255.16695">
 
   <op:minOpenKNXproducerVersion value="4.0.1" />
-  <op:minModuleVersion prefix="LMG" dependency="forceUsage" value="0.3" /><!-- HUE nutzt PT-LMGMasterSelect und den Partial-Sink-Vertrag (onLightManagerPartial) aus LMG >= 0.3 -->
+  <op:minModuleVersion prefix="LMG" dependency="forceUsage" value="0.4" /><!-- HUE nutzt PT-LMGMasterSelect, den Partial-Sink-Vertrag (onLightManagerPartial) und die Kanalauswahl (channel(n) == nullptr bei inaktivem LM) aus LMG >= 0.4 -->
 
   <!-- Intentional overlapping parameters in Unions (type-dispatch pattern via Visibility conditions) -->
   <op:nowarn id="10" regex="HUE_CH\d+Scene\d+Action" />

@@ -864,6 +864,7 @@ Hinweise:
 
 Ordnet den Kanal einem Lichtmanager (1..N) zu.
 Bei `Kein Lichtmanager` arbeitet der Kanal ohne automatische Sollwert-Übernahme.
+Wirksam sind nur Lichtmanager, die im Modul Lichtmanager in der **Kanalauswahl** aktiviert und nicht suspendiert sind. Ist ein anderer Lichtmanager zugeordnet, arbeitet der Kanal wie bei `Kein Lichtmanager` und das Gateway meldet dies im Log.
 Verfügbar ab Lampentyp `Dimmbar`. Dimmbare Lampen folgen nur der Helligkeit des Lichtmanagers; dessen HCL-Achsen dürfen dafür nicht auf `Nur Farbtemperatur` stehen.
 
 <!-- DOC -->
@@ -1029,7 +1030,7 @@ Die folgenden Tabellen fassen alle Kommunikationsobjekte zusammen. Details zu Si
 | 1 | 1.017 | [Pairing Trigger](#pairing-trigger) | Eingang zum Auslösen des ETS-gestützten Pairings |
 | (LMG) | 1.003 / 1.011 | [Sperre (global) / Status Sperre](#sperre-global--status-sperre) | Globale Lichtmanager-Sperre inkl. Statusrückmeldung |
 | (LMG) | 1.017 | [Entsperren Trigger](#entsperren-trigger) | Hebt globale, manager- und kanal-spezifische Sperren gleichzeitig auf |
-| (LMG) | 1.003 / 1.011 | [Sperre Lichtmanager 1..8 / Status](#sperre-lichtmanager-18--status) | Sperrobjekte je Lichtmanager; Sichtbarkeit abhängig von der Anzahl konfigurierter Lichtmanager |
+| (LMG) | 1.003 / 1.011 | [Sperre Lichtmanager 1..8 / Status](#sperre-lichtmanager-18--status) | Sperrobjekte je Lichtmanager; sichtbar nur für in der Kanalauswahl aktivierte Lichtmanager |
 | (LMG) | 5.001 / 7.600 | [Lichtmanager Status Helligkeit Soll / Farbtemperatur Soll](#lichtmanager-status-helligkeit-soll--farbtemperatur-soll) | Je Lichtmanager zwei Sollwert-KOs; Sichtbarkeit abhängig von Option „Status-KOs je Lichtmanager" |
 
 (LMG) = Objekt des Moduls [OFM-LightManager](https://github.com/OpenKNX/OFM-LightManager/blob/v1/doc/Applikationsbeschreibung-LightManager.md), das im kombinierten Gerät gemeinsam mit den Hue-spezifischen Objekten erscheint; KO-Nummer siehe dessen Applikationsbeschreibung.
@@ -1104,7 +1105,7 @@ Globale Sperre inkl. Statusrückmeldung.
 #### Sperre Lichtmanager 1..8 / Status
 
 Lichtmanager-spezifische Sperrobjekte inkl. Statusrückmeldung.
-Sichtbarkeit abhängig von der konfigurierten Anzahl Lichtmanager.
+Sichtbar nur für Lichtmanager, die in der Kanalauswahl des Lichtmanagers aktiviert sind.
 
 <!-- DOC -->
 #### Lichtmanager Status Helligkeit Soll / Farbtemperatur Soll

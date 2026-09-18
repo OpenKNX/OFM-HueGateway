@@ -2430,17 +2430,12 @@ bool HueGatewayModule::processCommand(const std::string cmd, bool diagnoseKo)
 
         if (hclEnabled)
         {
-            const uint8_t masterCount = HCL::masterManager.getMasterCount();
             Serial.printf("Update interval: per channel (see master list)\n");
             Serial.printf("Fade duration: per channel (see master list)\n");
 
+            // Only masters activated in the LightManager channel selection exist.
             for (uint8_t masterNumber = 1; masterNumber <= HCL::MasterManager::MAX_MASTERS; masterNumber++)
             {
-                if (masterNumber > masterCount)
-                {
-                    break;
-                }
-
                 HCL::Master* master = HCL::masterManager.getMaster(masterNumber);
                 if (!master)
                 {
@@ -2496,18 +2491,13 @@ bool HueGatewayModule::processCommand(const std::string cmd, bool diagnoseKo)
             return true;
         }
 
-        const uint8_t masterCount = HCL::masterManager.getMasterCount();
-        Serial.printf("Master count: %u\n", static_cast<unsigned>(masterCount));
+        Serial.printf("Active masters: %u\n", static_cast<unsigned>(openknxLightManagerModule.activeChannelCount()));
         Serial.printf("Update interval: per channel (see master list)\n");
         Serial.printf("Fade duration: per channel (see master list)\n");
 
+        // Only masters activated in the LightManager channel selection exist.
         for (uint8_t masterNumber = 1; masterNumber <= HCL::MasterManager::MAX_MASTERS; masterNumber++)
         {
-            if (masterNumber > masterCount)
-            {
-                break;
-            }
-
             HCL::Master* master = HCL::masterManager.getMaster(masterNumber);
             if (!master)
             {
@@ -3569,17 +3559,12 @@ void HueGatewayModule::setupDevices()
         setupLight->setLightType(effectiveLightType);
 
         uint8_t hclMaster = ParamHUE_CHHCLMaster;
-        // Clamp dynamically against the actually configured master count in
-        // LightManagerModule. The ETS param range is 0..16 (PT-HUEHCLMasterSelect)
-        // but only 0..LMGHCLMasterCount are valid at runtime.
-        const uint8_t dynMax = HCL::masterManager.getMasterCount();
-        if (hclMaster > dynMax)
+        // The ETS param range is 0..16 (PT-LMGMasterSelect), but only masters
+        // activated (and not suspended) in the LightManager channel selection exist.
+        if (hclMaster != 0 && openknxLightManagerModule.channel(hclMaster) == nullptr)
         {
-            if (hclMaster != 0)
-            {
-                logErrorP("Channel %u: HCL master %u out of range (max=%u) - reset to 0",
-                          ch + 1, hclMaster, dynMax);
-            }
+            logErrorP("Channel %u: HCL master %u not active in the LightManager - reset to 0",
+                      ch + 1, hclMaster);
             hclMaster = 0;
         }
         if (effectiveLightType == 0)
@@ -3720,11 +3705,21 @@ void HueGatewayModule::setupDevices()
         #ifdef ParamHUE_HUESwitchOffTransitionSec
         offFade = ParamHUE_HUESwitchOffTransitionSec;
         #endif
-        hclFade = openknxLightManagerModule.channelFadeDurationSec(1);
+        // Fade duration of the first active LightManager (channels are sparse).
+        uint8_t hclFadeMaster = 0;
+        for (uint8_t m = 1; m <= HCL::MasterManager::MAX_MASTERS; m++)
+        {
+            if (openknxLightManagerModule.channel(m) != nullptr)
+            {
+                hclFadeMaster = m;
+                hclFade = openknxLightManagerModule.channelFadeDurationSec(m);
+                break;
+            }
+        }
         appendDiagnosticLog("INFO", "SETUP", String("setupDevices done: mapped=") + String(_lightCount)
             + " onFade=" + String(static_cast<unsigned>(onFade)) + "s"
             + " offFade=" + String(static_cast<unsigned>(offFade)) + "s"
-            + " hclFade=" + String(static_cast<unsigned>(hclFade)) + "s");
+            + " hclFade=" + String(static_cast<unsigned>(hclFade)) + "s (LM" + String(static_cast<unsigned>(hclFadeMaster)) + ")");
     }
 
     _lastChannelSyncOkMs = millis();
@@ -5146,11 +5141,8 @@ void HueGatewayModule::publishHclMasterValues()
         return;
     }
 
-    uint8_t masterCount = HCL::masterManager.getMasterCount();
-    if (masterCount > 4)
-    {
-        masterCount = 4;
-    }
+    // KOs exist for masters 1..4; inactive masters are skipped (getMaster() == nullptr).
+    const uint8_t masterCount = (HCL::MasterManager::MAX_MASTERS < 4) ? HCL::MasterManager::MAX_MASTERS : 4;
 
     for (uint8_t masterNumber = 1; masterNumber <= masterCount; masterNumber++)
     {
@@ -6694,17 +6686,13 @@ void HueGatewayModule::handleWebLichtmanager(WebRequest& req, WebResponse& res)
         const uint16_t statusCurrentMinutes = hasStatusTime
             ? static_cast<uint16_t>(statusTimeinfo.tm_hour * 60 + statusTimeinfo.tm_min)
             : 0;
-        const uint8_t masterCount = HCL::masterManager.getMasterCount();
-
         html += "<tr><td>Zeitbasis (KO Zeit/Datum)</td><td>" + String(hasStatusTime ? formatMinutesToClock(statusCurrentMinutes) : "n/a") + "</td></tr>";
-        html += "<tr><td>Aktive Lichtmanager</td><td>" + String(masterCount) + "</td></tr>";
+        html += "<tr><td>Aktive Lichtmanager</td><td>" + String(openknxLightManagerModule.activeChannelCount()) + "</td></tr>";
         html += "</table>";
 
+        // Only masters activated in the LightManager channel selection exist.
         for (uint8_t masterNumber = 1; masterNumber <= HCL::MasterManager::MAX_MASTERS; masterNumber++)
         {
-            if (masterNumber > masterCount)
-                break;
-
             HCL::Master* master = HCL::masterManager.getMaster(masterNumber);
             if (!master)
                 continue;
