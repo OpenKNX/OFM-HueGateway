@@ -94,14 +94,14 @@
               </ParameterType>
               
               <!-- Kanaltyp (mit Speicher): 0 = Deaktiviert, blendet den Kanal im Baum aus -->
-              <ParameterType Id="%AID%_PT-HUEChannelType" Name="HUEChannelType">
+              <ParameterType Id="%AID%_PT-HUEChannelType" Name="HUEChannelType" op:headerExport="enum">
                 <TypeRestriction Base="Value" SizeInBit="3" UIHint="DropDown">
-                  <Enumeration Text="Deaktiviert" Value="0" Id="%ENID%" />
-                  <Enumeration Text="Licht" Value="1" Id="%ENID%" />
-                  <Enumeration Text="Bewegungsmelder (Beta)" Value="2" Id="%ENID%" />
-                  <Enumeration Text="Taster/Schalter (Beta)" Value="3" Id="%ENID%" />
-                  <Enumeration Text="Kontaktsensor" Value="4" Id="%ENID%" />
-                  <Enumeration Text="Steckdose" Value="5" Id="%ENID%" />
+                  <Enumeration Text="Deaktiviert" Value="0" Id="%ENID%" op:headerName="Deaktiviert" />
+                  <Enumeration Text="Licht" Value="1" Id="%ENID%" op:headerName="Licht" />
+                  <Enumeration Text="Bewegungsmelder (Beta)" Value="2" Id="%ENID%" op:headerName="Bewegungsmelder" />
+                  <Enumeration Text="Taster/Schalter (Beta)" Value="3" Id="%ENID%" op:headerName="Taster" />
+                  <Enumeration Text="Kontaktsensor" Value="4" Id="%ENID%" op:headerName="Kontaktsensor" />
+                  <Enumeration Text="Steckdose" Value="5" Id="%ENID%" op:headerName="Steckdose" />
                 </TypeRestriction>
               </ParameterType>
 

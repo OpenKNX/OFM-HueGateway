@@ -314,9 +314,8 @@ private:
     bool hasNetworkConnectivity() const;
     String getBridgeIP();
     uint8_t countEnabledChannels() const;
-    // Kanaltyp aus der ETS (0 = Deaktiviert, 1..5 = Gerätetypen).
-    // Liefert den internen Gerätetyp (0 = Licht ... 4 = Steckdose) oder -1 für einen deaktivierten Kanal.
-    int8_t channelDeviceType(uint8_t channelIndex) const;
+    // Kanaltyp aus der ETS; Deaktiviert auch für Kanäle außerhalb des gültigen Bereichs.
+    HueChannelType channelType(uint8_t channelIndex) const;
     // Kanal ist gewählt und nicht suspendiert.
     bool channelConfigured(uint8_t channelIndex) const;
     void setHclLock(bool active, const char* reason);

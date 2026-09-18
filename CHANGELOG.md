@@ -15,6 +15,10 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 - „Bezeichnung" heißt jetzt „Beschreibung" (OpenKNX-Glossar).
 - Firmware: Ein Kanal wird nur noch angelegt, wenn ein Gerätetyp gewählt und der Kanal nicht suspendiert ist. Telegramme an deaktivierte oder suspendierte Kanäle werden verworfen und lösen kein wiederholtes `setupDevices()` mehr aus.
 - Kanalauswahl gegen das Muster in `OGM-Common/.claude/agents/openknx-channelselect.md` geprüft: Template-Blöcke heißen jetzt `Settings` und `Channel`, und die Trennlinie hinter der Überschrift „Kanaldefinition" entfällt. `VisibleChannels` bleibt als versteckte Konstante, wie es der Abschnitt „Änderungen share.xml" des Musters und die Module OFM-LogicModule und OFM-NetworkBridge vorsehen.
+- Die Firmware nutzt für den Gerätetyp jetzt dieselbe Nummerierung wie die ETS (`HueChannelType`, 1 = Licht … 5 = Steckdose). Ein `static_assert` stellt sicher, dass sie mit dem vom Producer erzeugten `PT_HUEChannelType` übereinstimmt. Diagnosebericht (`devType=`) und Live-JSON (`tp`) zeigen deshalb 1–5 statt bisher 0–4.
+
+### Behoben
+- Die Live-Seite `/hue/live` hat Gerätetypen vertauscht beschriftet (Bewegungsmelder als „Plug", Taster als „Motion", Steckdose als „Button") und bei Bewegungsmeldern eine Helligkeit angezeigt.
 
 ### Hinzugefügt
 - VS-Code-Task „OpenKNXproducer Documentation" wird jetzt mitversioniert (`.vscode/tasks.json`), damit die Kontexthilfe überall gleich erzeugt wird (#14). Das doppelte Skript `createDoc.ps1` entfällt.

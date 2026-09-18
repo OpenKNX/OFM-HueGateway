@@ -633,8 +633,8 @@ String HueGatewayModule::buildDiagnosticReport(size_t requestedDepth, const Stri
     for (uint8_t ch = 0; ch < configuredChannels; ch++)
     {
         uint8_t _channelIndex = ch;
-        const int8_t channelDevType = channelDeviceType(ch);
-        if (channelDevType < 0)  // Kanaltyp "Deaktiviert"
+        const HueChannelType type = channelType(ch);
+        if (type == HueChannelType::Deaktiviert)
         {
             continue;
         }
@@ -656,8 +656,6 @@ String HueGatewayModule::buildDiagnosticReport(size_t requestedDepth, const Stri
         #ifdef ParamHUE_CHTargetType
         targetType = ParamHUE_CHTargetType;
         #endif
-
-        const uint8_t devType = static_cast<uint8_t>(channelDevType);
 
         uint8_t syncDir = ParamHUE_CHSyncDir;
         if (syncDir > 2)
@@ -684,7 +682,7 @@ String HueGatewayModule::buildDiagnosticReport(size_t requestedDepth, const Stri
 
         report += "ch=" + String(ch + 1)
             + " disabled=" + String(channelDisabled ? "1" : "0")
-            + " devType=" + String(devType)
+            + " devType=" + String(static_cast<uint8_t>(type))
             + " sync=" + String(syncDir)
             + " poll=" + String(pollIntervalSec)
             + " targetType=" + String(targetType)
@@ -1471,7 +1469,7 @@ HueGatewayLight* HueGatewayModule::lightAt(int ch) const
     if (ch < 0 || ch >= MAX_CHANNELS)
         return nullptr;
     HueGatewayDevice* d = _devices[ch];
-    if (d == nullptr || d->deviceType() != 0)
+    if (d == nullptr || d->deviceType() != HueChannelType::Licht)
         return nullptr;
     return static_cast<HueGatewayLight*>(d);
 }
@@ -1481,7 +1479,7 @@ HueGatewayPlug* HueGatewayModule::plugAt(int ch) const
     if (ch < 0 || ch >= MAX_CHANNELS)
         return nullptr;
     HueGatewayDevice* d = _devices[ch];
-    if (d == nullptr || d->deviceType() != 4)
+    if (d == nullptr || d->deviceType() != HueChannelType::Steckdose)
         return nullptr;
     return static_cast<HueGatewayPlug*>(d);
 }
@@ -1900,7 +1898,7 @@ void HueGatewayModule::processInputKo(GroupObject& ko)
         case 8:
             // Rotary KO: incoming value from bus (actuator status / GroupValueResponse)
             // syncs the button's internal rotary position tracking.
-            if (_devices[channel] != nullptr && _devices[channel]->deviceType() == 2)
+            if (_devices[channel] != nullptr && _devices[channel]->deviceType() == HueChannelType::Taster)
             {
                 static_cast<HueGatewayButton*>(_devices[channel])->handleRotaryStatusKo(ko);
                 Serial.printf("[HueGatewayModule] Rotary KO sync ch%d\n", channel + 1);
@@ -2946,7 +2944,7 @@ void HueGatewayModule::setupDevices()
         if (!channelConfigured(ch))
         {
             Serial.printf("[HueGatewayModule] Channel %d: %s\n", ch + 1,
-                          (channelDeviceType(ch) < 0) ? "Deaktiviert" : "Suspendiert");
+                          (channelType(ch) == HueChannelType::Deaktiviert) ? "Deaktiviert" : "Suspendiert");
             if (_devices[ch] != nullptr)
             {
                 delete _devices[ch];
@@ -2985,22 +2983,24 @@ void HueGatewayModule::setupDevices()
             hasIndexMappedChannel = true;
         }
 
-        // ---- Non-light device types (1-3): bypass bridge resolution ----
+        // ---- Bewegungsmelder, Taster, Kontaktsensor: bypass bridge resolution ----
         {
-            const uint8_t devType = static_cast<uint8_t>(channelDeviceType(ch));
-            Serial.printf("[HueGatewayModule] Channel %d: DeviceType=%u (0=Licht,1=Sensor,2=Taster,3=Kontakt,4=Steckdose)\n",
-                          ch + 1, static_cast<unsigned>(devType));
-            if (devType >= 1 && devType <= 3)
+            const HueChannelType type = channelType(ch);
+            Serial.printf("[HueGatewayModule] Channel %d: DeviceType=%u (1=Licht,2=Bewegungsmelder,3=Taster,4=Kontakt,5=Steckdose)\n",
+                          ch + 1, static_cast<unsigned>(static_cast<uint8_t>(type)));
+            if (type == HueChannelType::Bewegungsmelder
+                || type == HueChannelType::Taster
+                || type == HueChannelType::Kontaktsensor)
             {
                 const String resourceId = configuredTargetRid.length() > 0
                     ? configuredTargetRid
                     : configuredUuid;
                 const uint16_t koBase = static_cast<uint16_t>(HUE_KoBlockOffset + ch * HUE_KoBlockSize);
 
-                if (devType == 1)  // Bewegungsmelder
+                if (type == HueChannelType::Bewegungsmelder)
                 {
                     const bool needsRecreate = (_devices[ch] == nullptr)
-                        || _devices[ch]->deviceType() != 1
+                        || _devices[ch]->deviceType() != HueChannelType::Bewegungsmelder
                         || !_devices[ch]->getResourceId().equalsIgnoreCase(resourceId);
                     if (needsRecreate)
                     {
@@ -3037,7 +3037,7 @@ void HueGatewayModule::setupDevices()
                                   ch + 1, resourceId.c_str(), koBase + 0);
                     continue;
                 }
-                else if (devType == 2)  // Taster
+                else if (type == HueChannelType::Taster)
                 {
                     #ifdef ParamHUE_CHButtonCount
                     const uint8_t btnCount = ParamHUE_CHButtonCount;
@@ -3045,7 +3045,7 @@ void HueGatewayModule::setupDevices()
                     const uint8_t btnCount = 1;
                     #endif
                     const bool needsRecreate = (_devices[ch] == nullptr)
-                        || _devices[ch]->deviceType() != 2
+                        || _devices[ch]->deviceType() != HueChannelType::Taster
                         || !_devices[ch]->getResourceId().equalsIgnoreCase(resourceId);
                     if (needsRecreate)
                     {
@@ -3177,10 +3177,10 @@ void HueGatewayModule::setupDevices()
                                   ch + 1, resourceId.c_str(), static_cast<unsigned>(btnCount));
                     continue;
                 }
-                else  // devType == 3: Kontaktsensor
+                else  // HueChannelType::Kontaktsensor
                 {
                     const bool needsRecreate = (_devices[ch] == nullptr)
-                        || _devices[ch]->deviceType() != 3
+                        || _devices[ch]->deviceType() != HueChannelType::Kontaktsensor
                         || !_devices[ch]->getResourceId().equalsIgnoreCase(resourceId);
                     if (needsRecreate)
                     {
@@ -3471,12 +3471,12 @@ void HueGatewayModule::setupDevices()
         uint16_t koStatusColorTemp = koBase + 6;
         uint16_t koStatusColorRGB = koBase + 8;
         
-        const uint8_t chDevType = static_cast<uint8_t>(channelDeviceType(ch));
+        const HueChannelType chType = channelType(ch);
 
         const bool needsRecreate = (_devices[ch] == nullptr)
             || !_devices[ch]->getResourceId().equalsIgnoreCase(selectedLight->id)
             || (_devices[ch]->isGroupedTarget() != targetIsGrouped)
-            || (_devices[ch]->deviceType() != chDevType);
+            || (_devices[ch]->deviceType() != chType);
 
         if (needsRecreate)
         {
@@ -3486,7 +3486,7 @@ void HueGatewayModule::setupDevices()
                 _devices[ch] = nullptr;
             }
 
-            if (chDevType == 4)  // Steckdose
+            if (chType == HueChannelType::Steckdose)
             {
                 HueGatewayPlug* newPlug = new (std::nothrow) HueGatewayPlug(selectedLight->id, selectedLight->name, _client);
                 if (newPlug == nullptr)
@@ -3511,7 +3511,7 @@ void HueGatewayModule::setupDevices()
         }
 
         // ---- Steckdose: eigene Initialisierung und weiter ----
-        if (chDevType == 4)
+        if (chType == HueChannelType::Steckdose)
         {
             auto* setupPlug = static_cast<HueGatewayPlug*>(_devices[ch]);
             setupPlug->begin(koSwitch, koStatusSwitch,
@@ -3744,7 +3744,7 @@ void HueGatewayModule::processBehaviorInstanceAutoDelete()
     int totalDeleted = 0;
     for (uint8_t ch = 0; ch < configuredChannels; ch++)
     {
-        if (_devices[ch] == nullptr || _devices[ch]->deviceType() != 2)
+        if (_devices[ch] == nullptr || _devices[ch]->deviceType() != HueChannelType::Taster)
             continue;
 
         #ifdef ParamHUE_CHNativeHueAction
@@ -4292,8 +4292,8 @@ void HueGatewayModule::refreshLightStatus(bool fastTrackOnly)
         // ---- Sensor-/Steckdosen-Polling (kein Licht-Snapshot) ----
         if (_devices[i] != nullptr && lightAt(i) == nullptr)
         {
-            const uint8_t devType = static_cast<uint8_t>(channelDeviceType(i));
-            if (devType == 1)  // Bewegungsmelder
+            const HueChannelType type = channelType(i);
+            if (type == HueChannelType::Bewegungsmelder)
             {
                 HueGatewayMotionState ms;
                 if (_client->getMotionState(_devices[i]->getResourceId(), ms))
@@ -4302,7 +4302,7 @@ void HueGatewayModule::refreshLightStatus(bool fastTrackOnly)
                     _lastChannelSyncOkMs = now;
                 }
             }
-            else if (devType == 3)  // Kontaktsensor
+            else if (type == HueChannelType::Kontaktsensor)
             {
                 HueGatewayContactState cs;
                 if (_client->getContactState(_devices[i]->getResourceId(), cs))
@@ -4311,7 +4311,7 @@ void HueGatewayModule::refreshLightStatus(bool fastTrackOnly)
                     _lastChannelSyncOkMs = now;
                 }
             }
-            else if (devType == 4)  // Steckdose via Licht-Snapshot
+            else if (type == HueChannelType::Steckdose)  // via Licht-Snapshot
             {
                 for (int j = 0; j < count; j++)
                 {
@@ -4376,29 +4376,28 @@ bool HueGatewayModule::hasNetworkConnectivity() const
     return WiFi.status() == WL_CONNECTED;
 }
 
-int8_t HueGatewayModule::channelDeviceType(uint8_t channelIndex) const
+// Firmware und ETS verwenden dieselben Werte für den Kanaltyp.
+static_assert(static_cast<uint8_t>(HueChannelType::Deaktiviert) == static_cast<uint8_t>(PT_HUEChannelType::Deaktiviert), "HueChannelType::Deaktiviert passt nicht zur ETS");
+static_assert(static_cast<uint8_t>(HueChannelType::Licht) == static_cast<uint8_t>(PT_HUEChannelType::Licht), "HueChannelType::Licht passt nicht zur ETS");
+static_assert(static_cast<uint8_t>(HueChannelType::Bewegungsmelder) == static_cast<uint8_t>(PT_HUEChannelType::Bewegungsmelder), "HueChannelType::Bewegungsmelder passt nicht zur ETS");
+static_assert(static_cast<uint8_t>(HueChannelType::Taster) == static_cast<uint8_t>(PT_HUEChannelType::Taster), "HueChannelType::Taster passt nicht zur ETS");
+static_assert(static_cast<uint8_t>(HueChannelType::Kontaktsensor) == static_cast<uint8_t>(PT_HUEChannelType::Kontaktsensor), "HueChannelType::Kontaktsensor passt nicht zur ETS");
+static_assert(static_cast<uint8_t>(HueChannelType::Steckdose) == static_cast<uint8_t>(PT_HUEChannelType::Steckdose), "HueChannelType::Steckdose passt nicht zur ETS");
+
+HueChannelType HueGatewayModule::channelType(uint8_t channelIndex) const
 {
     if (channelIndex >= MAX_LIGHTS)
     {
-        return -1;
+        return HueChannelType::Deaktiviert;
     }
 
     uint8_t _channelIndex = channelIndex;
-    #ifdef ParamHUE_CHChannelType
-    const uint8_t channelType = ParamHUE_CHChannelType;
-    if (channelType == 0)  // Kanaltyp "Deaktiviert"
-    {
-        return -1;
-    }
-    return static_cast<int8_t>(channelType - 1);
-    #else
-    return 0;
-    #endif
+    return static_cast<HueChannelType>(static_cast<uint8_t>(ParamHUE_CHChannelType));
 }
 
 bool HueGatewayModule::channelConfigured(uint8_t channelIndex) const
 {
-    if (channelDeviceType(channelIndex) < 0)
+    if (channelType(channelIndex) == HueChannelType::Deaktiviert)
     {
         return false;
     }
@@ -5717,10 +5716,10 @@ void HueGatewayModule::applyEventStreamDeviceUpdates(const HueGatewayEventSensor
             matched = true;
 
             uint8_t _channelIndex = static_cast<uint8_t>(i);
-            // SyncDir check only applies to lights (devType 0/4). Sensors, buttons and
+            // SyncDir check only applies to lights and plugs. Sensors, buttons and
             // contacts are strictly Hue→KNX input devices and must always process events.
-            const uint8_t devTypeForSync = _devices[i]->deviceType();
-            if (devTypeForSync == 0 || devTypeForSync == 4)
+            const HueChannelType typeForSync = _devices[i]->deviceType();
+            if (typeForSync == HueChannelType::Licht || typeForSync == HueChannelType::Steckdose)
             {
                 #ifdef ParamHUE_CHSyncDir
                 uint8_t syncDir = ParamHUE_CHSyncDir;
@@ -5732,7 +5731,7 @@ void HueGatewayModule::applyEventStreamDeviceUpdates(const HueGatewayEventSensor
             switch (upd.type)
             {
                 case Type::Motion:
-                    if (_devices[i]->deviceType() == 1)
+                    if (_devices[i]->deviceType() == HueChannelType::Bewegungsmelder)
                     {
                         static_cast<HueGatewaySensor*>(_devices[i])->updateMotionOnly(upd.motionDetected);
                         Serial.printf("[HueGatewayModule] EventStream Motion -> ch%d motion=%d\n",
@@ -5740,7 +5739,7 @@ void HueGatewayModule::applyEventStreamDeviceUpdates(const HueGatewayEventSensor
                     }
                     break;
                 case Type::Contact:
-                    if (_devices[i]->deviceType() == 3)
+                    if (_devices[i]->deviceType() == HueChannelType::Kontaktsensor)
                     {
                         static_cast<HueGatewayContact*>(_devices[i])->updateContactOnly(upd.contactOpen);
                         Serial.printf("[HueGatewayModule] EventStream Contact -> ch%d open=%d\n",
@@ -5748,7 +5747,7 @@ void HueGatewayModule::applyEventStreamDeviceUpdates(const HueGatewayEventSensor
                     }
                     break;
                 case Type::Button:
-                    if (_devices[i]->deviceType() == 2)
+                    if (_devices[i]->deviceType() == HueChannelType::Taster)
                     {
                         auto* btn = static_cast<HueGatewayButton*>(_devices[i]);
                         // Resolve button index from service RID (0-based) since SSE events
@@ -5766,7 +5765,7 @@ void HueGatewayModule::applyEventStreamDeviceUpdates(const HueGatewayEventSensor
                     }
                     break;
                 case Type::Rotary:
-                    if (_devices[i]->deviceType() == 2)
+                    if (_devices[i]->deviceType() == HueChannelType::Taster)
                     {
                         static_cast<HueGatewayButton*>(_devices[i])->handleRotaryEvent(
                             upd.rotaryClockwise, upd.rotarySteps);
@@ -6424,7 +6423,7 @@ void HueGatewayModule::handleWebStatus(WebRequest& req, WebResponse& res)
 
     // --- KANÄLE ---
     {
-        static const char* kDevTypeNames[]    = { "Licht", "Bewegungsmelder", "Taster", "Kontakt", "Steckdose" };
+        static const char* kChannelTypeNames[] = { "Deaktiviert", "Licht", "Bewegungsmelder", "Taster", "Kontakt", "Steckdose" };
         static const char* kTargetTypeNames[] = { "Licht-ID", "Raum-ID", "Zone-ID" };
         html += "<h2>Kan\u00e4le</h2>";
         html += "<table>";
@@ -6432,14 +6431,15 @@ void HueGatewayModule::handleWebStatus(WebRequest& req, WebResponse& res)
         for (uint8_t ch = 0; ch < MAX_LIGHTS; ch++)
         {
             uint8_t _channelIndex = ch;
-            const int8_t chDevTypeSigned = channelDeviceType(ch);
-            if (chDevTypeSigned < 0)  // Kanaltyp "Deaktiviert": nicht anzeigen
+            const HueChannelType type = channelType(ch);
+            if (type == HueChannelType::Deaktiviert)  // nicht projektiert: nicht anzeigen
             {
                 continue;
             }
             const bool disabled = ParamHUE_CHDisabled;
-            const uint8_t devType = static_cast<uint8_t>(chDevTypeSigned);
-            const char* devTypeName = (devType <= 4) ? kDevTypeNames[devType] : "-";
+            const uint8_t typeIndex = static_cast<uint8_t>(type);
+            const char* devTypeName = (typeIndex < sizeof(kChannelTypeNames) / sizeof(kChannelTypeNames[0]))
+                ? kChannelTypeNames[typeIndex] : "-";
             uint8_t targetType = 0;
             #ifdef ParamHUE_CHTargetType
             targetType = ParamHUE_CHTargetType;
@@ -7012,7 +7012,7 @@ void HueGatewayModule::buildChannelStateJson(int channel, String& out)
         return;
     }
     out += ",\"a\":true,\"tp\":";
-    out += String(dev->deviceType());
+    out += String(static_cast<uint8_t>(dev->deviceType()));
     out += ",\"nm\":\"";
     appendJsonEscaped(out, dev->getName());
     out += "\",\"on\":";
@@ -7141,7 +7141,7 @@ void HueGatewayModule::handleWebLive(WebRequest& req, WebResponse& res)
     html += "<div id='live-grid'></div>";
     html += "<script>";
     html += "const grid=document.getElementById('live-grid'),sEl=document.getElementById('live-status'),cards={};";
-    html += "const TP={0:'Light',1:'Plug',2:'Motion',3:'Contact',4:'Button'};";
+    html += "const TP={1:'Licht',2:'Bewegungsmelder',3:'Taster',4:'Kontakt',5:'Steckdose'};";
     html += "function fmtAge(ms,now){if(!ms)return '-';const a=Math.max(0,now-ms);if(a<1000)return a+'ms';if(a<60000)return Math.round(a/1000)+'s';if(a<3600000)return Math.round(a/60000)+'min';return Math.round(a/3600000)+'h';}";
     html += "function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}";
     html += "function render(c,now){const id='ch'+c.n;let el=cards[id];if(!c.a){if(el){el.remove();delete cards[id];}return;}";
@@ -7150,7 +7150,7 @@ void HueGatewayModule::handleWebLive(WebRequest& req, WebResponse& res)
     html += "let h='<h3><span class=ch>K'+c.n+'</span> <span>'+esc(c.nm||'-')+'</span> <span class=\"rch '+(c.rch?'ok':'no')+'\" title=\"'+(c.rch?'reachable':'unreachable')+'\"></span></h3>';";
     html += "h+='<div class=row><span>Typ</span><b>'+(TP[c.tp]||c.tp)+'</b></div>';";
     html += "h+='<div class=row><span>Zustand</span><span class=\"sw '+(c.on?'on':'off')+'\">'+(c.on?'EIN':'AUS')+'</span></div>';";
-    html += "if(c.tp===0||c.tp===1)h+='<div class=row><span>Helligkeit</span><b>'+c.bri+'%</b></div>';";
+    html += "if(c.tp===1)h+='<div class=row><span>Helligkeit</span><b>'+c.bri+'%</b></div>';";
     html += "if(c.ct)h+='<div class=row><span>Farbtemp.</span><b>'+c.ct+' K</b></div>';";
     html += "if(c.rgb)h+='<div class=row><span>Farbe</span><b><span class=col style=\"background:'+c.rgb+'\"></span> '+c.rgb+'</b></div>';";
     html += "if(c.hm)h+='<div class=hcl>HCL Master '+c.hm+(c.hl?' (gesperrt)':'')+'</div>';";

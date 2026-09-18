@@ -31,7 +31,7 @@ public:
         , _initialized(false)
     {}
 
-    uint8_t deviceType() const override { return 1; }
+    HueChannelType deviceType() const override { return HueChannelType::Bewegungsmelder; }
 
     String getResourceId() const override { return _resourceId; }
     String getName() const override { return _name; }

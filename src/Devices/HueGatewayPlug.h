@@ -33,7 +33,7 @@ public:
         , _initialized(false)
     {}
 
-    uint8_t deviceType() const override { return 4; }
+    HueChannelType deviceType() const override { return HueChannelType::Steckdose; }
 
     String getResourceId() const override { return _resourceId; }
     String getName() const override { return _name; }
