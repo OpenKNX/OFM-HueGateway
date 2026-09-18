@@ -18,7 +18,13 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 - Die Firmware nutzt für den Gerätetyp jetzt dieselbe Nummerierung wie die ETS (`HueChannelType`, 1 = Licht … 5 = Steckdose). Ein `static_assert` stellt sicher, dass sie mit dem vom Producer erzeugten `PT_HUEChannelType` übereinstimmt. Diagnosebericht (`devType=`) und Live-JSON (`tp`) zeigen deshalb 1–5 statt bisher 0–4.
 
 ### Behoben
+- **Lampentyp „Nur schalten" hatte kein KO „Status Schalten".** Die Firmware sendet den Schaltstatus immer, das KO war aber seit einer Umstellung im März 2026 erst ab Lampentyp „Dimmbar" eingeblendet. Ein/Aus-Lampen konnten ihren Zustand dadurch nicht an KNX melden. Das KO erscheint jetzt wieder für alle Lampentypen (bei Synchronisation „Nur Hue zu KNX" oder „Bidirektional").
+- **Drehregler „Wertgeber" sprang zu weit und sendete oberhalb von 100 % nichts.** Der Wert wurde intern auf 0–254 gerechnet, aber als DPT 5.001 (0–100 %) geschrieben; die KNX-Bibliothek verwirft Werte über 100, dann ging kein Telegramm raus. Jede Raste bewegte sich außerdem etwa 2,5-mal so weit wie eingestellt. Der Wertgeber rechnet jetzt durchgehend in Prozent.
+- **Kanal-Bytes 161–164 waren doppelt belegt, ohne gemeinsame Union.** Freie Rückfalldauer und Rückfall-Uhrzeit (Licht) lagen auf denselben Bytes wie die Kurz-/Langdruck-Typen der Tasten 1–4, aber in getrennten Parametern bzw. Unions. Welcher Wert im Gerät ankam, hing vom Schreibverhalten der ETS ab. Alle sechs Parameter stehen jetzt in einer gemeinsamen Union; Speicherlayout und Offsets bleiben gleich. Die beiden Rückfall-Parameter haben dafür neue IDs, **ihre Werte stehen nach dem ETS-Update wieder auf dem Standard (1800 s bzw. 3:00 Uhr)**.
 - Die Live-Seite `/hue/live` hat Gerätetypen vertauscht beschriftet (Bewegungsmelder als „Plug", Taster als „Motion", Steckdose als „Button") und bei Bewegungsmeldern eine Helligkeit angezeigt.
+
+### Entfernt
+- Nicht mehr auswählbare Drehregler-Funktion „Lamelle" vollständig entfernt (KO-Eintrag in der ETS-Applikation und Firmware-Zweig). Sie war seit April 2026 nicht mehr wählbar und verhielt sich identisch zu „Wertgeber".
 
 ### Hinzugefügt
 - VS-Code-Task „OpenKNXproducer Documentation" wird jetzt mitversioniert (`.vscode/tasks.json`), damit die Kontexthilfe überall gleich erzeugt wird (#14). Das doppelte Skript `createDoc.ps1` entfällt.

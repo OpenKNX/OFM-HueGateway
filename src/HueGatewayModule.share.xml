@@ -7,7 +7,7 @@
 
   <!-- Intentional overlapping parameters in Unions (type-dispatch pattern via Visibility conditions) -->
   <op:nowarn id="10" regex="HUE_CH\d+Scene\d+Action" />
-  <op:nowarn id="10" regex="HUE_CH\d+Btn\d+(Kurz|Lang)" />
+  <op:nowarn id="10" regex="HUE_CH\d+(Btn\d+(Kurz|Lang)|HCLFallback(DurationSec|ReleaseTime))" />
 
   <ManufacturerData>
     <Manufacturer RefId="M-00FA">

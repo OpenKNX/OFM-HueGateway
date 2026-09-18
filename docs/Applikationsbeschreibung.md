@@ -697,8 +697,8 @@ Wenn der Hue-Schalter über einen Drehregler verfügt (z. B. Hue Tap Dial):
 ### Lampentyp
 
 Der Lampentyp bestimmt, welche KOs sichtbar/aktiv sind:
-- **Nur schalten**: Schalten (ein KO „Status Schalten" gibt es erst ab Lampentyp **Dimmbar**)
-- **Dimmbar**: zusätzlich Helligkeit/Dimmen + Status Schalten + Status Helligkeit
+- **Nur schalten**: Schalten + Status Schalten
+- **Dimmbar**: zusätzlich Helligkeit/Dimmen + Status Helligkeit
 - **Farbtemperatur**: zusätzlich Farbtemperatur + Status Farbtemperatur
 - **Farbe RGB**: zusätzlich RGB + Status RGB
 
@@ -1049,12 +1049,12 @@ Jeder Hue-Kanal belegt einen festen Block von 12 aufeinanderfolgenden KOs (Offse
 |  +1 | Taster/Schalter | ² | Taste 1: Langdruck | Ausgang, wenn Langdruck ≠ *Kein Langdruck* |
 |  +2 | Licht | 3.007 | [Dimmen](#dimmen) | Eingang relatives Dimmen. Wie +1 |
 |  +2 | Taster/Schalter | ¹ | Taste 2: Kurzdruck | Wie +0, ab 2 Tasten |
-|  +3 | Licht | 1.001 | [Status Schalten](#status-schalten) | Ausgang Ein/Aus. Ab Lampentyp *Dimmbar*, nicht bei *Nur KNX zu Hue* |
+|  +3 | Licht | 1.001 | [Status Schalten](#status-schalten) | Ausgang Ein/Aus. Nicht bei *Nur KNX zu Hue* |
 |  +3 | Steckdose | 1.001 | Status Schalten | Ausgang Ein/Aus |
 |  +3 | Bewegungsmelder | 1.002 | Gerät erreichbar | Ausgang, 1 = erreichbar. Optional, siehe [Gerät erreichbar verwenden](#gerät-erreichbar-verwenden) |
 |  +3 | Kontaktsensor | 1.001 | Sabotage | Ausgang, 1 = Sabotagekontakt ausgelöst. Optional, siehe [Sabotage verwenden](#sabotage-verwenden) |
 |  +3 | Taster/Schalter | ² | Taste 2: Langdruck | Wie +1, ab 2 Tasten |
-|  +4 | Licht | 5.001 | [Status Helligkeit](#status-helligkeit) | Ausgang 0..100 %. Wie +3 |
+|  +4 | Licht | 5.001 | [Status Helligkeit](#status-helligkeit) | Ausgang 0..100 %. Ab Lampentyp *Dimmbar*, nicht bei *Nur KNX zu Hue* |
 |  +4 | Bewegungsmelder, Kontaktsensor | 5.001 | Batterie | Ausgang Ladung 0..100 %. Optional, siehe [Batterie verwenden](#batterie-verwenden) |
 |  +4 | Taster/Schalter | ¹ | Taste 3: Kurzdruck | Wie +0, ab 3 Tasten |
 |  +5 | Licht | 7.600 | [Farbtemperatur](#farbtemperatur--status-farbtemperatur) | Eingang Kelvin. Ab Lampentyp *Farbtemperatur*, nicht bei *Nur Hue zu KNX* |

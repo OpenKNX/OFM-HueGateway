@@ -72,7 +72,6 @@ public:
         Wertgeber      = 1,
         Lautstaerke    = 2,
         Farbtemperatur = 3,
-        Lamelle        = 4,
     };
 
     /** Convert ETS DimStep enum (1-5) to DPT 3.007 step code */
@@ -92,7 +91,7 @@ public:
         , _hasRotary(false)
         , _rotaryStepPercent(13)
         , _rotaryStepCode(4)
-        , _rotaryValue(127)
+        , _rotaryValue(50)
     {
         for (uint8_t i = 0; i < MAX_BUTTONS; i++)
         {
@@ -268,7 +267,6 @@ public:
         switch (_rotaryFunction)
         {
             case RF::Wertgeber:
-            case RF::Lamelle:
                 _rotaryValue = static_cast<uint8_t>(ko.value(Dpt(5, 1)));
                 logDebug("HueGatewayButton", "%s Rotary sync from KO -> %u",
                          _name.c_str(), _rotaryValue);
@@ -291,9 +289,10 @@ public:
         const bool invert = false;  // Rotary has no invert option
         const bool up = clockwise ^ invert;
 
-        // Fixed delta per event: _rotaryStepPercent% of 254 (DPT 5.001 full scale).
+        // Fixed delta per event in percent. DPT 5.001 is written as 0..100 %; the KNX
+        // library rejects larger values and would then send nothing at all.
         // Hue 'steps' is encoder tick count per burst — irrelevant for the step size.
-        const int delta = (_rotaryStepPercent * 254 + 50) / 100;
+        const int delta = _rotaryStepPercent;
 
         using RF = RotaryFunction;
         switch (_rotaryFunction)
@@ -309,11 +308,10 @@ public:
                 break;
             }
             case RF::Wertgeber:
-            case RF::Lamelle:
             {
                 int newVal = (int)_rotaryValue + (up ? delta : -delta);
                 if (newVal < 0)   newVal = 0;
-                if (newVal > 254) newVal = 254;
+                if (newVal > 100) newVal = 100;
                 _rotaryValue = static_cast<uint8_t>(newVal);
                 knx.getGroupObject(_rotaryKo[0]).value(_rotaryValue, Dpt(5, 1));
                 logDebug("HueGatewayButton", "%s - Rotary %s -> KNX DPT5 %u",
@@ -354,7 +352,7 @@ private:
     uint8_t _rotaryStepCode;
     uint16_t _rotaryKo[2];
     String _rotaryServiceRid;
-    uint8_t _rotaryValue   = 127;        // current absolute value (DPT 5.001)
+    uint8_t _rotaryValue   = 50;         // current absolute value in percent (DPT 5.001, 0..100)
     uint16_t _rotaryValue16 = 4000;      // current absolute value (DPT 7.600, Kelvin)
 
     // ---- Action dispatch ----

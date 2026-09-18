@@ -1,8 +1,8 @@
 ﻿### Lampentyp
 
 Der Lampentyp bestimmt, welche KOs sichtbar/aktiv sind:
-- **Nur schalten**: Schalten (ein KO „Status Schalten" gibt es erst ab Lampentyp **Dimmbar**)
-- **Dimmbar**: zusätzlich Helligkeit/Dimmen + Status Schalten + Status Helligkeit
+- **Nur schalten**: Schalten + Status Schalten
+- **Dimmbar**: zusätzlich Helligkeit/Dimmen + Status Helligkeit
 - **Farbtemperatur**: zusätzlich Farbtemperatur + Status Farbtemperatur
 - **Farbe RGB**: zusätzlich RGB + Status RGB
 

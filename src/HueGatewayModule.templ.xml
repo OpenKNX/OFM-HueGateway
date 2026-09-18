@@ -41,12 +41,6 @@
               <Parameter Id="%AID%_P-%TT%5%CC%011" Name="CH%C%HCLLockFallback" ParameterType="%AID%_PT-HUEHCLLockFallback" Text="Rückfallzeit nach Lichtmanager-Sperre" Value="0">
                 <Memory CodeSegment="%MID%" Offset="86" BitOffset="0" />
               </Parameter>
-              <Parameter Id="%AID%_P-%TT%5%CC%211" Name="CH%C%HCLFallbackDurationSec" ParameterType="%AID%_PT-HUEHCLFallbackDurationSec" Text="Freie Rückfalldauer" Value="1800" SuffixText=" s">
-                <Memory CodeSegment="%MID%" Offset="161" BitOffset="0" />
-              </Parameter>
-              <Parameter Id="%AID%_P-%TT%5%CC%212" Name="CH%C%HCLFallbackReleaseTime" ParameterType="%AID%_PT-HUEHCLFallbackReleaseTime" Text="Rückfall-Uhrzeit" Value="180" SuffixText=" min">
-                <Memory CodeSegment="%MID%" Offset="163" BitOffset="0" />
-              </Parameter>
               
               <Union SizeInBit="16">
                 <Memory CodeSegment="%MID%" Offset="0" BitOffset="0" />
@@ -236,10 +230,21 @@
               <Parameter Id="%AID%_P-%TT%5%CC%098" Name="CH%C%Scene8Green" ParameterType="%AID%_PT-HUESceneRGB" Text="Grün" Value="0"><Memory CodeSegment="%MID%" Offset="159" BitOffset="0" /></Parameter>
               <Parameter Id="%AID%_P-%TT%5%CC%099" Name="CH%C%Scene8Blue" ParameterType="%AID%_PT-HUESceneRGB" Text="Blau" Value="0"><Memory CodeSegment="%MID%" Offset="160" BitOffset="0" /></Parameter>
 
-              <!-- ===== Tasterkanal: Taste 1 KurzTyp/LangTyp (Offset 161) ===== -->
-              <Union SizeInBit="8"><Memory CodeSegment="%MID%" Offset="161" BitOffset="0" />
+              <!-- ===== Bytes 161-164: gemeinsame Union, je nach Gerätetyp belegt =====
+                   Licht:  Freie Rückfalldauer (161-162) und Rückfall-Uhrzeit (163-164)
+                   Taster: Kurz-/Langdruck-Typ der Tasten 1-4 (je ein Byte)
+                   Als eine Union schreibt die ETS nur die jeweils sichtbaren Parameter. -->
+              <Union SizeInBit="32"><Memory CodeSegment="%MID%" Offset="161" BitOffset="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%995" Name="CH%C%HCLFallbackDurationSec" ParameterType="%AID%_PT-HUEHCLFallbackDurationSec" Offset="0" BitOffset="0" Text="Freie Rückfalldauer" Value="1800" SuffixText=" s" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%994" Name="CH%C%HCLFallbackReleaseTime" ParameterType="%AID%_PT-HUEHCLFallbackReleaseTime" Offset="2" BitOffset="0" Text="Rückfall-Uhrzeit" Value="180" SuffixText=" min" />
                 <Parameter Id="%AID%_UP-%TT%5%CC%300" Name="CH%C%Btn1KurzTyp" ParameterType="%AID%_PT-HUEKurzTyp" Offset="0" BitOffset="0" Text="Taste 1 Kurzdruck" Value="0" />
                 <Parameter Id="%AID%_UP-%TT%5%CC%301" Name="CH%C%Btn1LangTyp" ParameterType="%AID%_PT-HUELangTyp" Offset="0" BitOffset="4" Text="Taste 1 Langdruck" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%320" Name="CH%C%Btn2KurzTyp" ParameterType="%AID%_PT-HUEKurzTyp" Offset="1" BitOffset="0" Text="Taste 2 Kurzdruck" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%321" Name="CH%C%Btn2LangTyp" ParameterType="%AID%_PT-HUELangTyp" Offset="1" BitOffset="4" Text="Taste 2 Langdruck" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%340" Name="CH%C%Btn3KurzTyp" ParameterType="%AID%_PT-HUEKurzTyp" Offset="2" BitOffset="0" Text="Taste 3 Kurzdruck" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%341" Name="CH%C%Btn3LangTyp" ParameterType="%AID%_PT-HUELangTyp" Offset="2" BitOffset="4" Text="Taste 3 Langdruck" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%360" Name="CH%C%Btn4KurzTyp" ParameterType="%AID%_PT-HUEKurzTyp" Offset="3" BitOffset="0" Text="Taste 4 Kurzdruck" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%361" Name="CH%C%Btn4LangTyp" ParameterType="%AID%_PT-HUELangTyp" Offset="3" BitOffset="4" Text="Taste 4 Langdruck" Value="0" />
               </Union>
               <!-- Taste 1: Kurzdruck Sub-Werte (Offset 165-166, 16-bit Union) -->
               <Union SizeInBit="16"><Memory CodeSegment="%MID%" Offset="165" BitOffset="0" />
@@ -266,11 +271,7 @@
                 <Parameter Id="%AID%_UP-%TT%5%CC%319" Name="CH%C%Btn1LangWord" ParameterType="%AID%_PT-HUEWordWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
               </Union>
 
-              <!-- ===== Tasterkanal: Taste 2 KurzTyp/LangTyp (Offset 162) ===== -->
-              <Union SizeInBit="8"><Memory CodeSegment="%MID%" Offset="162" BitOffset="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%320" Name="CH%C%Btn2KurzTyp" ParameterType="%AID%_PT-HUEKurzTyp" Offset="0" BitOffset="0" Text="Taste 2 Kurzdruck" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%321" Name="CH%C%Btn2LangTyp" ParameterType="%AID%_PT-HUELangTyp" Offset="0" BitOffset="4" Text="Taste 2 Langdruck" Value="0" />
-              </Union>
+              <!-- Taste 2 Kurz-/Langdruck-Typ: in der gemeinsamen Union ab Offset 161 -->
               <!-- Taste 2: Kurzdruck Sub-Werte (Offset 169-170, 16-bit Union) -->
               <Union SizeInBit="16"><Memory CodeSegment="%MID%" Offset="169" BitOffset="0" />
                 <Parameter Id="%AID%_UP-%TT%5%CC%322" Name="CH%C%Btn2KurzSchaltwert" ParameterType="%AID%_PT-HUESchaltwertKurz" Offset="0" BitOffset="0" Text="Schaltwert" Value="0" />
@@ -296,11 +297,7 @@
                 <Parameter Id="%AID%_UP-%TT%5%CC%339" Name="CH%C%Btn2LangWord" ParameterType="%AID%_PT-HUEWordWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
               </Union>
 
-              <!-- ===== Tasterkanal: Taste 3 KurzTyp/LangTyp (Offset 163) ===== -->
-              <Union SizeInBit="8"><Memory CodeSegment="%MID%" Offset="163" BitOffset="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%340" Name="CH%C%Btn3KurzTyp" ParameterType="%AID%_PT-HUEKurzTyp" Offset="0" BitOffset="0" Text="Taste 3 Kurzdruck" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%341" Name="CH%C%Btn3LangTyp" ParameterType="%AID%_PT-HUELangTyp" Offset="0" BitOffset="4" Text="Taste 3 Langdruck" Value="0" />
-              </Union>
+              <!-- Taste 3 Kurz-/Langdruck-Typ: in der gemeinsamen Union ab Offset 161 -->
               <!-- Taste 3: Kurzdruck Sub-Werte (Offset 173-174, 16-bit Union) -->
               <Union SizeInBit="16"><Memory CodeSegment="%MID%" Offset="173" BitOffset="0" />
                 <Parameter Id="%AID%_UP-%TT%5%CC%342" Name="CH%C%Btn3KurzSchaltwert" ParameterType="%AID%_PT-HUESchaltwertKurz" Offset="0" BitOffset="0" Text="Schaltwert" Value="0" />
@@ -326,11 +323,7 @@
                 <Parameter Id="%AID%_UP-%TT%5%CC%359" Name="CH%C%Btn3LangWord" ParameterType="%AID%_PT-HUEWordWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
               </Union>
 
-              <!-- ===== Tasterkanal: Taste 4 KurzTyp/LangTyp (Offset 164) ===== -->
-              <Union SizeInBit="8"><Memory CodeSegment="%MID%" Offset="164" BitOffset="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%360" Name="CH%C%Btn4KurzTyp" ParameterType="%AID%_PT-HUEKurzTyp" Offset="0" BitOffset="0" Text="Taste 4 Kurzdruck" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%361" Name="CH%C%Btn4LangTyp" ParameterType="%AID%_PT-HUELangTyp" Offset="0" BitOffset="4" Text="Taste 4 Langdruck" Value="0" />
-              </Union>
+              <!-- Taste 4 Kurz-/Langdruck-Typ: in der gemeinsamen Union ab Offset 161 -->
               <!-- Taste 4: Kurzdruck Sub-Werte (Offset 177-178, 16-bit Union) -->
               <Union SizeInBit="16"><Memory CodeSegment="%MID%" Offset="177" BitOffset="0" />
                 <Parameter Id="%AID%_UP-%TT%5%CC%362" Name="CH%C%Btn4KurzSchaltwert" ParameterType="%AID%_PT-HUESchaltwertKurz" Offset="0" BitOffset="0" Text="Schaltwert" Value="0" />
@@ -381,8 +374,8 @@
               <ParameterRef Id="%AID%_P-%TT%5%CC%007_R-%TT%5%CC%00701" RefId="%AID%_P-%TT%5%CC%007" />
               <ParameterRef Id="%AID%_P-%TT%5%CC%210_R-%TT%5%CC%21001" RefId="%AID%_P-%TT%5%CC%210" />
               <ParameterRef Id="%AID%_P-%TT%5%CC%011_R-%TT%5%CC%01101" RefId="%AID%_P-%TT%5%CC%011" />
-              <ParameterRef Id="%AID%_P-%TT%5%CC%211_R-%TT%5%CC%21101" RefId="%AID%_P-%TT%5%CC%211" />
-              <ParameterRef Id="%AID%_P-%TT%5%CC%212_R-%TT%5%CC%21201" RefId="%AID%_P-%TT%5%CC%212" />
+              <ParameterRef Id="%AID%_UP-%TT%5%CC%995_R-%TT%5%CC%99501" RefId="%AID%_UP-%TT%5%CC%995" />
+              <ParameterRef Id="%AID%_UP-%TT%5%CC%994_R-%TT%5%CC%99401" RefId="%AID%_UP-%TT%5%CC%994" />
               <ParameterRef Id="%AID%_UP-%TT%5%CC%002_R-%TT%5%CC%00201" RefId="%AID%_UP-%TT%5%CC%002" />
               <ParameterRef Id="%AID%_UP-%TT%5%CC%996_R-%TT%5%CC%99601" RefId="%AID%_UP-%TT%5%CC%996" />
               <ParameterRef Id="%AID%_UP-%TT%5%CC%013_R-%TT%5%CC%01301" RefId="%AID%_UP-%TT%5%CC%013" />
@@ -760,7 +753,6 @@
               <ComObjectRef Id="%AID%_O-%TT%5%CC%008_R-%TT%5%CC%00821" RefId="%AID%_O-%TT%5%CC%008" Text="{{0:Hue %C%}}: Drehregler: Wertgeber" FunctionText="Drehregler Wertgeber (0-100%)" ObjectSize="1 Byte" DatapointType="DPST-5-1" CommunicationFlag="Enabled" ReadFlag="Disabled" WriteFlag="Disabled" TransmitFlag="Enabled" UpdateFlag="Disabled" ReadOnInitFlag="Disabled" TextParameterRefId="%AID%_P-%TT%5%CC%000_R-%TT%5%CC%00001" />
               <ComObjectRef Id="%AID%_O-%TT%5%CC%008_R-%TT%5%CC%00822" RefId="%AID%_O-%TT%5%CC%008" Text="{{0:Hue %C%}}: Drehregler: Lautstärke" FunctionText="Drehregler Lautstärke (relativ)" ObjectSize="4 Bit" DatapointType="DPST-3-7" CommunicationFlag="Enabled" ReadFlag="Disabled" WriteFlag="Disabled" TransmitFlag="Enabled" UpdateFlag="Disabled" ReadOnInitFlag="Disabled" TextParameterRefId="%AID%_P-%TT%5%CC%000_R-%TT%5%CC%00001" />
               <ComObjectRef Id="%AID%_O-%TT%5%CC%008_R-%TT%5%CC%00823" RefId="%AID%_O-%TT%5%CC%008" Text="{{0:Hue %C%}}: Drehregler: Farbtemperatur" FunctionText="Drehregler Farbtemperatur (Kelvin)" ObjectSize="2 Bytes" DatapointType="DPST-7-600" CommunicationFlag="Enabled" ReadFlag="Disabled" WriteFlag="Disabled" TransmitFlag="Enabled" UpdateFlag="Disabled" ReadOnInitFlag="Disabled" TextParameterRefId="%AID%_P-%TT%5%CC%000_R-%TT%5%CC%00001" />
-              <ComObjectRef Id="%AID%_O-%TT%5%CC%008_R-%TT%5%CC%00824" RefId="%AID%_O-%TT%5%CC%008" Text="{{0:Hue %C%}}: Drehregler: Lamelle" FunctionText="Drehregler Lamellenposition (0-100%)" ObjectSize="1 Byte" DatapointType="DPST-5-1" CommunicationFlag="Enabled" ReadFlag="Disabled" WriteFlag="Disabled" TransmitFlag="Enabled" UpdateFlag="Disabled" ReadOnInitFlag="Disabled" TextParameterRefId="%AID%_P-%TT%5%CC%000_R-%TT%5%CC%00001" />
             </ComObjectRefs>
             
           </Static>
@@ -799,7 +791,7 @@
                       <!-- Gerätetyp-abhängige Konfiguration -->
                       <choose ParamRefId="%AID%_UP-%TT%5%CC%996_R-%TT%5%CC%99601">
 
-                        <!-- ===== DeviceType 0: Licht (bestehend) ===== -->
+                        <!-- ===== Gerätetyp Licht ===== -->
                         <when test="1">
                           <!-- Zieltyp (Licht/Raum/Zone) -->
                           <ParameterRefRef RefId="%AID%_UP-%TT%5%CC%009_R-%TT%5%CC%00901" HelpContext="HUE-Zieltyp" />
@@ -837,14 +829,14 @@
                                       <ParameterRefRef RefId="%AID%_P-%TT%5%CC%011_R-%TT%5%CC%01101" IndentLevel="2" HelpContext="HUE-Sperre-kanal-spezifisch" />
                                     </when>
                                     <when test="1">
-                                      <ParameterRefRef RefId="%AID%_P-%TT%5%CC%211_R-%TT%5%CC%21101" IndentLevel="2" HelpContext="HUE-Sperre-kanal-spezifisch" />
+                                      <ParameterRefRef RefId="%AID%_UP-%TT%5%CC%995_R-%TT%5%CC%99501" IndentLevel="2" HelpContext="HUE-Sperre-kanal-spezifisch" />
                                     </when>
                                     <when test="2">
-                                      <ParameterRefRef RefId="%AID%_P-%TT%5%CC%212_R-%TT%5%CC%21201" IndentLevel="2" HelpContext="HUE-Sperre-kanal-spezifisch" />
+                                      <ParameterRefRef RefId="%AID%_UP-%TT%5%CC%994_R-%TT%5%CC%99401" IndentLevel="2" HelpContext="HUE-Sperre-kanal-spezifisch" />
                                     </when>
                                     <when test="3">
-                                      <ParameterRefRef RefId="%AID%_P-%TT%5%CC%211_R-%TT%5%CC%21101" IndentLevel="2" HelpContext="HUE-Sperre-kanal-spezifisch" />
-                                      <ParameterRefRef RefId="%AID%_P-%TT%5%CC%212_R-%TT%5%CC%21201" IndentLevel="2" HelpContext="HUE-Sperre-kanal-spezifisch" />
+                                      <ParameterRefRef RefId="%AID%_UP-%TT%5%CC%995_R-%TT%5%CC%99501" IndentLevel="2" HelpContext="HUE-Sperre-kanal-spezifisch" />
+                                      <ParameterRefRef RefId="%AID%_UP-%TT%5%CC%994_R-%TT%5%CC%99401" IndentLevel="2" HelpContext="HUE-Sperre-kanal-spezifisch" />
                                     </when>
                                   </choose>
                                 </when>
@@ -877,7 +869,7 @@
                       </choose>
                     </ParameterBlock>
 
-                    <!-- ===== Szenen-Reiter (nur wenn Szenensteuerung aktiv, nur DeviceType=0) ===== -->
+                    <!-- ===== Szenen-Reiter (nur wenn Szenensteuerung aktiv, nur Gerätetyp Licht) ===== -->
                     <choose ParamRefId="%AID%_UP-%TT%5%CC%996_R-%TT%5%CC%99601">
                       <when test="1">
                         <choose ParamRefId="%AID%_UP-%TT%5%CC%019_R-%TT%5%CC%01901">
@@ -1495,7 +1487,7 @@
                     <!-- ===== KO-Sichtbarkeit nach Gerätetyp (Hilfsblock für Szenen-choose) ===== -->
                     <choose ParamRefId="%AID%_UP-%TT%5%CC%996_R-%TT%5%CC%99601">
 
-                        <!-- ===== DeviceType 1: Bewegungsmelder ===== -->
+                        <!-- ===== Gerätetyp Bewegungsmelder ===== -->
                         <when test="2">
                           <!-- Geräte-UUID -->
                           <ParameterRefRef RefId="%AID%_P-%TT%5%CC%008_R-%TT%5%CC%00801" HelpContext="HUE-Hue-Ziel-Geraete-ID-oder-Name" />
@@ -1510,7 +1502,7 @@
                           <ParameterRefRef RefId="%AID%_UP-%TT%5%CC%005_R-%TT%5%CC%00501" HelpContext="HUE-Polling-Intervall" />
                         </when>
 
-                        <!-- ===== DeviceType 2: Taster/Schalter ===== -->
+                        <!-- ===== Gerätetyp Taster/Schalter ===== -->
                         <when test="3">
                           <!-- Geräte-UUID -->
                           <ParameterRefRef RefId="%AID%_P-%TT%5%CC%008_R-%TT%5%CC%00801" HelpContext="HUE-Hue-Ziel-Geraete-ID-oder-Name" />
@@ -1676,7 +1668,7 @@
                           <ParameterRefRef RefId="%AID%_UP-%TT%5%CC%005_R-%TT%5%CC%00501" HelpContext="HUE-Polling-Intervall" />
                         </when>
 
-                        <!-- ===== DeviceType 3: Kontaktsensor ===== -->
+                        <!-- ===== Gerätetyp Kontaktsensor ===== -->
                         <when test="4">
                           <!-- Geräte-UUID -->
                           <ParameterRefRef RefId="%AID%_P-%TT%5%CC%008_R-%TT%5%CC%00801" HelpContext="HUE-Hue-Ziel-Geraete-ID-oder-Name" />
@@ -1690,7 +1682,7 @@
                           <ParameterRefRef RefId="%AID%_UP-%TT%5%CC%005_R-%TT%5%CC%00501" HelpContext="HUE-Polling-Intervall" />
                         </when>
 
-                        <!-- ===== DeviceType 4: Steckdose ===== -->
+                        <!-- ===== Gerätetyp Steckdose ===== -->
                         <when test="5">
                           <!-- Geräte-UUID -->
                           <ParameterRefRef RefId="%AID%_P-%TT%5%CC%008_R-%TT%5%CC%00801" HelpContext="HUE-Hue-Ziel-Geraete-ID-oder-Name" />
@@ -1746,17 +1738,20 @@
                     <!-- ===== KO-Sichtbarkeit nach Gerätetyp ===== -->
                     <choose ParamRefId="%AID%_UP-%TT%5%CC%996_R-%TT%5%CC%99601">
 
-                      <!-- DeviceType 0: Licht – bestehende KO-Logik unverändert -->
+                      <!-- Gerätetyp Licht -->
                       <when test="1">
+                        <!-- Schalten und Status Schalten: für alle Lampentypen -->
                         <choose ParamRefId="%AID%_UP-%TT%5%CC%004_R-%TT%5%CC%00401">
                           <when test="0">
                             <ComObjectRefRef RefId="%AID%_O-%TT%5%CC%000_R-%TT%5%CC%00001" />
                           </when>
                           <when test="1">
                             <ComObjectRefRef RefId="%AID%_O-%TT%5%CC%000_R-%TT%5%CC%00001" />
+                            <ComObjectRefRef RefId="%AID%_O-%TT%5%CC%003_R-%TT%5%CC%00301" />
                           </when>
                           <when test="2">
                             <ComObjectRefRef RefId="%AID%_O-%TT%5%CC%000_R-%TT%5%CC%00001" />
+                            <ComObjectRefRef RefId="%AID%_O-%TT%5%CC%003_R-%TT%5%CC%00301" />
                           </when>
                         </choose>
                         <choose ParamRefId="%AID%_UP-%TT%5%CC%002_R-%TT%5%CC%00201">
@@ -1773,11 +1768,9 @@
                             </choose>
                             <choose ParamRefId="%AID%_UP-%TT%5%CC%004_R-%TT%5%CC%00401">
                               <when test="1">
-                                <ComObjectRefRef RefId="%AID%_O-%TT%5%CC%003_R-%TT%5%CC%00301" />
                                 <ComObjectRefRef RefId="%AID%_O-%TT%5%CC%004_R-%TT%5%CC%00401" />
                               </when>
                               <when test="2">
-                                <ComObjectRefRef RefId="%AID%_O-%TT%5%CC%003_R-%TT%5%CC%00301" />
                                 <ComObjectRefRef RefId="%AID%_O-%TT%5%CC%004_R-%TT%5%CC%00401" />
                               </when>
                             </choose>
@@ -1843,7 +1836,7 @@
                         </choose>
                       </when>
 
-                      <!-- DeviceType 1: Bewegungsmelder – Status Bewegung (KO-Slot 0) + optionale KOs -->
+                      <!-- Gerätetyp Bewegungsmelder – Status Bewegung (KO-Slot 0) + optionale KOs -->
                       <when test="2">
                         <ComObjectRefRef RefId="%AID%_O-%TT%5%CC%000_R-%TT%5%CC%00002" />
                         <choose ParamRefId="%AID%_UP-%TT%5%CC%014_R-%TT%5%CC%01401">
@@ -1868,7 +1861,7 @@
                         </choose>
                       </when>
 
-                      <!-- DeviceType 2: Taster – KOs abhängig von Kurz/Lang-Typ -->
+                      <!-- Gerätetyp Taster – KOs abhängig von Kurz/Lang-Typ -->
                       <when test="3">
                         <!-- ===== Taste 1: Kurzdruck-KO (KO-Slot 0) ===== -->
                         <choose ParamRefId="%AID%_UP-%TT%5%CC%300_R-%TT%5%CC%30001">
@@ -2006,15 +1999,12 @@
                               <when test="3">
                                 <ComObjectRefRef RefId="%AID%_O-%TT%5%CC%008_R-%TT%5%CC%00823" />
                               </when>
-                              <when test="4">
-                                <ComObjectRefRef RefId="%AID%_O-%TT%5%CC%008_R-%TT%5%CC%00824" />
-                              </when>
                             </choose>
                           </when>
                         </choose>
                       </when>
 
-                      <!-- DeviceType 3: Kontaktsensor – Status Kontakt offen (KO-Slot 0) + optionale KOs -->
+                      <!-- Gerätetyp Kontaktsensor – Status Kontakt offen (KO-Slot 0) + optionale KOs -->
                       <when test="4">
                         <ComObjectRefRef RefId="%AID%_O-%TT%5%CC%000_R-%TT%5%CC%00003" />
                         <choose ParamRefId="%AID%_UP-%TT%5%CC%018_R-%TT%5%CC%01801">
@@ -2034,7 +2024,7 @@
                         </choose>
                       </when>
 
-                      <!-- DeviceType 4: Steckdose – Schalten + Status Schalten + opt. Erreichbar -->
+                      <!-- Gerätetyp Steckdose – Schalten + Status Schalten + opt. Erreichbar -->
                       <when test="5">
                         <ComObjectRefRef RefId="%AID%_O-%TT%5%CC%000_R-%TT%5%CC%00004" />
                         <ComObjectRefRef RefId="%AID%_O-%TT%5%CC%003_R-%TT%5%CC%00302" />
