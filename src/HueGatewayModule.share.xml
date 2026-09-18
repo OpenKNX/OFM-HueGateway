@@ -5,9 +5,6 @@
   <op:minOpenKNXproducerVersion value="4.0.1" />
   <op:minModuleVersion prefix="LMG" dependency="forceUsage" value="0.4" /><!-- HUE nutzt PT-LMGMasterSelect, den Partial-Sink-Vertrag (onLightManagerPartial) und die Kanalauswahl (channel(n) == nullptr bei inaktivem LM) aus LMG >= 0.4 -->
 
-  <!-- Intentional overlapping parameters in Unions (type-dispatch pattern via Visibility conditions) -->
-  <op:nowarn id="10" regex="HUE_CH\d+Scene\d+Action" />
-  <op:nowarn id="10" regex="HUE_CH\d+(Btn\d+(Kurz|Lang)|HCLFallback(DurationSec|ReleaseTime))" />
 
   <ManufacturerData>
     <Manufacturer RefId="M-00FA">

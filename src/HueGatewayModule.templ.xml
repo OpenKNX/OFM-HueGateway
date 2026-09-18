@@ -102,14 +102,15 @@
                 <Parameter Id="%AID%_UP-%TT%5%CC%200" Name="CH%C%SceneStoreActive" ParameterType="%AID%_PT-HUESceneStoreActive" Offset="0" BitOffset="1" Text="Szene speichern" Value="0" />
               </Union>
 
+              <!-- Szenen-Aktion je Gerätetyp als Union: gewollte Überlappung, Warnung per op:nowarn am Parameter unterdrückt -->
               <!-- Szene 1: Bytes 89-97 -->
               <Parameter Id="%AID%_P-%TT%5%CC%020" Name="CH%C%Scene1Number" ParameterType="%AID%_PT-HUESceneNumber" Text="Szenennummer" Value="0"><Memory CodeSegment="%MID%" Offset="89" BitOffset="0" /></Parameter>
               <Union SizeInBit="8"><Memory CodeSegment="%MID%" Offset="90" BitOffset="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%021" Name="CH%C%Scene1ActionOnOff" ParameterType="%AID%_PT-HUESceneActionOnOff" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%022" Name="CH%C%Scene1ActionDim" ParameterType="%AID%_PT-HUESceneActionDim" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%023" Name="CH%C%Scene1ActionCT" ParameterType="%AID%_PT-HUESceneActionCT" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%100" Name="CH%C%Scene1ActionColor" ParameterType="%AID%_PT-HUESceneActionColor" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%101" Name="CH%C%Scene1ActionPlug" ParameterType="%AID%_PT-HUESceneActionPlug" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%021" Name="CH%C%Scene1ActionOnOff" ParameterType="%AID%_PT-HUESceneActionOnOff" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%022" Name="CH%C%Scene1ActionDim" ParameterType="%AID%_PT-HUESceneActionDim" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%023" Name="CH%C%Scene1ActionCT" ParameterType="%AID%_PT-HUESceneActionCT" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%100" Name="CH%C%Scene1ActionColor" ParameterType="%AID%_PT-HUESceneActionColor" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%101" Name="CH%C%Scene1ActionPlug" ParameterType="%AID%_PT-HUESceneActionPlug" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
               </Union>
               <Parameter Id="%AID%_P-%TT%5%CC%024" Name="CH%C%Scene1HueSceneRef" ParameterType="%AID%_PT-HUEHueSceneRef" Text="Hue-Szene" Value="1"><Memory CodeSegment="%MID%" Offset="91" BitOffset="0" /></Parameter>
               <Parameter Id="%AID%_P-%TT%5%CC%025" Name="CH%C%Scene1Brightness" ParameterType="%AID%_PT-HUEHCLBrightnessPercent" Text="Helligkeit" Value="100" SuffixText=" %"><Memory CodeSegment="%MID%" Offset="92" BitOffset="0" /></Parameter>
@@ -121,11 +122,11 @@
               <!-- Szene 2: Bytes 98-106 -->
               <Parameter Id="%AID%_P-%TT%5%CC%030" Name="CH%C%Scene2Number" ParameterType="%AID%_PT-HUESceneNumber" Text="Szenennummer" Value="0"><Memory CodeSegment="%MID%" Offset="98" BitOffset="0" /></Parameter>
               <Union SizeInBit="8"><Memory CodeSegment="%MID%" Offset="99" BitOffset="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%031" Name="CH%C%Scene2ActionOnOff" ParameterType="%AID%_PT-HUESceneActionOnOff" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%032" Name="CH%C%Scene2ActionDim" ParameterType="%AID%_PT-HUESceneActionDim" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%033" Name="CH%C%Scene2ActionCT" ParameterType="%AID%_PT-HUESceneActionCT" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%103" Name="CH%C%Scene2ActionColor" ParameterType="%AID%_PT-HUESceneActionColor" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%104" Name="CH%C%Scene2ActionPlug" ParameterType="%AID%_PT-HUESceneActionPlug" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%031" Name="CH%C%Scene2ActionOnOff" ParameterType="%AID%_PT-HUESceneActionOnOff" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%032" Name="CH%C%Scene2ActionDim" ParameterType="%AID%_PT-HUESceneActionDim" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%033" Name="CH%C%Scene2ActionCT" ParameterType="%AID%_PT-HUESceneActionCT" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%103" Name="CH%C%Scene2ActionColor" ParameterType="%AID%_PT-HUESceneActionColor" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%104" Name="CH%C%Scene2ActionPlug" ParameterType="%AID%_PT-HUESceneActionPlug" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
               </Union>
               <Parameter Id="%AID%_P-%TT%5%CC%034" Name="CH%C%Scene2HueSceneRef" ParameterType="%AID%_PT-HUEHueSceneRef" Text="Hue-Szene" Value="1"><Memory CodeSegment="%MID%" Offset="100" BitOffset="0" /></Parameter>
               <Parameter Id="%AID%_P-%TT%5%CC%035" Name="CH%C%Scene2Brightness" ParameterType="%AID%_PT-HUEHCLBrightnessPercent" Text="Helligkeit" Value="100" SuffixText=" %"><Memory CodeSegment="%MID%" Offset="101" BitOffset="0" /></Parameter>
@@ -137,11 +138,11 @@
               <!-- Szene 3: Bytes 107-115 -->
               <Parameter Id="%AID%_P-%TT%5%CC%040" Name="CH%C%Scene3Number" ParameterType="%AID%_PT-HUESceneNumber" Text="Szenennummer" Value="0"><Memory CodeSegment="%MID%" Offset="107" BitOffset="0" /></Parameter>
               <Union SizeInBit="8"><Memory CodeSegment="%MID%" Offset="108" BitOffset="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%041" Name="CH%C%Scene3ActionOnOff" ParameterType="%AID%_PT-HUESceneActionOnOff" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%042" Name="CH%C%Scene3ActionDim" ParameterType="%AID%_PT-HUESceneActionDim" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%043" Name="CH%C%Scene3ActionCT" ParameterType="%AID%_PT-HUESceneActionCT" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%106" Name="CH%C%Scene3ActionColor" ParameterType="%AID%_PT-HUESceneActionColor" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%107" Name="CH%C%Scene3ActionPlug" ParameterType="%AID%_PT-HUESceneActionPlug" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%041" Name="CH%C%Scene3ActionOnOff" ParameterType="%AID%_PT-HUESceneActionOnOff" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%042" Name="CH%C%Scene3ActionDim" ParameterType="%AID%_PT-HUESceneActionDim" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%043" Name="CH%C%Scene3ActionCT" ParameterType="%AID%_PT-HUESceneActionCT" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%106" Name="CH%C%Scene3ActionColor" ParameterType="%AID%_PT-HUESceneActionColor" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%107" Name="CH%C%Scene3ActionPlug" ParameterType="%AID%_PT-HUESceneActionPlug" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
               </Union>
               <Parameter Id="%AID%_P-%TT%5%CC%044" Name="CH%C%Scene3HueSceneRef" ParameterType="%AID%_PT-HUEHueSceneRef" Text="Hue-Szene" Value="1"><Memory CodeSegment="%MID%" Offset="109" BitOffset="0" /></Parameter>
               <Parameter Id="%AID%_P-%TT%5%CC%045" Name="CH%C%Scene3Brightness" ParameterType="%AID%_PT-HUEHCLBrightnessPercent" Text="Helligkeit" Value="100" SuffixText=" %"><Memory CodeSegment="%MID%" Offset="110" BitOffset="0" /></Parameter>
@@ -153,11 +154,11 @@
               <!-- Szene 4: Bytes 116-124 -->
               <Parameter Id="%AID%_P-%TT%5%CC%050" Name="CH%C%Scene4Number" ParameterType="%AID%_PT-HUESceneNumber" Text="Szenennummer" Value="0"><Memory CodeSegment="%MID%" Offset="116" BitOffset="0" /></Parameter>
               <Union SizeInBit="8"><Memory CodeSegment="%MID%" Offset="117" BitOffset="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%051" Name="CH%C%Scene4ActionOnOff" ParameterType="%AID%_PT-HUESceneActionOnOff" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%052" Name="CH%C%Scene4ActionDim" ParameterType="%AID%_PT-HUESceneActionDim" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%053" Name="CH%C%Scene4ActionCT" ParameterType="%AID%_PT-HUESceneActionCT" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%109" Name="CH%C%Scene4ActionColor" ParameterType="%AID%_PT-HUESceneActionColor" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%110" Name="CH%C%Scene4ActionPlug" ParameterType="%AID%_PT-HUESceneActionPlug" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%051" Name="CH%C%Scene4ActionOnOff" ParameterType="%AID%_PT-HUESceneActionOnOff" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%052" Name="CH%C%Scene4ActionDim" ParameterType="%AID%_PT-HUESceneActionDim" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%053" Name="CH%C%Scene4ActionCT" ParameterType="%AID%_PT-HUESceneActionCT" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%109" Name="CH%C%Scene4ActionColor" ParameterType="%AID%_PT-HUESceneActionColor" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%110" Name="CH%C%Scene4ActionPlug" ParameterType="%AID%_PT-HUESceneActionPlug" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
               </Union>
               <Parameter Id="%AID%_P-%TT%5%CC%054" Name="CH%C%Scene4HueSceneRef" ParameterType="%AID%_PT-HUEHueSceneRef" Text="Hue-Szene" Value="1"><Memory CodeSegment="%MID%" Offset="118" BitOffset="0" /></Parameter>
               <Parameter Id="%AID%_P-%TT%5%CC%055" Name="CH%C%Scene4Brightness" ParameterType="%AID%_PT-HUEHCLBrightnessPercent" Text="Helligkeit" Value="100" SuffixText=" %"><Memory CodeSegment="%MID%" Offset="119" BitOffset="0" /></Parameter>
@@ -169,11 +170,11 @@
               <!-- Szene 5: Bytes 125-133 -->
               <Parameter Id="%AID%_P-%TT%5%CC%060" Name="CH%C%Scene5Number" ParameterType="%AID%_PT-HUESceneNumber" Text="Szenennummer" Value="0"><Memory CodeSegment="%MID%" Offset="125" BitOffset="0" /></Parameter>
               <Union SizeInBit="8"><Memory CodeSegment="%MID%" Offset="126" BitOffset="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%061" Name="CH%C%Scene5ActionOnOff" ParameterType="%AID%_PT-HUESceneActionOnOff" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%062" Name="CH%C%Scene5ActionDim" ParameterType="%AID%_PT-HUESceneActionDim" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%063" Name="CH%C%Scene5ActionCT" ParameterType="%AID%_PT-HUESceneActionCT" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%112" Name="CH%C%Scene5ActionColor" ParameterType="%AID%_PT-HUESceneActionColor" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%113" Name="CH%C%Scene5ActionPlug" ParameterType="%AID%_PT-HUESceneActionPlug" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%061" Name="CH%C%Scene5ActionOnOff" ParameterType="%AID%_PT-HUESceneActionOnOff" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%062" Name="CH%C%Scene5ActionDim" ParameterType="%AID%_PT-HUESceneActionDim" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%063" Name="CH%C%Scene5ActionCT" ParameterType="%AID%_PT-HUESceneActionCT" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%112" Name="CH%C%Scene5ActionColor" ParameterType="%AID%_PT-HUESceneActionColor" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%113" Name="CH%C%Scene5ActionPlug" ParameterType="%AID%_PT-HUESceneActionPlug" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
               </Union>
               <Parameter Id="%AID%_P-%TT%5%CC%064" Name="CH%C%Scene5HueSceneRef" ParameterType="%AID%_PT-HUEHueSceneRef" Text="Hue-Szene" Value="1"><Memory CodeSegment="%MID%" Offset="127" BitOffset="0" /></Parameter>
               <Parameter Id="%AID%_P-%TT%5%CC%065" Name="CH%C%Scene5Brightness" ParameterType="%AID%_PT-HUEHCLBrightnessPercent" Text="Helligkeit" Value="100" SuffixText=" %"><Memory CodeSegment="%MID%" Offset="128" BitOffset="0" /></Parameter>
@@ -185,11 +186,11 @@
               <!-- Szene 6: Bytes 134-142 -->
               <Parameter Id="%AID%_P-%TT%5%CC%070" Name="CH%C%Scene6Number" ParameterType="%AID%_PT-HUESceneNumber" Text="Szenennummer" Value="0"><Memory CodeSegment="%MID%" Offset="134" BitOffset="0" /></Parameter>
               <Union SizeInBit="8"><Memory CodeSegment="%MID%" Offset="135" BitOffset="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%071" Name="CH%C%Scene6ActionOnOff" ParameterType="%AID%_PT-HUESceneActionOnOff" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%072" Name="CH%C%Scene6ActionDim" ParameterType="%AID%_PT-HUESceneActionDim" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%073" Name="CH%C%Scene6ActionCT" ParameterType="%AID%_PT-HUESceneActionCT" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%115" Name="CH%C%Scene6ActionColor" ParameterType="%AID%_PT-HUESceneActionColor" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%116" Name="CH%C%Scene6ActionPlug" ParameterType="%AID%_PT-HUESceneActionPlug" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%071" Name="CH%C%Scene6ActionOnOff" ParameterType="%AID%_PT-HUESceneActionOnOff" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%072" Name="CH%C%Scene6ActionDim" ParameterType="%AID%_PT-HUESceneActionDim" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%073" Name="CH%C%Scene6ActionCT" ParameterType="%AID%_PT-HUESceneActionCT" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%115" Name="CH%C%Scene6ActionColor" ParameterType="%AID%_PT-HUESceneActionColor" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%116" Name="CH%C%Scene6ActionPlug" ParameterType="%AID%_PT-HUESceneActionPlug" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
               </Union>
               <Parameter Id="%AID%_P-%TT%5%CC%074" Name="CH%C%Scene6HueSceneRef" ParameterType="%AID%_PT-HUEHueSceneRef" Text="Hue-Szene" Value="1"><Memory CodeSegment="%MID%" Offset="136" BitOffset="0" /></Parameter>
               <Parameter Id="%AID%_P-%TT%5%CC%075" Name="CH%C%Scene6Brightness" ParameterType="%AID%_PT-HUEHCLBrightnessPercent" Text="Helligkeit" Value="100" SuffixText=" %"><Memory CodeSegment="%MID%" Offset="137" BitOffset="0" /></Parameter>
@@ -201,11 +202,11 @@
               <!-- Szene 7: Bytes 143-151 -->
               <Parameter Id="%AID%_P-%TT%5%CC%080" Name="CH%C%Scene7Number" ParameterType="%AID%_PT-HUESceneNumber" Text="Szenennummer" Value="0"><Memory CodeSegment="%MID%" Offset="143" BitOffset="0" /></Parameter>
               <Union SizeInBit="8"><Memory CodeSegment="%MID%" Offset="144" BitOffset="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%081" Name="CH%C%Scene7ActionOnOff" ParameterType="%AID%_PT-HUESceneActionOnOff" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%082" Name="CH%C%Scene7ActionDim" ParameterType="%AID%_PT-HUESceneActionDim" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%083" Name="CH%C%Scene7ActionCT" ParameterType="%AID%_PT-HUESceneActionCT" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%118" Name="CH%C%Scene7ActionColor" ParameterType="%AID%_PT-HUESceneActionColor" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%119" Name="CH%C%Scene7ActionPlug" ParameterType="%AID%_PT-HUESceneActionPlug" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%081" Name="CH%C%Scene7ActionOnOff" ParameterType="%AID%_PT-HUESceneActionOnOff" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%082" Name="CH%C%Scene7ActionDim" ParameterType="%AID%_PT-HUESceneActionDim" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%083" Name="CH%C%Scene7ActionCT" ParameterType="%AID%_PT-HUESceneActionCT" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%118" Name="CH%C%Scene7ActionColor" ParameterType="%AID%_PT-HUESceneActionColor" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%119" Name="CH%C%Scene7ActionPlug" ParameterType="%AID%_PT-HUESceneActionPlug" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
               </Union>
               <Parameter Id="%AID%_P-%TT%5%CC%084" Name="CH%C%Scene7HueSceneRef" ParameterType="%AID%_PT-HUEHueSceneRef" Text="Hue-Szene" Value="1"><Memory CodeSegment="%MID%" Offset="145" BitOffset="0" /></Parameter>
               <Parameter Id="%AID%_P-%TT%5%CC%085" Name="CH%C%Scene7Brightness" ParameterType="%AID%_PT-HUEHCLBrightnessPercent" Text="Helligkeit" Value="100" SuffixText=" %"><Memory CodeSegment="%MID%" Offset="146" BitOffset="0" /></Parameter>
@@ -217,11 +218,11 @@
               <!-- Szene 8: Bytes 152-160 -->
               <Parameter Id="%AID%_P-%TT%5%CC%090" Name="CH%C%Scene8Number" ParameterType="%AID%_PT-HUESceneNumber" Text="Szenennummer" Value="0"><Memory CodeSegment="%MID%" Offset="152" BitOffset="0" /></Parameter>
               <Union SizeInBit="8"><Memory CodeSegment="%MID%" Offset="153" BitOffset="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%091" Name="CH%C%Scene8ActionOnOff" ParameterType="%AID%_PT-HUESceneActionOnOff" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%092" Name="CH%C%Scene8ActionDim" ParameterType="%AID%_PT-HUESceneActionDim" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%093" Name="CH%C%Scene8ActionCT" ParameterType="%AID%_PT-HUESceneActionCT" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%121" Name="CH%C%Scene8ActionColor" ParameterType="%AID%_PT-HUESceneActionColor" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%122" Name="CH%C%Scene8ActionPlug" ParameterType="%AID%_PT-HUESceneActionPlug" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%091" Name="CH%C%Scene8ActionOnOff" ParameterType="%AID%_PT-HUESceneActionOnOff" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%092" Name="CH%C%Scene8ActionDim" ParameterType="%AID%_PT-HUESceneActionDim" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%093" Name="CH%C%Scene8ActionCT" ParameterType="%AID%_PT-HUESceneActionCT" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%121" Name="CH%C%Scene8ActionColor" ParameterType="%AID%_PT-HUESceneActionColor" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%122" Name="CH%C%Scene8ActionPlug" ParameterType="%AID%_PT-HUESceneActionPlug" op:nowarn="true" Offset="0" BitOffset="0" Text="Aktion" Value="1" />
               </Union>
               <Parameter Id="%AID%_P-%TT%5%CC%094" Name="CH%C%Scene8HueSceneRef" ParameterType="%AID%_PT-HUEHueSceneRef" Text="Hue-Szene" Value="1"><Memory CodeSegment="%MID%" Offset="154" BitOffset="0" /></Parameter>
               <Parameter Id="%AID%_P-%TT%5%CC%095" Name="CH%C%Scene8Brightness" ParameterType="%AID%_PT-HUEHCLBrightnessPercent" Text="Helligkeit" Value="100" SuffixText=" %"><Memory CodeSegment="%MID%" Offset="155" BitOffset="0" /></Parameter>
@@ -235,118 +236,118 @@
                    Taster: Kurz-/Langdruck-Typ der Tasten 1-4 (je ein Byte)
                    Als eine Union schreibt die ETS nur die jeweils sichtbaren Parameter. -->
               <Union SizeInBit="32"><Memory CodeSegment="%MID%" Offset="161" BitOffset="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%995" Name="CH%C%HCLFallbackDurationSec" ParameterType="%AID%_PT-HUEHCLFallbackDurationSec" Offset="0" BitOffset="0" Text="Freie Rückfalldauer" Value="1800" SuffixText=" s" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%994" Name="CH%C%HCLFallbackReleaseTime" ParameterType="%AID%_PT-HUEHCLFallbackReleaseTime" Offset="2" BitOffset="0" Text="Rückfall-Uhrzeit" Value="180" SuffixText=" min" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%300" Name="CH%C%Btn1KurzTyp" ParameterType="%AID%_PT-HUEKurzTyp" Offset="0" BitOffset="0" Text="Taste 1 Kurzdruck" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%301" Name="CH%C%Btn1LangTyp" ParameterType="%AID%_PT-HUELangTyp" Offset="0" BitOffset="4" Text="Taste 1 Langdruck" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%320" Name="CH%C%Btn2KurzTyp" ParameterType="%AID%_PT-HUEKurzTyp" Offset="1" BitOffset="0" Text="Taste 2 Kurzdruck" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%321" Name="CH%C%Btn2LangTyp" ParameterType="%AID%_PT-HUELangTyp" Offset="1" BitOffset="4" Text="Taste 2 Langdruck" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%340" Name="CH%C%Btn3KurzTyp" ParameterType="%AID%_PT-HUEKurzTyp" Offset="2" BitOffset="0" Text="Taste 3 Kurzdruck" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%341" Name="CH%C%Btn3LangTyp" ParameterType="%AID%_PT-HUELangTyp" Offset="2" BitOffset="4" Text="Taste 3 Langdruck" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%360" Name="CH%C%Btn4KurzTyp" ParameterType="%AID%_PT-HUEKurzTyp" Offset="3" BitOffset="0" Text="Taste 4 Kurzdruck" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%361" Name="CH%C%Btn4LangTyp" ParameterType="%AID%_PT-HUELangTyp" Offset="3" BitOffset="4" Text="Taste 4 Langdruck" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%995" Name="CH%C%HCLFallbackDurationSec" ParameterType="%AID%_PT-HUEHCLFallbackDurationSec" op:nowarn="true" Offset="0" BitOffset="0" Text="Freie Rückfalldauer" Value="1800" SuffixText=" s" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%994" Name="CH%C%HCLFallbackReleaseTime" ParameterType="%AID%_PT-HUEHCLFallbackReleaseTime" op:nowarn="true" Offset="2" BitOffset="0" Text="Rückfall-Uhrzeit" Value="180" SuffixText=" min" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%300" Name="CH%C%Btn1KurzTyp" ParameterType="%AID%_PT-HUEKurzTyp" op:nowarn="true" Offset="0" BitOffset="0" Text="Taste 1 Kurzdruck" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%301" Name="CH%C%Btn1LangTyp" ParameterType="%AID%_PT-HUELangTyp" op:nowarn="true" Offset="0" BitOffset="4" Text="Taste 1 Langdruck" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%320" Name="CH%C%Btn2KurzTyp" ParameterType="%AID%_PT-HUEKurzTyp" op:nowarn="true" Offset="1" BitOffset="0" Text="Taste 2 Kurzdruck" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%321" Name="CH%C%Btn2LangTyp" ParameterType="%AID%_PT-HUELangTyp" op:nowarn="true" Offset="1" BitOffset="4" Text="Taste 2 Langdruck" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%340" Name="CH%C%Btn3KurzTyp" ParameterType="%AID%_PT-HUEKurzTyp" op:nowarn="true" Offset="2" BitOffset="0" Text="Taste 3 Kurzdruck" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%341" Name="CH%C%Btn3LangTyp" ParameterType="%AID%_PT-HUELangTyp" op:nowarn="true" Offset="2" BitOffset="4" Text="Taste 3 Langdruck" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%360" Name="CH%C%Btn4KurzTyp" ParameterType="%AID%_PT-HUEKurzTyp" op:nowarn="true" Offset="3" BitOffset="0" Text="Taste 4 Kurzdruck" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%361" Name="CH%C%Btn4LangTyp" ParameterType="%AID%_PT-HUELangTyp" op:nowarn="true" Offset="3" BitOffset="4" Text="Taste 4 Langdruck" Value="0" />
               </Union>
               <!-- Taste 1: Kurzdruck Sub-Werte (Offset 165-166, 16-bit Union) -->
               <Union SizeInBit="16"><Memory CodeSegment="%MID%" Offset="165" BitOffset="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%302" Name="CH%C%Btn1KurzSchaltwert" ParameterType="%AID%_PT-HUESchaltwertKurz" Offset="0" BitOffset="0" Text="Schaltwert" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%303" Name="CH%C%Btn1KurzRichtungDim" ParameterType="%AID%_PT-HUERichtungDim" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%304" Name="CH%C%Btn1KurzDimStep" ParameterType="%AID%_PT-HUELichtDimStep" Offset="0" BitOffset="1" Text="Schrittweite" Value="4" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%305" Name="CH%C%Btn1KurzSceneNr" ParameterType="%AID%_PT-HUESceneNrButton" Offset="0" BitOffset="0" Text="Szenennummer" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%306" Name="CH%C%Btn1KurzRichtungJal" ParameterType="%AID%_PT-HUERichtungJal" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%307" Name="CH%C%Btn1KurzProzent" ParameterType="%AID%_PT-HUEProzentwert" Offset="0" BitOffset="0" Text="Prozentwert" Value="100" SuffixText=" %" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%308" Name="CH%C%Btn1KurzTemp" ParameterType="%AID%_PT-HUETemperaturwert" Offset="0" BitOffset="0" Text="Temperatur" Value="21" SuffixText=" °C" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%309" Name="CH%C%Btn1KurzByte" ParameterType="%AID%_PT-HUEByteWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%310" Name="CH%C%Btn1KurzWord" ParameterType="%AID%_PT-HUEWordWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%302" Name="CH%C%Btn1KurzSchaltwert" op:nowarn="true" ParameterType="%AID%_PT-HUESchaltwertKurz" Offset="0" BitOffset="0" Text="Schaltwert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%303" Name="CH%C%Btn1KurzRichtungDim" op:nowarn="true" ParameterType="%AID%_PT-HUERichtungDim" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%304" Name="CH%C%Btn1KurzDimStep" op:nowarn="true" ParameterType="%AID%_PT-HUELichtDimStep" Offset="0" BitOffset="1" Text="Schrittweite" Value="4" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%305" Name="CH%C%Btn1KurzSceneNr" op:nowarn="true" ParameterType="%AID%_PT-HUESceneNrButton" Offset="0" BitOffset="0" Text="Szenennummer" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%306" Name="CH%C%Btn1KurzRichtungJal" op:nowarn="true" ParameterType="%AID%_PT-HUERichtungJal" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%307" Name="CH%C%Btn1KurzProzent" op:nowarn="true" ParameterType="%AID%_PT-HUEProzentwert" Offset="0" BitOffset="0" Text="Prozentwert" Value="100" SuffixText=" %" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%308" Name="CH%C%Btn1KurzTemp" op:nowarn="true" ParameterType="%AID%_PT-HUETemperaturwert" Offset="0" BitOffset="0" Text="Temperatur" Value="21" SuffixText=" °C" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%309" Name="CH%C%Btn1KurzByte" op:nowarn="true" ParameterType="%AID%_PT-HUEByteWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%310" Name="CH%C%Btn1KurzWord" op:nowarn="true" ParameterType="%AID%_PT-HUEWordWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
               </Union>
               <!-- Taste 1: Langdruck Sub-Werte (Offset 167-168, 16-bit Union) -->
               <Union SizeInBit="16"><Memory CodeSegment="%MID%" Offset="167" BitOffset="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%311" Name="CH%C%Btn1LangSchaltwert" ParameterType="%AID%_PT-HUESchaltwertLang" Offset="0" BitOffset="0" Text="Schaltwert" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%312" Name="CH%C%Btn1LangRichtungDim" ParameterType="%AID%_PT-HUERichtungDim" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%313" Name="CH%C%Btn1LangDimStep" ParameterType="%AID%_PT-HUELichtDimStep" Offset="0" BitOffset="1" Text="Schrittweite" Value="4" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%314" Name="CH%C%Btn1LangSceneNr" ParameterType="%AID%_PT-HUESceneNrButton" Offset="0" BitOffset="0" Text="Szenennummer" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%315" Name="CH%C%Btn1LangRichtungJal" ParameterType="%AID%_PT-HUERichtungJal" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%316" Name="CH%C%Btn1LangProzent" ParameterType="%AID%_PT-HUEProzentwert" Offset="0" BitOffset="0" Text="Prozentwert" Value="0" SuffixText=" %" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%317" Name="CH%C%Btn1LangTemp" ParameterType="%AID%_PT-HUETemperaturwert" Offset="0" BitOffset="0" Text="Temperatur" Value="21" SuffixText=" °C" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%318" Name="CH%C%Btn1LangByte" ParameterType="%AID%_PT-HUEByteWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%319" Name="CH%C%Btn1LangWord" ParameterType="%AID%_PT-HUEWordWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%311" Name="CH%C%Btn1LangSchaltwert" op:nowarn="true" ParameterType="%AID%_PT-HUESchaltwertLang" Offset="0" BitOffset="0" Text="Schaltwert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%312" Name="CH%C%Btn1LangRichtungDim" op:nowarn="true" ParameterType="%AID%_PT-HUERichtungDim" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%313" Name="CH%C%Btn1LangDimStep" op:nowarn="true" ParameterType="%AID%_PT-HUELichtDimStep" Offset="0" BitOffset="1" Text="Schrittweite" Value="4" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%314" Name="CH%C%Btn1LangSceneNr" op:nowarn="true" ParameterType="%AID%_PT-HUESceneNrButton" Offset="0" BitOffset="0" Text="Szenennummer" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%315" Name="CH%C%Btn1LangRichtungJal" op:nowarn="true" ParameterType="%AID%_PT-HUERichtungJal" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%316" Name="CH%C%Btn1LangProzent" op:nowarn="true" ParameterType="%AID%_PT-HUEProzentwert" Offset="0" BitOffset="0" Text="Prozentwert" Value="0" SuffixText=" %" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%317" Name="CH%C%Btn1LangTemp" op:nowarn="true" ParameterType="%AID%_PT-HUETemperaturwert" Offset="0" BitOffset="0" Text="Temperatur" Value="21" SuffixText=" °C" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%318" Name="CH%C%Btn1LangByte" op:nowarn="true" ParameterType="%AID%_PT-HUEByteWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%319" Name="CH%C%Btn1LangWord" op:nowarn="true" ParameterType="%AID%_PT-HUEWordWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
               </Union>
 
               <!-- Taste 2 Kurz-/Langdruck-Typ: in der gemeinsamen Union ab Offset 161 -->
               <!-- Taste 2: Kurzdruck Sub-Werte (Offset 169-170, 16-bit Union) -->
               <Union SizeInBit="16"><Memory CodeSegment="%MID%" Offset="169" BitOffset="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%322" Name="CH%C%Btn2KurzSchaltwert" ParameterType="%AID%_PT-HUESchaltwertKurz" Offset="0" BitOffset="0" Text="Schaltwert" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%323" Name="CH%C%Btn2KurzRichtungDim" ParameterType="%AID%_PT-HUERichtungDim" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%324" Name="CH%C%Btn2KurzDimStep" ParameterType="%AID%_PT-HUELichtDimStep" Offset="0" BitOffset="1" Text="Schrittweite" Value="4" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%325" Name="CH%C%Btn2KurzSceneNr" ParameterType="%AID%_PT-HUESceneNrButton" Offset="0" BitOffset="0" Text="Szenennummer" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%326" Name="CH%C%Btn2KurzRichtungJal" ParameterType="%AID%_PT-HUERichtungJal" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%327" Name="CH%C%Btn2KurzProzent" ParameterType="%AID%_PT-HUEProzentwert" Offset="0" BitOffset="0" Text="Prozentwert" Value="100" SuffixText=" %" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%328" Name="CH%C%Btn2KurzTemp" ParameterType="%AID%_PT-HUETemperaturwert" Offset="0" BitOffset="0" Text="Temperatur" Value="21" SuffixText=" °C" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%329" Name="CH%C%Btn2KurzByte" ParameterType="%AID%_PT-HUEByteWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%330" Name="CH%C%Btn2KurzWord" ParameterType="%AID%_PT-HUEWordWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%322" Name="CH%C%Btn2KurzSchaltwert" op:nowarn="true" ParameterType="%AID%_PT-HUESchaltwertKurz" Offset="0" BitOffset="0" Text="Schaltwert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%323" Name="CH%C%Btn2KurzRichtungDim" op:nowarn="true" ParameterType="%AID%_PT-HUERichtungDim" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%324" Name="CH%C%Btn2KurzDimStep" op:nowarn="true" ParameterType="%AID%_PT-HUELichtDimStep" Offset="0" BitOffset="1" Text="Schrittweite" Value="4" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%325" Name="CH%C%Btn2KurzSceneNr" op:nowarn="true" ParameterType="%AID%_PT-HUESceneNrButton" Offset="0" BitOffset="0" Text="Szenennummer" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%326" Name="CH%C%Btn2KurzRichtungJal" op:nowarn="true" ParameterType="%AID%_PT-HUERichtungJal" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%327" Name="CH%C%Btn2KurzProzent" op:nowarn="true" ParameterType="%AID%_PT-HUEProzentwert" Offset="0" BitOffset="0" Text="Prozentwert" Value="100" SuffixText=" %" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%328" Name="CH%C%Btn2KurzTemp" op:nowarn="true" ParameterType="%AID%_PT-HUETemperaturwert" Offset="0" BitOffset="0" Text="Temperatur" Value="21" SuffixText=" °C" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%329" Name="CH%C%Btn2KurzByte" op:nowarn="true" ParameterType="%AID%_PT-HUEByteWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%330" Name="CH%C%Btn2KurzWord" op:nowarn="true" ParameterType="%AID%_PT-HUEWordWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
               </Union>
               <!-- Taste 2: Langdruck Sub-Werte (Offset 171-172, 16-bit Union) -->
               <Union SizeInBit="16"><Memory CodeSegment="%MID%" Offset="171" BitOffset="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%331" Name="CH%C%Btn2LangSchaltwert" ParameterType="%AID%_PT-HUESchaltwertLang" Offset="0" BitOffset="0" Text="Schaltwert" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%332" Name="CH%C%Btn2LangRichtungDim" ParameterType="%AID%_PT-HUERichtungDim" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%333" Name="CH%C%Btn2LangDimStep" ParameterType="%AID%_PT-HUELichtDimStep" Offset="0" BitOffset="1" Text="Schrittweite" Value="4" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%334" Name="CH%C%Btn2LangSceneNr" ParameterType="%AID%_PT-HUESceneNrButton" Offset="0" BitOffset="0" Text="Szenennummer" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%335" Name="CH%C%Btn2LangRichtungJal" ParameterType="%AID%_PT-HUERichtungJal" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%336" Name="CH%C%Btn2LangProzent" ParameterType="%AID%_PT-HUEProzentwert" Offset="0" BitOffset="0" Text="Prozentwert" Value="0" SuffixText=" %" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%337" Name="CH%C%Btn2LangTemp" ParameterType="%AID%_PT-HUETemperaturwert" Offset="0" BitOffset="0" Text="Temperatur" Value="21" SuffixText=" °C" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%338" Name="CH%C%Btn2LangByte" ParameterType="%AID%_PT-HUEByteWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%339" Name="CH%C%Btn2LangWord" ParameterType="%AID%_PT-HUEWordWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%331" Name="CH%C%Btn2LangSchaltwert" op:nowarn="true" ParameterType="%AID%_PT-HUESchaltwertLang" Offset="0" BitOffset="0" Text="Schaltwert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%332" Name="CH%C%Btn2LangRichtungDim" op:nowarn="true" ParameterType="%AID%_PT-HUERichtungDim" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%333" Name="CH%C%Btn2LangDimStep" op:nowarn="true" ParameterType="%AID%_PT-HUELichtDimStep" Offset="0" BitOffset="1" Text="Schrittweite" Value="4" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%334" Name="CH%C%Btn2LangSceneNr" op:nowarn="true" ParameterType="%AID%_PT-HUESceneNrButton" Offset="0" BitOffset="0" Text="Szenennummer" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%335" Name="CH%C%Btn2LangRichtungJal" op:nowarn="true" ParameterType="%AID%_PT-HUERichtungJal" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%336" Name="CH%C%Btn2LangProzent" op:nowarn="true" ParameterType="%AID%_PT-HUEProzentwert" Offset="0" BitOffset="0" Text="Prozentwert" Value="0" SuffixText=" %" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%337" Name="CH%C%Btn2LangTemp" op:nowarn="true" ParameterType="%AID%_PT-HUETemperaturwert" Offset="0" BitOffset="0" Text="Temperatur" Value="21" SuffixText=" °C" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%338" Name="CH%C%Btn2LangByte" op:nowarn="true" ParameterType="%AID%_PT-HUEByteWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%339" Name="CH%C%Btn2LangWord" op:nowarn="true" ParameterType="%AID%_PT-HUEWordWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
               </Union>
 
               <!-- Taste 3 Kurz-/Langdruck-Typ: in der gemeinsamen Union ab Offset 161 -->
               <!-- Taste 3: Kurzdruck Sub-Werte (Offset 173-174, 16-bit Union) -->
               <Union SizeInBit="16"><Memory CodeSegment="%MID%" Offset="173" BitOffset="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%342" Name="CH%C%Btn3KurzSchaltwert" ParameterType="%AID%_PT-HUESchaltwertKurz" Offset="0" BitOffset="0" Text="Schaltwert" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%343" Name="CH%C%Btn3KurzRichtungDim" ParameterType="%AID%_PT-HUERichtungDim" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%344" Name="CH%C%Btn3KurzDimStep" ParameterType="%AID%_PT-HUELichtDimStep" Offset="0" BitOffset="1" Text="Schrittweite" Value="4" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%345" Name="CH%C%Btn3KurzSceneNr" ParameterType="%AID%_PT-HUESceneNrButton" Offset="0" BitOffset="0" Text="Szenennummer" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%346" Name="CH%C%Btn3KurzRichtungJal" ParameterType="%AID%_PT-HUERichtungJal" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%347" Name="CH%C%Btn3KurzProzent" ParameterType="%AID%_PT-HUEProzentwert" Offset="0" BitOffset="0" Text="Prozentwert" Value="100" SuffixText=" %" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%348" Name="CH%C%Btn3KurzTemp" ParameterType="%AID%_PT-HUETemperaturwert" Offset="0" BitOffset="0" Text="Temperatur" Value="21" SuffixText=" °C" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%349" Name="CH%C%Btn3KurzByte" ParameterType="%AID%_PT-HUEByteWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%350" Name="CH%C%Btn3KurzWord" ParameterType="%AID%_PT-HUEWordWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%342" Name="CH%C%Btn3KurzSchaltwert" op:nowarn="true" ParameterType="%AID%_PT-HUESchaltwertKurz" Offset="0" BitOffset="0" Text="Schaltwert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%343" Name="CH%C%Btn3KurzRichtungDim" op:nowarn="true" ParameterType="%AID%_PT-HUERichtungDim" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%344" Name="CH%C%Btn3KurzDimStep" op:nowarn="true" ParameterType="%AID%_PT-HUELichtDimStep" Offset="0" BitOffset="1" Text="Schrittweite" Value="4" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%345" Name="CH%C%Btn3KurzSceneNr" op:nowarn="true" ParameterType="%AID%_PT-HUESceneNrButton" Offset="0" BitOffset="0" Text="Szenennummer" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%346" Name="CH%C%Btn3KurzRichtungJal" op:nowarn="true" ParameterType="%AID%_PT-HUERichtungJal" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%347" Name="CH%C%Btn3KurzProzent" op:nowarn="true" ParameterType="%AID%_PT-HUEProzentwert" Offset="0" BitOffset="0" Text="Prozentwert" Value="100" SuffixText=" %" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%348" Name="CH%C%Btn3KurzTemp" op:nowarn="true" ParameterType="%AID%_PT-HUETemperaturwert" Offset="0" BitOffset="0" Text="Temperatur" Value="21" SuffixText=" °C" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%349" Name="CH%C%Btn3KurzByte" op:nowarn="true" ParameterType="%AID%_PT-HUEByteWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%350" Name="CH%C%Btn3KurzWord" op:nowarn="true" ParameterType="%AID%_PT-HUEWordWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
               </Union>
               <!-- Taste 3: Langdruck Sub-Werte (Offset 175-176, 16-bit Union) -->
               <Union SizeInBit="16"><Memory CodeSegment="%MID%" Offset="175" BitOffset="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%351" Name="CH%C%Btn3LangSchaltwert" ParameterType="%AID%_PT-HUESchaltwertLang" Offset="0" BitOffset="0" Text="Schaltwert" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%352" Name="CH%C%Btn3LangRichtungDim" ParameterType="%AID%_PT-HUERichtungDim" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%353" Name="CH%C%Btn3LangDimStep" ParameterType="%AID%_PT-HUELichtDimStep" Offset="0" BitOffset="1" Text="Schrittweite" Value="4" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%354" Name="CH%C%Btn3LangSceneNr" ParameterType="%AID%_PT-HUESceneNrButton" Offset="0" BitOffset="0" Text="Szenennummer" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%355" Name="CH%C%Btn3LangRichtungJal" ParameterType="%AID%_PT-HUERichtungJal" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%356" Name="CH%C%Btn3LangProzent" ParameterType="%AID%_PT-HUEProzentwert" Offset="0" BitOffset="0" Text="Prozentwert" Value="0" SuffixText=" %" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%357" Name="CH%C%Btn3LangTemp" ParameterType="%AID%_PT-HUETemperaturwert" Offset="0" BitOffset="0" Text="Temperatur" Value="21" SuffixText=" °C" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%358" Name="CH%C%Btn3LangByte" ParameterType="%AID%_PT-HUEByteWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%359" Name="CH%C%Btn3LangWord" ParameterType="%AID%_PT-HUEWordWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%351" Name="CH%C%Btn3LangSchaltwert" op:nowarn="true" ParameterType="%AID%_PT-HUESchaltwertLang" Offset="0" BitOffset="0" Text="Schaltwert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%352" Name="CH%C%Btn3LangRichtungDim" op:nowarn="true" ParameterType="%AID%_PT-HUERichtungDim" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%353" Name="CH%C%Btn3LangDimStep" op:nowarn="true" ParameterType="%AID%_PT-HUELichtDimStep" Offset="0" BitOffset="1" Text="Schrittweite" Value="4" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%354" Name="CH%C%Btn3LangSceneNr" op:nowarn="true" ParameterType="%AID%_PT-HUESceneNrButton" Offset="0" BitOffset="0" Text="Szenennummer" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%355" Name="CH%C%Btn3LangRichtungJal" op:nowarn="true" ParameterType="%AID%_PT-HUERichtungJal" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%356" Name="CH%C%Btn3LangProzent" op:nowarn="true" ParameterType="%AID%_PT-HUEProzentwert" Offset="0" BitOffset="0" Text="Prozentwert" Value="0" SuffixText=" %" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%357" Name="CH%C%Btn3LangTemp" op:nowarn="true" ParameterType="%AID%_PT-HUETemperaturwert" Offset="0" BitOffset="0" Text="Temperatur" Value="21" SuffixText=" °C" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%358" Name="CH%C%Btn3LangByte" op:nowarn="true" ParameterType="%AID%_PT-HUEByteWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%359" Name="CH%C%Btn3LangWord" op:nowarn="true" ParameterType="%AID%_PT-HUEWordWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
               </Union>
 
               <!-- Taste 4 Kurz-/Langdruck-Typ: in der gemeinsamen Union ab Offset 161 -->
               <!-- Taste 4: Kurzdruck Sub-Werte (Offset 177-178, 16-bit Union) -->
               <Union SizeInBit="16"><Memory CodeSegment="%MID%" Offset="177" BitOffset="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%362" Name="CH%C%Btn4KurzSchaltwert" ParameterType="%AID%_PT-HUESchaltwertKurz" Offset="0" BitOffset="0" Text="Schaltwert" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%363" Name="CH%C%Btn4KurzRichtungDim" ParameterType="%AID%_PT-HUERichtungDim" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%364" Name="CH%C%Btn4KurzDimStep" ParameterType="%AID%_PT-HUELichtDimStep" Offset="0" BitOffset="1" Text="Schrittweite" Value="4" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%365" Name="CH%C%Btn4KurzSceneNr" ParameterType="%AID%_PT-HUESceneNrButton" Offset="0" BitOffset="0" Text="Szenennummer" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%366" Name="CH%C%Btn4KurzRichtungJal" ParameterType="%AID%_PT-HUERichtungJal" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%367" Name="CH%C%Btn4KurzProzent" ParameterType="%AID%_PT-HUEProzentwert" Offset="0" BitOffset="0" Text="Prozentwert" Value="100" SuffixText=" %" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%368" Name="CH%C%Btn4KurzTemp" ParameterType="%AID%_PT-HUETemperaturwert" Offset="0" BitOffset="0" Text="Temperatur" Value="21" SuffixText=" °C" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%369" Name="CH%C%Btn4KurzByte" ParameterType="%AID%_PT-HUEByteWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%370" Name="CH%C%Btn4KurzWord" ParameterType="%AID%_PT-HUEWordWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%362" Name="CH%C%Btn4KurzSchaltwert" op:nowarn="true" ParameterType="%AID%_PT-HUESchaltwertKurz" Offset="0" BitOffset="0" Text="Schaltwert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%363" Name="CH%C%Btn4KurzRichtungDim" op:nowarn="true" ParameterType="%AID%_PT-HUERichtungDim" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%364" Name="CH%C%Btn4KurzDimStep" op:nowarn="true" ParameterType="%AID%_PT-HUELichtDimStep" Offset="0" BitOffset="1" Text="Schrittweite" Value="4" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%365" Name="CH%C%Btn4KurzSceneNr" op:nowarn="true" ParameterType="%AID%_PT-HUESceneNrButton" Offset="0" BitOffset="0" Text="Szenennummer" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%366" Name="CH%C%Btn4KurzRichtungJal" op:nowarn="true" ParameterType="%AID%_PT-HUERichtungJal" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%367" Name="CH%C%Btn4KurzProzent" op:nowarn="true" ParameterType="%AID%_PT-HUEProzentwert" Offset="0" BitOffset="0" Text="Prozentwert" Value="100" SuffixText=" %" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%368" Name="CH%C%Btn4KurzTemp" op:nowarn="true" ParameterType="%AID%_PT-HUETemperaturwert" Offset="0" BitOffset="0" Text="Temperatur" Value="21" SuffixText=" °C" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%369" Name="CH%C%Btn4KurzByte" op:nowarn="true" ParameterType="%AID%_PT-HUEByteWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%370" Name="CH%C%Btn4KurzWord" op:nowarn="true" ParameterType="%AID%_PT-HUEWordWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
               </Union>
               <!-- Taste 4: Langdruck Sub-Werte (Offset 179-180, 16-bit Union) -->
               <Union SizeInBit="16"><Memory CodeSegment="%MID%" Offset="179" BitOffset="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%371" Name="CH%C%Btn4LangSchaltwert" ParameterType="%AID%_PT-HUESchaltwertLang" Offset="0" BitOffset="0" Text="Schaltwert" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%372" Name="CH%C%Btn4LangRichtungDim" ParameterType="%AID%_PT-HUERichtungDim" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%373" Name="CH%C%Btn4LangDimStep" ParameterType="%AID%_PT-HUELichtDimStep" Offset="0" BitOffset="1" Text="Schrittweite" Value="4" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%374" Name="CH%C%Btn4LangSceneNr" ParameterType="%AID%_PT-HUESceneNrButton" Offset="0" BitOffset="0" Text="Szenennummer" Value="1" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%375" Name="CH%C%Btn4LangRichtungJal" ParameterType="%AID%_PT-HUERichtungJal" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%376" Name="CH%C%Btn4LangProzent" ParameterType="%AID%_PT-HUEProzentwert" Offset="0" BitOffset="0" Text="Prozentwert" Value="0" SuffixText=" %" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%377" Name="CH%C%Btn4LangTemp" ParameterType="%AID%_PT-HUETemperaturwert" Offset="0" BitOffset="0" Text="Temperatur" Value="21" SuffixText=" °C" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%378" Name="CH%C%Btn4LangByte" ParameterType="%AID%_PT-HUEByteWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%5%CC%379" Name="CH%C%Btn4LangWord" ParameterType="%AID%_PT-HUEWordWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%371" Name="CH%C%Btn4LangSchaltwert" op:nowarn="true" ParameterType="%AID%_PT-HUESchaltwertLang" Offset="0" BitOffset="0" Text="Schaltwert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%372" Name="CH%C%Btn4LangRichtungDim" op:nowarn="true" ParameterType="%AID%_PT-HUERichtungDim" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%373" Name="CH%C%Btn4LangDimStep" op:nowarn="true" ParameterType="%AID%_PT-HUELichtDimStep" Offset="0" BitOffset="1" Text="Schrittweite" Value="4" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%374" Name="CH%C%Btn4LangSceneNr" op:nowarn="true" ParameterType="%AID%_PT-HUESceneNrButton" Offset="0" BitOffset="0" Text="Szenennummer" Value="1" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%375" Name="CH%C%Btn4LangRichtungJal" op:nowarn="true" ParameterType="%AID%_PT-HUERichtungJal" Offset="0" BitOffset="0" Text="Richtung" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%376" Name="CH%C%Btn4LangProzent" op:nowarn="true" ParameterType="%AID%_PT-HUEProzentwert" Offset="0" BitOffset="0" Text="Prozentwert" Value="0" SuffixText=" %" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%377" Name="CH%C%Btn4LangTemp" op:nowarn="true" ParameterType="%AID%_PT-HUETemperaturwert" Offset="0" BitOffset="0" Text="Temperatur" Value="21" SuffixText=" °C" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%378" Name="CH%C%Btn4LangByte" op:nowarn="true" ParameterType="%AID%_PT-HUEByteWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%5%CC%379" Name="CH%C%Btn4LangWord" op:nowarn="true" ParameterType="%AID%_PT-HUEWordWert" Offset="0" BitOffset="0" Text="Wert" Value="0" />
               </Union>
 
               <!-- ===== Tasterkanal: Drehregler Aktivierung + Funktion (Offset 181) ===== -->
