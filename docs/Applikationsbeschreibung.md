@@ -61,7 +61,6 @@ Die Kommunikation erfolgt über die Hue Bridge (Hue API v2).
 * [**Lichtmanager**](#lichtmanager)
   * [Hue Szenen (global)](#hue-szenen-global)
   * [Human Centric Lighting](#human-centric-lighting)
-  * [Lichtmanager-Konfiguration übertragen (ConfigTransfer)](#lichtmanager-konfiguration-übertragen-configtransfer)
 
 <!-- DOC -->
 ## Allgemein
@@ -961,41 +960,6 @@ Die HCL-Engine des Lichtmanagers ruft pro Tick die Bridge-Implementierung `HueLi
 Nicht-valide Achsen werden in der Bridge aus dem letzten gecachten Wert aufgefüllt, sodass die Hue-Leuchte einen vollständigen Sollwert erhält, ohne dass eine gesperrte Achse fälschlich auf einen Defaultwert „springt". Die Bridge respektiert die per Lichtmanager projektierten Achsen (`HclAxes`) und überträgt nur tatsächlich konfigurierte Achsen an die Hue-Bridge.
 
 Konsistenz mit dem KNX-Bus: Der Hue-Pfad konsumiert `appliedKelvin()` und `effectiveBrightness()`, also die bereits geslewten, adaptierten und ggf. mit externen Quellen gemischten Werte — identisch zu dem, was K00/K01/K08 auf den Bus senden.
-
-### Lichtmanager-Konfiguration übertragen (ConfigTransfer)
-
-Für wiederkehrende HCL-Szenarien kann die Modul-Basiskonfiguration über das OpenKNX ConfigTransfer-Modul importiert werden. Die folgenden Beispiele aktivieren den Lichtmanager global und schreiben ein Profil in **Lichtmanager 1**.
-
-Vorgehen:
-
-1. Im ConfigTransfer-Modul als Ziel das Hue-Modul wählen.
-2. Import-Ziel auf **Modul-Basiskonfiguration** setzen.
-3. Den gewünschten String in das Feld **Transfer-String** einfügen.
-4. Import ausführen.
-5. Anschließend die gewünschten Hue-Kanäle auf **Lichtmanager 1** zuordnen.
-
-#### Büro-Profil
-
-```text
-OpenKNX,cv1,*/HUE/0§HUEHCLEnable=1§HUEHCLMasterCount=1§HCLM1Name=Buero§HCLM1CurveType=0§HCLM1SetpointCount=5§HCLM1SP0Time=06%3A00§HCLM1SP0Kelvin=5000§HCLM1SP0Brightness=40§HCLM1SP1Time=09%3A00§HCLM1SP1Kelvin=4600§HCLM1SP1Brightness=70§HCLM1SP2Time=12%3A00§HCLM1SP2Kelvin=4500§HCLM1SP2Brightness=85§HCLM1SP3Time=17%3A00§HCLM1SP3Kelvin=3500§HCLM1SP3Brightness=55§HCLM1SP4Time=20%3A30§HCLM1SP4Kelvin=3000§HCLM1SP4Brightness=25§;OpenKNX
-```
-
-#### Wohnzimmer-Profil
-
-```text
-OpenKNX,cv1,*/HUE/0§HUEHCLEnable=1§HUEHCLMasterCount=1§HCLM1Name=Wohnzimmer§HCLM1CurveType=0§HCLM1SetpointCount=4§HCLM1SP0Time=07%3A00§HCLM1SP0Kelvin=3000§HCLM1SP0Brightness=25§HCLM1SP1Time=12%3A00§HCLM1SP1Kelvin=3000§HCLM1SP1Brightness=45§HCLM1SP2Time=18%3A00§HCLM1SP2Kelvin=2400§HCLM1SP2Brightness=35§HCLM1SP3Time=22%3A30§HCLM1SP3Kelvin=2200§HCLM1SP3Brightness=15§;OpenKNX
-```
-
-#### Schlafzimmer-Profil
-
-```text
-OpenKNX,cv1,*/HUE/0§HUEHCLEnable=1§HUEHCLMasterCount=1§HCLM1Name=Schlafzimmer§HCLM1CurveType=0§HCLM1SlewRate=4§HCLM1SetpointCount=4§HCLM1SP0Time=06%3A30§HCLM1SP0Kelvin=2700§HCLM1SP0Brightness=20§HCLM1SP1Time=12%3A00§HCLM1SP1Kelvin=3500§HCLM1SP1Brightness=45§HCLM1SP2Time=19%3A30§HCLM1SP2Kelvin=2500§HCLM1SP2Brightness=25§HCLM1SP3Time=22%3A30§HCLM1SP3Kelvin=2200§HCLM1SP3Brightness=8§;OpenKNX
-```
-
-Hinweise:
-- Die Strings sind absichtlich kanalunabhängig für die Modul-Basiskonfiguration formuliert.
-- Bereits vorhandene Lichtmanager-Einstellungen in der Zielkonfiguration werden überschrieben.
-- Für zusätzliche Manager die Parameternamen entsprechend auf `HCLM2...`, `HCLM3...` usw. anpassen.
 
 ## Performance-Empfehlungen
 
