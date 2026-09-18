@@ -31,7 +31,7 @@ public:
     ~HueGatewayLight() override;
 
     /** Device type: 0 = Licht */
-    HueChannelType deviceType() const override { return HueChannelType::Licht; }
+    PT_HUEChannelType deviceType() const override { return PT_HUEChannelType::Licht; }
     
     /**
     * @brief Initializes KO mapping for this light channel.

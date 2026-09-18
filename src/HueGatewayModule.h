@@ -315,7 +315,7 @@ private:
     String getBridgeIP();
     uint8_t countEnabledChannels() const;
     // Kanaltyp aus der ETS; Deaktiviert auch für Kanäle außerhalb des gültigen Bereichs.
-    HueChannelType channelType(uint8_t channelIndex) const;
+    PT_HUEChannelType channelType(uint8_t channelIndex) const;
     // Kanal ist gewählt und nicht suspendiert.
     bool channelConfigured(uint8_t channelIndex) const;
     void setHclLock(bool active, const char* reason);

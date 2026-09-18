@@ -1,21 +1,10 @@
 #pragma once
 
 #include <Arduino.h>
+#include <knxprod.h>
 
 // Forward declaration — avoid pulling OpenKNX headers into device headers
 class GroupObject;
-
-// Kanaltyp, Werte identisch mit dem ETS-Parameter "Gerätetyp" (PT-HUEChannelType).
-// Die Übereinstimmung prüft HueGatewayModule.cpp per static_assert.
-enum class HueChannelType : uint8_t
-{
-    Deaktiviert = 0,
-    Licht = 1,
-    Bewegungsmelder = 2,
-    Taster = 3,
-    Kontaktsensor = 4,
-    Steckdose = 5
-};
 
 /**
  * @brief Abstract base class for all Hue device channel abstractions.
@@ -25,7 +14,7 @@ enum class HueChannelType : uint8_t
  * lifecycle (loop, sendStatusToKnx) and uses deviceType() to decide
  * which concrete cast is safe for type-specific operations.
  *
- * Device type values (HueChannelType):
+ * Device type values (PT_HUEChannelType):
  *   Licht           (HueGatewayLight)
  *   Bewegungsmelder (HueGatewaySensor)
  *   Taster          (HueGatewayButton)
@@ -38,7 +27,7 @@ public:
     virtual ~HueGatewayDevice() = default;
 
     /** Returns the device type discriminator. */
-    virtual HueChannelType deviceType() const = 0;
+    virtual PT_HUEChannelType deviceType() const = 0;
 
     /**
      * @brief Periodic loop — called every module loop cycle.
@@ -105,7 +94,7 @@ public:
     virtual uint8_t getSwitchOffTransitionSec() const { return 0; }
 
     // ----------------------------------------------------------------
-    // Light state accessors — only valid for deviceType() == HueChannelType::Licht
+    // Light state accessors — only valid for deviceType() == PT_HUEChannelType::Licht
     // ----------------------------------------------------------------
     virtual bool isOn() const { return false; }
     virtual uint8_t getBrightness() const { return 0; }

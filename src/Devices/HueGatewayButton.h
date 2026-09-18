@@ -105,7 +105,7 @@ public:
         _rotaryServiceRid  = "";
     }
 
-    HueChannelType deviceType() const override { return HueChannelType::Taster; }
+    PT_HUEChannelType deviceType() const override { return PT_HUEChannelType::Taster; }
     String getResourceId() const override { return _resourceId; }
     String getName() const override { return _name; }
     bool isReachable() const override { return _reachable; }
