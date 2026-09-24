@@ -1,4 +1,4 @@
-﻿### Hue Ziel (Geräte-ID)
+### Hue Ziel (Geräte-ID)
 
 Zielfeld für Gerätetypen, die direkt auf ein einzelnes Hue-Gerät zeigen, insbesondere:
 
@@ -10,6 +10,7 @@ Zielfeld für Gerätetypen, die direkt auf ein einzelnes Hue-Gerät zeigen, insb
 Verwenden Sie hier die von der Hue Bridge gemeldete Geräte-ID oder einen eindeutigen Gerätenamen.
 
 Ermittlung über:
+- ETS: Seite **Inbetriebnahme** (Hue-Geräte laden und zuordnen)
 - Webinterface: `http://<IP-des-OpenKNX-Geräts>/hue/scan`
 - Konsole: `hue scan`
 

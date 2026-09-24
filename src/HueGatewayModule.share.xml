@@ -4,6 +4,8 @@
 
   <op:minOpenKNXproducerVersion value="4.0.1" />
   <op:minModuleVersion prefix="LMG" dependency="forceUsage" value="0.4" /><!-- HUE nutzt PT-LMGMasterSelect, den Partial-Sink-Vertrag (onLightManagerPartial) und die Kanalauswahl (channel(n) == nullptr bei inaktivem LM) aus LMG >= 0.4 -->
+  <!-- Hilfsfunktionen des Inbetriebnahme-Skripts werden nicht direkt aus einem EventHandler aufgerufen -->
+  <op:nowarn id="3" regex="HUE_comm" />
 
 
   <ManufacturerData>
@@ -465,6 +467,9 @@
                 </TypeRestriction>
               </ParameterType>
 
+              <!-- Inbetriebnahme (speicherlos, erzeugt von tools/gen_commissioning.py) -->
+              <op:include href="HueGatewayModule.commissioning.parts.xml" xpath="//ParameterTypes/*" prefix="HUE" />
+
             </ParameterTypes>
             
             <Parameters>
@@ -536,6 +541,8 @@
                 <Memory CodeSegment="%MID%" Offset="1714" BitOffset="0" />
                 </Parameter>
 
+              <op:include href="HueGatewayModule.commissioning.parts.xml" xpath="//Parameters/*" prefix="HUE" />
+
             </Parameters>
             
             <ParameterRefs>
@@ -566,6 +573,7 @@
               
               <!-- Parameter-Referenzen Lichtmanager 4 -->
 
+              <op:include href="HueGatewayModule.commissioning.parts.xml" xpath="//ParameterRefs/*" prefix="HUE" />
 
             </ParameterRefs>
             
@@ -584,7 +592,11 @@
               <ComObjectRef Id="%AID%_O-%TT%00001_R-%TT%0000101" RefId="%AID%_O-%TT%00001" />
               <ComObjectRef Id="%AID%_O-%TT%00002_R-%TT%0000201" RefId="%AID%_O-%TT%00002" />
             </ComObjectRefs>
-          
+
+            <Script>
+              <op:include href="HueGatewayModule.script.js" prefix="HUE" type="script" />
+            </Script>
+
           </Static>
           
           <Dynamic>
@@ -640,12 +652,15 @@
                 <ParameterRefRef RefId="%AID%_P-%TT%00077_R-%TT%0007701" HelpContext="HUE-Hue-Szenen-aktivieren" />
 
               </ParameterBlock>
-              
+
+              <!-- Inbetriebnahme: Hue-Geräte aus der ETS laden und zuordnen -->
+              <op:include href="HueGatewayModule.commissioning.parts.xml" xpath="//Dynamic/Channel/*" prefix="HUE" />
+
               <choose ParamRefId="%AID%_P-%TT%00077_R-%TT%0007701">
                 <when test="1">
               <ParameterBlock Id="%AID%_PB-HUEScenes" Name="HueScenes" Text="Hue Szenen" Icon="format-list-text" HelpContext="HUE-Szenensteuerung">
                 <ParameterSeparator Id="%AID%_PS-HUEScenes" Text="Hue Szenen-Zuordnung" UIHint="Headline" />
-                <ParameterSeparator Id="%AID%_PS-HUEScenesInfo" Text="Weisen Sie den 8 Hue-Szene-Slots die RID der gewünschten Philips Hue Szene zu. Die RID ist die interne Hue-API-Kennung der Szene (abrufbar über die Hue REST API v2)." UIHint="Information" />
+                <ParameterSeparator Id="%AID%_PS-HUEScenesInfo" Text="Weisen Sie den 8 Hue-Szene-Slots die RID der gewünschten Philips Hue Szene zu. Die RID lässt sich auf der Seite 'Inbetriebnahme' laden und zuordnen oder im WebUI unter 'Hue-Geräte laden' ablesen." UIHint="Information" />
                 <ParameterRefRef RefId="%AID%_P-%TT%00069_R-%TT%0006901" HelpContext="HUE-Hue-Szenen-global" />
                 <ParameterRefRef RefId="%AID%_P-%TT%00070_R-%TT%0007001" HelpContext="HUE-Hue-Szenen-global" />
                 <ParameterRefRef RefId="%AID%_P-%TT%00071_R-%TT%0007101" HelpContext="HUE-Hue-Szenen-global" />

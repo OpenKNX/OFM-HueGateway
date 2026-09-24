@@ -10,6 +10,7 @@ Die Kommunikation erfolgt über die Hue Bridge (Hue API v2).
 - [Allgemein](#allgemein)
 - [Unterstützte Geräte](#unterstützte-geräte)
 - [Bridge-Konfiguration](#bridge-konfiguration)
+- [Inbetriebnahme](#inbetriebnahme)
 - [Kanal 1-n (Hue Ziele)](#kanal-1-n-hue-ziele)
 - [Lichtmanager](#lichtmanager)
 - [Kommunikationsobjekte](#kommunikationsobjekte)
@@ -34,6 +35,7 @@ Die Kommunikation erfolgt über die Hue Bridge (Hue API v2).
   * [Einschaltverhalten](#einschaltverhalten)
   * [Relatives Dimmen](#relatives-dimmen)
   * [Hue Szenen aktivieren](#hue-szenen-aktivieren)
+* [**Inbetriebnahme**](#inbetriebnahme)
 * [**Kanalauswahl**](#kanalauswahl)
 * [**Kanal 1-n (Hue Ziele)**](#kanal-1-n-hue-ziele)
   * [Beschreibung](#beschreibung)
@@ -253,11 +255,10 @@ Hinweise zu Zuständen und Fortschritt finden Sie unter [LED-Signale](#led-signa
 
 Nach erfolgreicher Kopplung (LED grün dauerhaft) erfolgt die eigentliche Gerätezuordnung:
 
-1. **Hue-Geräte laden** öffnen: `http://<IP-des-OpenKNX-Geräts>/hue/scan`
-2. In der Liste die gewünschten Ziele (Licht/Raum/Zone) inkl. ID erfassen.
-3. In ETS je Kanal **Zieltyp** setzen und **Hue Ziel (Light-/Room-/Zone-ID)** eintragen.
-4. Pro Kanal Lampentyp, Synchronisationsrichtung und Polling prüfen.
-5. Download ausführen und Funktion testen (Schalten, ggf. Helligkeit/Farbtemperatur/RGB).
+1. In der ETS die Seite [**Inbetriebnahme**](#inbetriebnahme) öffnen, **Hue-Geräte laden** ausführen, Kanäle zuordnen und **Zuordnungen übernehmen**.
+   Alternativ im WebUI **Hue-Geräte laden** öffnen (`http://<IP-des-OpenKNX-Geräts>/hue/scan`) und je Kanal **Zieltyp** und **Hue Ziel (Light-/Room-/Zone-ID)** von Hand eintragen.
+2. Pro Kanal Lampentyp, Synchronisationsrichtung und Polling prüfen.
+3. Download ausführen und Funktion testen (Schalten, ggf. Helligkeit/Farbtemperatur/RGB).
 
 Empfehlungen für robuste Inbetriebnahme:
 - Primär die jeweilige **ID (RID)** verwenden, nicht den Namen.
@@ -357,6 +358,37 @@ Aktiviert die globale Szenen-Zuordnungsseite (Reiter **Hue Szenen**), auf der bi
 
 Hinweis: Kanalspezifische Szenensteuerung (DPT 18.001) wird separat je Kanal unter **Szenensteuerung** konfiguriert.
 
+<!-- DOC -->
+## Inbetriebnahme
+
+Auf dieser Seite werden die Hue-Geräte direkt aus der ETS von der Bridge geladen und den Kanälen bzw. Szenen-Slots zugeordnet. Das WebUI wird dafür nicht benötigt.
+
+Voraussetzungen:
+- Das Gerät ist mit dieser Applikation programmiert.
+- Die Hue-Bridge ist gepairt (LED grün dauerhaft).
+- Die ETS hat eine Busverbindung zum Gerät.
+
+Ablauf:
+1. **Hue-Geräte laden**: Das Gerät fragt die Bridge ab und überträgt Leuchten, Schalter/Sensoren/Steckdosen und Szenen in die Tabellen. Die Abfrage dauert einige Sekunden. Bereits in den Kanälen eingetragene Ziel-IDs werden erkannt und in den Spalten *Kanal*, *Steuern als* und *Szenen-Slot* vorbelegt.
+2. **Zuordnen**: Pro Gerät den Hue-Kanal wählen. Bei Leuchten zusätzlich wählen, ob die Leuchte selbst, ihr Raum oder ihre Zone gesteuert wird. Szenen werden einem der 8 Szenen-Slots zugeordnet.
+3. **Zuordnungen übernehmen**: Überträgt in jeden gewählten Kanal den Gerätetyp, bei Licht den Zieltyp und die Ziel-ID. Leere Kanalbeschreibungen erhalten den Hue-Namen. Szenen-IDs werden in die Szenen-Slots geschrieben, die Hue Szenen werden dabei aktiviert.
+
+Die Tabellen:
+
+| Tabelle | Spalten |
+|---|---|
+| Leuchten | Name, Leuchten-ID, Raum, Raum-ID, Zone, Zone-ID, Kanal, Steuern als (Leuchte/Raum/Zone) |
+| Schalter, Sensoren und Steckdosen | Name, Typ, ID, Kanal |
+| Szenen | Name, Raum, Szenen-ID, Szenen-Slot |
+
+Das **Übernahme-Resultat** listet jeden geänderten Kanal und Slot auf. Ist ein Kanal oder Slot doppelt belegt, fehlt einer Leuchte der gewählte Raum bzw. die gewählte Zone oder ist ein Gerätetyp nicht zuordenbar, wird **nichts** übernommen und die Ursache angezeigt.
+
+Hinweise:
+- Die Tabellen werden nur im ETS-Projekt gespeichert und nicht in das Gerät geladen. Die übernommenen Werte werden erst mit dem nächsten Download wirksam.
+- Eine abgewählte Zuordnung (Kanal auf „–“) löscht keinen Kanal; bestehende Kanäle bleiben unverändert.
+- Es werden bis zu 64 Leuchten, 32 Schalter/Sensoren/Steckdosen und 64 Szenen angezeigt. Größere Installationen bitte über das WebUI (`http://<IP-des-OpenKNX-Geräts>/hue/scan`) einrichten.
+- Hue-Steckdosen erscheinen nur unter *Schalter, Sensoren und Steckdosen*.
+
 ## Kanalauswahl
 
 Auf der Seite **Kanalauswahl** werden die Kanäle aktiviert. Sie steht direkt über dem ersten Kanal und zeigt je Kanal eine Zeile:
@@ -425,6 +457,7 @@ Verwenden Sie je nach Zieltyp:
 - Zone-ID oder Zone-Name
 
 Ermittlung über:
+- ETS: Seite **Inbetriebnahme** (Hue-Geräte laden und zuordnen)
 - Webinterface: `http://<IP-des-OpenKNX-Geräts>/hue/scan`
 - Konsole: `hue scan`
 
@@ -443,6 +476,7 @@ Verwenden Sie je nach Zieltyp:
 - Zone-ID oder Zone-Name
 
 Ermittlung über:
+- ETS: Seite **Inbetriebnahme** (Hue-Geräte laden und zuordnen)
 - Webinterface: `http://<IP-des-OpenKNX-Geräts>/hue/scan`
 - Konsole: `hue scan`
 
@@ -466,6 +500,7 @@ Zielfeld für Gerätetypen, die direkt auf ein einzelnes Hue-Gerät zeigen, insb
 Verwenden Sie hier die von der Hue Bridge gemeldete Geräte-ID oder einen eindeutigen Gerätenamen.
 
 Ermittlung über:
+- ETS: Seite **Inbetriebnahme** (Hue-Geräte laden und zuordnen)
 - Webinterface: `http://<IP-des-OpenKNX-Geräts>/hue/scan`
 - Konsole: `hue scan`
 
@@ -486,6 +521,7 @@ Gerätetypen:
 - Steckdose
 
 Ermittlung über:
+- ETS: Seite **Inbetriebnahme** (Hue-Geräte laden und zuordnen)
 - Webinterface: `http://<IP-des-OpenKNX-Geräts>/hue/scan`
 - Konsole: `hue scan`
 
@@ -933,6 +969,8 @@ Bis zu **8 Hue-Szenen** können global (auf Modulebene) als RID-Referenz hinterl
 - **Hue Szene 1..8 (RID)**: Ressourcen-ID der Szene aus dem Hue-System
 
 Ermittlung der Scene-RID:
+- ETS: Seite **Inbetriebnahme** (Szene laden, Szenen-Slot wählen, übernehmen)
+- Webinterface: `http://<IP-des-OpenKNX-Geräts>/hue/scan`
 - Hue App → Szenen-Details (nicht immer direkt zugänglich)
 - Hue API v2: `GET /clip/v2/resource/scene`
 
@@ -1240,6 +1278,7 @@ Hinweis: Im HueGateway muss am Kanal mindestens der Lampentyp `Dimmbar` gewählt
 - Bridge-Erkennung passend gewählt: mDNS im selben VLAN oder manuelle IP bei Segmentierung
 - Bridge gefunden, authentifiziert und Verbindungsstatus geprüft
 - Benötigte Kanäle in der Kanalauswahl mit passendem Gerätetyp aktiviert
+- Hue-Geräte auf der Seite Inbetriebnahme geladen und zugeordnet (oder Ziele über das WebUI von Hand eingetragen)
 - Zieltyp und Hue Ziel pro Kanal geprüft
 - Gerätetyp und Lampentyp passend zur realen Hardware
 - Sync-Richtung und Polling passend zur Anwendung parametriert

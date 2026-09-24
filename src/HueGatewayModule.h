@@ -46,6 +46,7 @@ public:
     uint16_t flashSize() override;
     void writeFlash() override;
     void readFlash(const uint8_t* data, const uint16_t size) override;
+    bool processFunctionProperty(uint8_t objectIndex, uint8_t propertyId, uint8_t length, uint8_t* data, uint8_t* resultData, uint8_t& resultLength) override;
 
     enum class HclLockFallbackMode : uint8_t {
         None = 0,
@@ -167,6 +168,35 @@ private:
     String _lastWebScanHtml;
     String _lastWebScanText;
     String _lastWebScanError;
+
+    // ETS-Inbetriebnahme: kompaktes Scan-Ergebnis für HueGatewayModule.script.js
+    // (Function Property 0xA3/1). Befüllt in updateWebScanCache().
+    struct CommissioningLight {
+        String id;
+        String name;
+        String roomId;
+        String roomName;
+        String zoneId;
+        String zoneName;
+    };
+    struct CommissioningAccessory {
+        uint8_t type;  // 1 Taster, 2 Taster mit Drehelement, 3 Bewegungsmelder, 4 Kontaktsensor, 5 Steckdose, 6 Sonstiges
+        String id;
+        String name;
+    };
+    struct CommissioningScene {
+        String id;
+        String name;
+        String groupName;
+    };
+    std::vector<CommissioningLight> _commLights;
+    std::vector<CommissioningAccessory> _commAccessories;
+    std::vector<CommissioningScene> _commScenes;
+    uint8_t _commTruncatedFlags;  // Bit 0 Leuchten, Bit 1 Zubehör, Bit 2 Szenen
+    bool _etsScanPending;         // von der ETS angefordert, Ergebnis noch nicht fertig
+    uint8_t _etsScanError;
+    void clearCommissioningResult();
+
     bool _hclLockActive;
     uint8_t _hclLockFallbackMode;
     uint8_t _hclFallbackPolicy;

@@ -2,6 +2,15 @@
 
 Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumentiert.
 
+## [Unreleased] — Inbetriebnahme aus der ETS
+
+### Hinzugefügt
+- **Neue ETS-Seite „Inbetriebnahme"**: Der Button „Hue-Geräte laden" fragt über das Gerät die Hue-Bridge ab und füllt drei Tabellen, gruppiert pro Gerät mit allen IDs: Leuchten (mit Raum/Zone und deren IDs), Schalter/Sensoren/Steckdosen und Szenen. Dort werden Kanal bzw. Szenen-Slot gewählt, „Zuordnungen übernehmen" schreibt Gerätetyp, Zieltyp, Ziel-ID und (falls leer) die Beschreibung in die Kanäle und die Szenen-IDs in die Slots. Das Übernahme-Resultat listet jede Änderung; bei doppelt belegten Kanälen/Slots wird nichts übernommen. Bestehende Zuordnungen werden nach dem Laden vorbelegt. Das WebUI wird für die Inbetriebnahme nicht mehr benötigt.
+- Grenzen: 64 Leuchten, 32 Schalter/Sensoren/Steckdosen, 64 Szenen; größere Installationen weiterhin über das WebUI.
+- Alle Parameter der Seite sind speicherlos: Sie werden nicht ins Gerät geladen, Speicherlayout und `knxprod.h` bleiben unverändert.
+- Firmware: `processFunctionProperty` (objectIndex `0xA3`, propertyId 1) startet den vorhandenen Web-Scan und liefert das Ergebnis zeilenweise aus. Die Seite wird von `tools/gen_commissioning.py` erzeugt (`HueGatewayModule.commissioning.parts.xml`), die Logik liegt in `HueGatewayModule.script.js`.
+- Hilfetexte und Applikationsbeschreibung beschreiben den ETS-Weg; das WebUI bleibt als Alternative erwähnt.
+
 ## [0.8.0] - 2026-09-17 — Kanalauswahl nach OpenKNX-Standard
 
 > **Breaking (ETS):** Der Gerätetyp je Kanal liegt jetzt in einem neuen Parameter mit dem Wert `Deaktiviert` an Position 0. Nach dem Applikations-Update steht jeder Kanal auf `Deaktiviert` und muss einmalig neu typisiert werden. Alle übrigen Kanaleinstellungen (Ziel, Lampentyp, Szenen, Taster, Lichtmanager) bleiben erhalten, das Speicherlayout ist unverändert.

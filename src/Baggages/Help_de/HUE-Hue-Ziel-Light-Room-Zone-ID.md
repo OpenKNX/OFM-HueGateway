@@ -1,4 +1,4 @@
-﻿### Hue Ziel (Light-/Room-/Zone-ID)
+### Hue Ziel (Light-/Room-/Zone-ID)
 
 Primäres Zielfeld für alle Zieltypen.
 
@@ -8,6 +8,7 @@ Verwenden Sie je nach Zieltyp:
 - Zone-ID oder Zone-Name
 
 Ermittlung über:
+- ETS: Seite **Inbetriebnahme** (Hue-Geräte laden und zuordnen)
 - Webinterface: `http://<IP-des-OpenKNX-Geräts>/hue/scan`
 - Konsole: `hue scan`
 

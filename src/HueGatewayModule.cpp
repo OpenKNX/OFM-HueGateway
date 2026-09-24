@@ -71,6 +71,23 @@ static constexpr int kWebScanMaxLights = 192;
 static constexpr int kWebScanMaxTargets = 192;
 static constexpr unsigned long kWebScanCacheStaleMs = 15000UL;
 static constexpr unsigned long kWebScanTimeoutMs = 180000UL;
+
+// ETS-Inbetriebnahme (Gegenstelle: HueGatewayModule.script.js). Die Grenzen müssen zu
+// den Tabellen in HueGatewayModule.commissioning.parts.xml passen (tools/gen_commissioning.py).
+static constexpr uint8_t kEtsFunctionObject = 0xA3;
+static constexpr uint8_t kEtsFunctionProperty = 1;
+static constexpr uint8_t kEtsCmdStart = 1;
+static constexpr uint8_t kEtsCmdStatus = 2;
+static constexpr uint8_t kEtsCmdFetch = 3;
+static constexpr uint8_t kEtsKindLight = 1;
+static constexpr uint8_t kEtsKindAccessory = 2;
+static constexpr uint8_t kEtsKindScene = 3;
+static constexpr uint8_t kEtsScanErrorNoBridge = 1;
+static constexpr uint8_t kEtsScanErrorFailed = 2;
+static constexpr size_t kEtsMaxLights = 64;
+static constexpr size_t kEtsMaxAccessories = 32;
+static constexpr size_t kEtsMaxScenes = 64;
+static constexpr size_t kEtsMaxTextBytes = 60;
 static constexpr size_t kDiagLogCapacity = 150;
 static constexpr size_t kDiagLogMessageMaxLen = 220;
 static constexpr size_t kDiagDefaultDepth = 150;
@@ -923,6 +940,9 @@ HueGatewayModule::HueGatewayModule()
     , _lastWebScanMs(0)
     , _lastWebScanLightCount(-1)
     , _lastWebScanAccessoryCount(0)
+    , _commTruncatedFlags(0)
+    , _etsScanPending(false)
+    , _etsScanError(0)
     , _hclLockActive(false)
     , _hclLockFallbackMode(static_cast<uint8_t>(HueGatewayModule::HclLockFallbackMode::None))
     , _hclFallbackPolicy(static_cast<uint8_t>(HueGatewayModule::HclLockFallbackPolicy::Legacy))
@@ -1447,6 +1467,11 @@ void HueGatewayModule::loop()
         _webScanStartedMs = 0;
         _lastWebScanMs = millis();
         _webScanInProgress = false;
+        if (_etsScanPending)
+        {
+            _etsScanError = _commLights.empty() ? kEtsScanErrorFailed : 0;
+            _etsScanPending = false;
+        }
     }
 }
 
@@ -5833,6 +5858,8 @@ bool HueGatewayModule::startPairing()
     _lastWebScanError = "";
     _lastWebScanHtml = "";
     _lastWebScanText = "";
+    clearCommissioningResult();
+    _etsScanPending = false;
 
     resetDevices();
     _auth.clearAppKey();
@@ -7160,6 +7187,171 @@ void HueGatewayModule::handleWebLive(WebRequest& req, WebResponse& res)
 
 #endif // OPENKNX_WEBSERVER
 
+// Typcode der Zubehörtabelle in der ETS (PT-HUECommAccessoryType) aus dem Typtext von
+// HueGatewayClient::getAccessoryDevices, z.B. "Taster, Taster, Drehelement".
+static uint8_t commissioningAccessoryType(const String& type)
+{
+    if (type == "Steckdose")
+        return 5;
+    if (type.indexOf("Bewegungsmelder") >= 0)
+        return 3;
+    if (type.indexOf("Kontaktsensor") >= 0)
+        return 4;
+    if (type.indexOf("Drehelement") >= 0)
+        return 2;
+    if (type.indexOf("Taster") >= 0)
+        return 1;
+    return 6;
+}
+
+static int hexNibble(char c)
+{
+    if (c >= '0' && c <= '9')
+        return c - '0';
+    if (c >= 'a' && c <= 'f')
+        return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F')
+        return c - 'A' + 10;
+    return -1;
+}
+
+// UUID (8-4-4-4-12) als 16 Byte; leere oder ungültige IDs werden zu 16 Nullbytes.
+static void appendCommissioningUuid(uint8_t* out, uint8_t& len, const String& uuid)
+{
+    uint8_t bytes[16] = {0};
+    size_t n = 0;
+    bool valid = uuid.length() == 36;
+    for (size_t i = 0; valid && i < uuid.length(); i++)
+    {
+        if (i == 8 || i == 13 || i == 18 || i == 23)
+        {
+            valid = uuid[i] == '-';
+            continue;
+        }
+        const int hi = hexNibble(uuid[i]);
+        const int lo = hexNibble(uuid[++i]);
+        valid = hi >= 0 && lo >= 0;
+        bytes[n++] = static_cast<uint8_t>((hi << 4) | lo);
+    }
+    if (!valid)
+        memset(bytes, 0, sizeof(bytes));
+    memcpy(out + len, bytes, sizeof(bytes));
+    len += sizeof(bytes);
+}
+
+// Text als Länge + UTF-8, gekürzt an einer Zeichengrenze.
+static void appendCommissioningText(uint8_t* out, uint8_t& len, const String& text)
+{
+    size_t n = text.length();
+    if (n > kEtsMaxTextBytes)
+    {
+        n = kEtsMaxTextBytes;
+        while (n > 0 && (static_cast<uint8_t>(text[n]) & 0xC0) == 0x80)
+            n--;
+    }
+    out[len++] = static_cast<uint8_t>(n);
+    memcpy(out + len, text.c_str(), n);
+    len += n;
+}
+
+void HueGatewayModule::clearCommissioningResult()
+{
+    _commLights.clear();
+    _commLights.shrink_to_fit();
+    _commAccessories.clear();
+    _commAccessories.shrink_to_fit();
+    _commScenes.clear();
+    _commScenes.shrink_to_fit();
+    _commTruncatedFlags = 0;
+}
+
+// Protokoll siehe HueGatewayModule.script.js. Der Scan selbst läuft in loop(); hier werden
+// nur Flags gesetzt und fertige Ergebnisse ausgeliefert.
+bool HueGatewayModule::processFunctionProperty(uint8_t objectIndex, uint8_t propertyId, uint8_t length, uint8_t* data, uint8_t* resultData, uint8_t& resultLength)
+{
+    if (objectIndex != kEtsFunctionObject || propertyId != kEtsFunctionProperty || length < 1)
+        return false;
+
+    const bool bridgeReady = _client && _initialized && _client->isInitialized();
+    switch (data[0])
+    {
+        case kEtsCmdStart:
+            if (!bridgeReady)
+            {
+                resultData[0] = 1;
+                resultData[1] = kEtsScanErrorNoBridge;
+                resultLength = 2;
+                return true;
+            }
+            clearCommissioningResult();
+            _etsScanError = 0;
+            _etsScanPending = true;
+            _webScanRequested = true;
+            resultData[0] = 0;
+            resultData[1] = 0;
+            resultLength = 2;
+            return true;
+
+        case kEtsCmdStatus:
+            if (_etsScanPending && !bridgeReady)
+            {
+                // Verbindung während des Wartens verloren: loop() würde den Scan nie ausführen.
+                _etsScanPending = false;
+                _etsScanError = kEtsScanErrorNoBridge;
+            }
+            resultData[0] = 0;
+            resultData[1] = _etsScanPending ? 0 : 1;
+            resultLength = 2;
+            if (_etsScanPending)
+                return true;
+            resultData[2] = _etsScanError;
+            resultData[3] = static_cast<uint8_t>(_commLights.size());
+            resultData[4] = static_cast<uint8_t>(_commAccessories.size());
+            resultData[5] = static_cast<uint8_t>(_commScenes.size());
+            resultData[6] = _commTruncatedFlags;
+            resultLength = 7;
+            return true;
+
+        case kEtsCmdFetch:
+        {
+            const uint8_t kind = (length >= 3) ? data[1] : 0;
+            const size_t index = (length >= 3) ? data[2] : 0;
+            resultData[0] = 0;
+            resultLength = 1;
+            if (kind == kEtsKindLight && index < _commLights.size())
+            {
+                const CommissioningLight& light = _commLights[index];
+                appendCommissioningUuid(resultData, resultLength, light.id);
+                appendCommissioningText(resultData, resultLength, light.name);
+                appendCommissioningUuid(resultData, resultLength, light.roomId);
+                appendCommissioningText(resultData, resultLength, light.roomName);
+                appendCommissioningUuid(resultData, resultLength, light.zoneId);
+                appendCommissioningText(resultData, resultLength, light.zoneName);
+            }
+            else if (kind == kEtsKindAccessory && index < _commAccessories.size())
+            {
+                const CommissioningAccessory& accessory = _commAccessories[index];
+                resultData[resultLength++] = accessory.type;
+                appendCommissioningUuid(resultData, resultLength, accessory.id);
+                appendCommissioningText(resultData, resultLength, accessory.name);
+            }
+            else if (kind == kEtsKindScene && index < _commScenes.size())
+            {
+                const CommissioningScene& scene = _commScenes[index];
+                appendCommissioningUuid(resultData, resultLength, scene.id);
+                appendCommissioningText(resultData, resultLength, scene.name);
+                appendCommissioningText(resultData, resultLength, scene.groupName);
+            }
+            else
+            {
+                resultData[0] = 1;
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
 String HueGatewayModule::getBridgeScanHTML()
 {
     return _lastWebScanHtml;
@@ -7175,6 +7367,7 @@ void HueGatewayModule::updateWebScanCache()
     _diagCounterWebScanRuns++;
     appendDiagnosticLog("INFO", "WEBSCAN", "scan start");
     _lastWebScanError = "";
+    clearCommissioningResult();
 
     if (!_client || !_initialized || !_client->isInitialized())
     {
@@ -7326,11 +7519,42 @@ void HueGatewayModule::updateWebScanCache()
                 text += "    Typ: " + accessories[i].type + "\n";
             }
         }
+        for (int i = 0; i < accCount; i++)
+        {
+            if (_commAccessories.size() >= kEtsMaxAccessories)
+            {
+                _commTruncatedFlags |= 0x02;
+                break;
+            }
+            _commAccessories.push_back({commissioningAccessoryType(accessories[i].type), accessories[i].id, accessories[i].name});
+        }
         delete[] accessories;
     }
     else
     {
         _lastWebScanAccessoryCount = 0;
+    }
+
+    // Steckdosen liefert die Bridge auch als Leuchte; in der ETS stehen sie nur beim Zubehör.
+    for (int i = 0; i < count; i++)
+    {
+        bool isPlug = false;
+        for (const CommissioningAccessory& accessory : _commAccessories)
+        {
+            if (accessory.type == 5 && accessory.id.equalsIgnoreCase(lights[i].id))
+            {
+                isPlug = true;
+                break;
+            }
+        }
+        if (isPlug)
+            continue;
+        if (_commLights.size() >= kEtsMaxLights)
+        {
+            _commTruncatedFlags |= 0x01;
+            break;
+        }
+        _commLights.push_back({lights[i].id, lights[i].name, lights[i].roomRid, lights[i].room, lights[i].zoneRid, lights[i].zone});
     }
 
     // Hue-Szenen
@@ -7358,6 +7582,13 @@ void HueGatewayModule::updateWebScanCache()
                 text += "     ID: " + sceneList[i].id + "\n";
             }
         }
+        for (int i = 0; i < sceneCount && _commScenes.size() < kEtsMaxScenes; i++)
+        {
+            _commScenes.push_back({sceneList[i].id, sceneList[i].name, sceneList[i].groupName});
+        }
+        // Die Szenenliste ist auf kMaxScenes begrenzt; eine volle Liste kann abgeschnitten sein.
+        if (sceneCount >= kMaxScenes)
+            _commTruncatedFlags |= 0x04;
         delete[] sceneList;
     }
 
