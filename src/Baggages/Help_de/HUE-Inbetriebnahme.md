@@ -16,6 +16,7 @@ Das **Übernahme-Resultat** listet jeden geänderten Kanal und Slot auf. Ist ein
 
 Hinweise:
 - Die Tabellen werden nur im ETS-Projekt gespeichert und nicht in das Gerät geladen. Die übernommenen Werte werden erst mit dem nächsten Download wirksam.
+- Namen und IDs in den Tabellen lassen sich markieren und kopieren (Strg+C), z. B. um eine ID von Hand in einen Kanal einzutragen. Änderungen in den Tabellen werden beim nächsten „Hue-Geräte laden" überschrieben; ID-Felder nehmen nur eine gültige Hue-ID an.
 - Eine abgewählte Zuordnung (Kanal auf „–“) löscht keinen Kanal; bestehende Kanäle bleiben unverändert.
 - Es werden bis zu 64 Lichter, 32 Schalter/Sensoren/Steckdosen und 64 Szenen angezeigt. Größere Installationen bitte über das WebUI (`http://<IP-des-OpenKNX-Geräts>/hue/scan`) einrichten.
 - Hue-Steckdosen erscheinen nur unter *Schalter, Sensoren und Steckdosen*.
