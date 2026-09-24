@@ -1,8 +1,12 @@
-﻿### Erstinbetriebnahme und Authentifizierung
+### Erstinbetriebnahme und Authentifizierung
 
-Die Inbetriebnahme kann auf zwei Arten erfolgen:
+Die Inbetriebnahme kann auf drei Arten erfolgen:
 
-#### Variante 1: Pairing per ETS (Pairing Trigger KO)
+#### Variante 1: Pairing auf der ETS-Seite Inbetriebnahme (empfohlen)
+. ETS-Download ausführen.. Auf der Seite **Inbetriebnahme** den Button **Pairing starten** drücken (Busverbindung erforderlich).. Innerhalb des Pairing-Fensters den Link-Button an der Hue Bridge drücken. Die ETS zeigt die verbleibende Zeit und meldet den Erfolg.. Das Modul speichert den App-Key persistent.
+ die Bridge bereits gekoppelt, startet der Button kein neues Pairing. Für ein erneutes Pairing zuerst **Authentication zurücksetzen** oder eine der folgenden Varianten nutzen.
+
+#### Variante 2: Pairing per ETS (Pairing Trigger KO)
 
 1. ETS-Download ausführen.
 2. Warten, bis das Modul die Bridge gefunden hat bzw. zur Bridge verbunden ist.
@@ -10,7 +14,7 @@ Die Inbetriebnahme kann auf zwei Arten erfolgen:
 4. Innerhalb des Pairing-Fensters den Link-Button an der Hue Bridge drücken.
 5. Das Modul speichert den App-Key persistent.
 
-#### Variante 2: Pairing per Webinterface
+#### Variante 3: Pairing per Webinterface
 
 1. Webinterface öffnen: `http://<IP-des-OpenKNX-Geräts>/hue`
 2. **Kopplung starten** aufrufen (`/hue/pair`).

@@ -230,9 +230,13 @@ Beispiel: `192.168.1.100`
 <!-- DOC -->
 ### Erstinbetriebnahme und Authentifizierung
 
-Die Inbetriebnahme kann auf zwei Arten erfolgen:
+Die Inbetriebnahme kann auf drei Arten erfolgen:
 
-#### Variante 1: Pairing per ETS (Pairing Trigger KO)
+#### Variante 1: Pairing auf der ETS-Seite Inbetriebnahme (empfohlen)
+. ETS-Download ausführen.. Auf der Seite **Inbetriebnahme** den Button **Pairing starten** drücken (Busverbindung erforderlich).. Innerhalb des Pairing-Fensters den Link-Button an der Hue Bridge drücken. Die ETS zeigt die verbleibende Zeit und meldet den Erfolg.. Das Modul speichert den App-Key persistent.
+ die Bridge bereits gekoppelt, startet der Button kein neues Pairing. Für ein erneutes Pairing zuerst **Authentication zurücksetzen** oder eine der folgenden Varianten nutzen.
+
+#### Variante 2: Pairing per ETS (Pairing Trigger KO)
 
 1. ETS-Download ausführen.
 2. Warten, bis das Modul die Bridge gefunden hat bzw. zur Bridge verbunden ist.
@@ -240,7 +244,7 @@ Die Inbetriebnahme kann auf zwei Arten erfolgen:
 4. Innerhalb des Pairing-Fensters den Link-Button an der Hue Bridge drücken.
 5. Das Modul speichert den App-Key persistent.
 
-#### Variante 2: Pairing per Webinterface
+#### Variante 3: Pairing per Webinterface
 
 1. Webinterface öffnen: `http://<IP-des-OpenKNX-Geräts>/hue`
 2. **Kopplung starten** aufrufen (`/hue/pair`).
@@ -361,17 +365,17 @@ Hinweis: Kanalspezifische Szenensteuerung (DPT 18.001) wird separat je Kanal unt
 <!-- DOC -->
 ## Inbetriebnahme
 
-Auf dieser Seite werden die Hue-Geräte direkt aus der ETS von der Bridge geladen und den Kanälen bzw. Szenen-Slots zugeordnet. Das WebUI wird dafür nicht benötigt.
+Auf dieser Seite wird die Hue-Bridge gekoppelt, die Hue-Geräte werden direkt aus der ETS von der Bridge geladen und den Kanälen bzw. Szenen-Slots zugeordnet. Das WebUI wird dafür nicht benötigt.
 
 Voraussetzungen:
 - Das Gerät ist mit dieser Applikation programmiert.
-- Die Hue-Bridge ist gepairt (LED grün dauerhaft).
 - Die ETS hat eine Busverbindung zum Gerät.
 
 Ablauf:
-1. **Hue-Geräte laden**: Das Gerät fragt die Bridge ab und überträgt Leuchten, Schalter/Sensoren/Steckdosen und Szenen in die Tabellen. Die Abfrage dauert einige Sekunden. Bereits in den Kanälen eingetragene Ziel-IDs werden erkannt und in den Spalten *Kanal*, *Steuern als* und *Szenen-Slot* vorbelegt.
-2. **Zuordnen**: Pro Gerät den Hue-Kanal wählen. Bei Leuchten zusätzlich wählen, ob die Leuchte selbst, ihr Raum oder ihre Zone gesteuert wird. Szenen werden einem der 8 Szenen-Slots zugeordnet.
-3. **Zuordnungen übernehmen**: Überträgt in jeden gewählten Kanal den Gerätetyp, bei Licht den Zieltyp und die Ziel-ID. Leere Kanalbeschreibungen erhalten den Hue-Namen. Szenen-IDs werden in die Szenen-Slots geschrieben, die Hue Szenen werden dabei aktiviert.
+1. **Pairing starten**: Startet die Kopplung mit der Bridge. Innerhalb des Pairing-Zeitfensters den Link-Button an der Hue-Bridge drücken; die ETS zeigt die verbleibende Zeit und meldet den Erfolg im Pairing-Status. Ist die Bridge bereits gekoppelt, entfällt dieser Schritt (der Button startet dann kein neues Pairing).
+2. **Hue-Geräte laden**: Das Gerät fragt die Bridge ab und überträgt Leuchten, Schalter/Sensoren/Steckdosen und Szenen in die Tabellen. Die Abfrage dauert einige Sekunden. Bereits in den Kanälen eingetragene Ziel-IDs werden erkannt und in den Spalten *Kanal*, *Steuern als* und *Szenen-Slot* vorbelegt.
+3. **Zuordnen**: Pro Gerät den Hue-Kanal wählen. Bei Leuchten zusätzlich wählen, ob die Leuchte selbst, ihr Raum oder ihre Zone gesteuert wird. Szenen werden einem der 8 Szenen-Slots zugeordnet.
+4. **Zuordnungen übernehmen**: Überträgt in jeden gewählten Kanal den Gerätetyp, bei Licht den Zieltyp und die Ziel-ID. Leere Kanalbeschreibungen erhalten den Hue-Namen. Szenen-IDs werden in die Szenen-Slots geschrieben, die Hue Szenen werden dabei aktiviert.
 
 Die Tabellen:
 

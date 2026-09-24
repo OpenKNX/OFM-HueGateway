@@ -1,5 +1,6 @@
 // ---------------------------------------------------------------------------------------
-// Inbetriebnahme: Hue-Geräte aus der ETS laden und Kanälen / Szenen-Slots zuordnen.
+// Inbetriebnahme: Bridge koppeln, Hue-Geräte aus der ETS laden und Kanälen / Szenen-Slots
+// zuordnen.
 // Seite und Tabellen: HueGatewayModule.commissioning.parts.xml (tools/gen_commissioning.py).
 //
 // Gegenstelle im Gerät: HueGatewayModule::processFunctionProperty, objectIndex 0xA3,
@@ -7,6 +8,8 @@
 //   1 = Scan starten   -> [0,0] angenommen, [1,err] keine Bridge-Verbindung
 //   2 = Status         -> [0,0] läuft, [0,1,err,Leuchten,Zubehör,Szenen,Überlauf-Bits]
 //   3 = Zeile abholen  -> [3,Art,Index], Art 1 Leuchte, 2 Zubehör, 3 Szene
+//   4 = Pairing starten -> [0,0] gestartet, [1,1] nicht gestartet, [1,2] bereits gekoppelt
+//   5 = Pairing-Status -> [0,Zustand,Restsekunden], Zustand 0 wartet, 1 gekoppelt, 2 fehlgeschlagen
 // Das Abholen liefert bis zu 232 Byte und muss deshalb über
 // BASE_invokeFunctionPropertyWrapper (OGM-Common) laufen. UUIDs kommen als 16 Byte,
 // Texte als Länge + UTF-8.
@@ -22,6 +25,8 @@ var HUE_COMM_MAX_SCENES = 64;
 var HUE_COMM_CHANNELS = 32;
 var HUE_COMM_SCENE_SLOTS = 8;
 var HUE_COMM_SCAN_TIMEOUT_MS = 120000;
+// Pairing-Zeitfenster ist maximal 120 s, danach richtet das Gerät noch die Kanäle ein
+var HUE_COMM_PAIR_TIMEOUT_MS = 180000;
 var HUE_COMM_CHANNEL_NAME_BYTES = 40;
 // Kanaltyp je Zubehörtyp (PT-HUECommAccessoryType -> PT-HUEChannelType), 0 = nicht zuordenbar
 var HUE_COMM_ACCESSORY_CHANNEL_TYPE = [0, 3, 3, 2, 4, 5, 0];
@@ -194,6 +199,63 @@ function HUE_commPreselect(device, lightCount, accessoryCount, sceneCount) {
             }
         }
         HUE_commParam(device, s + "Slot").value = slot;
+    }
+}
+
+function HUE_btnCommPair(device, online, progress, context) {
+    var status = HUE_commParam(device, "HUECommPairStatus");
+    online.connect();
+    try {
+        progress.setText("Hue: Starte Pairing …");
+        progress.setProgress(2);
+        var resp = online.invokeFunctionProperty(HUE_COMM_OBJECT, HUE_COMM_PROPERTY, [4]);
+        if (!resp || resp.length < 2) {
+            throw new Error("Hue: Keine Antwort vom Gerät. Ist es mit dieser Applikation programmiert?");
+        }
+        if (resp[0] !== 0 && resp[1] == 2) {
+            status.value = "Hue-Bridge ist bereits gekoppelt.";
+            progress.setProgress(100);
+            progress.setText("Hue: Die Bridge ist bereits gekoppelt. Für ein neues Pairing zuerst 'Authentication zurücksetzen'.");
+            return;
+        }
+        if (resp[0] !== 0) {
+            status.value = "Pairing konnte nicht gestartet werden.";
+            throw new Error("Hue: Pairing nicht gestartet. Netzwerkverbindung und Bridge-Erkennung (mDNS / IP-Adresse) prüfen.");
+        }
+
+        // Nach dem Tastendruck richtet das Gerät die Kanäle ein und antwortet dabei
+        // kurzzeitig nicht; solche Aufrufe werden wiederholt.
+        var waited = 0;
+        while (waited < HUE_COMM_PAIR_TIMEOUT_MS) {
+            if (progress.isCanceled()) {
+                status.value = "Pairing abgebrochen (läuft im Gerät bis zum Ende des Zeitfensters weiter).";
+                return;
+            }
+            HUE_commSleep(1000);
+            waited += 1000;
+            try {
+                resp = online.invokeFunctionProperty(HUE_COMM_OBJECT, HUE_COMM_PROPERTY, [5]);
+            } catch (e) {
+                continue;
+            }
+            if (!resp || resp.length < 3 || resp[0] !== 0) continue;
+            if (resp[1] == 1) {
+                status.value = "Hue-Bridge gekoppelt.";
+                progress.setProgress(100);
+                progress.setText("Hue: Bridge gekoppelt. Jetzt 'Hue-Geräte laden' ausführen.");
+                return;
+            }
+            if (resp[1] == 2) {
+                status.value = "Pairing fehlgeschlagen: Link-Button nicht rechtzeitig gedrückt oder Bridge nicht erreichbar.";
+                throw new Error("Hue: " + status.value);
+            }
+            progress.setProgress(2 + Math.floor(96 * waited / HUE_COMM_PAIR_TIMEOUT_MS));
+            progress.setText("Hue: Jetzt den Link-Button an der Hue-Bridge drücken (noch " + resp[2] + " s) …");
+        }
+        status.value = "Zeitüberschreitung beim Pairing.";
+        throw new Error("Hue: Das Pairing wurde nicht rechtzeitig abgeschlossen.");
+    } finally {
+        online.disconnect();
     }
 }
 

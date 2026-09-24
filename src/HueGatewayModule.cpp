@@ -79,6 +79,13 @@ static constexpr uint8_t kEtsFunctionProperty = 1;
 static constexpr uint8_t kEtsCmdStart = 1;
 static constexpr uint8_t kEtsCmdStatus = 2;
 static constexpr uint8_t kEtsCmdFetch = 3;
+static constexpr uint8_t kEtsCmdPair = 4;
+static constexpr uint8_t kEtsCmdPairStatus = 5;
+static constexpr uint8_t kEtsPairErrorNotStarted = 1;
+static constexpr uint8_t kEtsPairErrorAlreadyConnected = 2;
+static constexpr uint8_t kEtsPairStateWaiting = 0;
+static constexpr uint8_t kEtsPairStateConnected = 1;
+static constexpr uint8_t kEtsPairStateFailed = 2;
 static constexpr uint8_t kEtsKindLight = 1;
 static constexpr uint8_t kEtsKindAccessory = 2;
 static constexpr uint8_t kEtsKindScene = 3;
@@ -7345,6 +7352,46 @@ bool HueGatewayModule::processFunctionProperty(uint8_t objectIndex, uint8_t prop
             else
             {
                 resultData[0] = 1;
+            }
+            return true;
+        }
+
+        case kEtsCmdPair:
+            // Pairing löscht den App-Key; eine bestehende Verbindung wird daher nicht angetastet.
+            resultLength = 2;
+            if (bridgeReady && _bridgeStatus == BridgeStatus::CONNECTED)
+            {
+                resultData[0] = 1;
+                resultData[1] = kEtsPairErrorAlreadyConnected;
+            }
+            else if (!startPairing())
+            {
+                resultData[0] = 1;
+                resultData[1] = kEtsPairErrorNotStarted;
+            }
+            else
+            {
+                resultData[0] = 0;
+                resultData[1] = 0;
+            }
+            return true;
+
+        case kEtsCmdPairStatus:
+        {
+            resultData[0] = 0;
+            resultLength = 3;
+            if (_authPending)
+            {
+                const unsigned long elapsedMs = millis() - _authStartTime;
+                const unsigned long remainingMs = (_authWindowMs > elapsedMs) ? (_authWindowMs - elapsedMs) : 0;
+                resultData[1] = kEtsPairStateWaiting;
+                const unsigned long remainingSec = remainingMs / 1000UL;
+                resultData[2] = static_cast<uint8_t>(remainingSec > 255UL ? 255UL : remainingSec);
+            }
+            else
+            {
+                resultData[1] = (bridgeReady && _bridgeStatus == BridgeStatus::CONNECTED) ? kEtsPairStateConnected : kEtsPairStateFailed;
+                resultData[2] = 0;
             }
             return true;
         }

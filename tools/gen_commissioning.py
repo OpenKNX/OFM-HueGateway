@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Erzeugt src/HueGatewayModule.commissioning.parts.xml - die Seite "Inbetriebnahme".
 
-Die Seite liest die Hue-Geräte über die Bridge aus (Button, online), zeigt sie gruppiert
+Die Seite startet das Pairing mit der Bridge (Button, online), liest die Hue-Geräte über die Bridge aus (Button, online), zeigt sie gruppiert
 pro Gerät mit allen IDs und überträgt die gewählten Zuordnungen in Kanäle und
 Szenen-Slots (Button, offline). Logik: src/HueGatewayModule.script.js,
 Gegenstelle im Gerät: HueGatewayModule::processFunctionProperty.
@@ -33,6 +33,7 @@ RESULT = 101
 LIGHT_COUNT = 102
 ACCESSORY_COUNT = 103
 SCENE_COUNT = 104
+PAIR_STATUS = 105
 
 # (Spaltenname, Überschrift, Breite, Parametertyp, editierbar)
 LIGHT_COLUMNS = [
@@ -137,6 +138,7 @@ def parameters():
         parameter(LIGHT_COUNT, "HUECommLightCount", "HUECommCount", "Anzahl Leuchten", "0", "None"),
         parameter(ACCESSORY_COUNT, "HUECommAccessoryCount", "HUECommCount", "Anzahl Zubehör", "0", "None"),
         parameter(SCENE_COUNT, "HUECommSceneCount", "HUECommCount", "Anzahl Szenen", "0", "None"),
+        parameter(PAIR_STATUS, "HUECommPairStatus", "HUECommStatus", "Pairing-Status", "", "None"),
     ]
     for (key, _base, _rows, _columns, _title, _count), table in zip(TABLES, table_params()):
         for r, row in enumerate(table, 1):
@@ -147,7 +149,7 @@ def parameters():
 
 
 def parameter_refs():
-    numbers = [STATUS, RESULT, LIGHT_COUNT, ACCESSORY_COUNT, SCENE_COUNT]
+    numbers = [STATUS, RESULT, LIGHT_COUNT, ACCESSORY_COUNT, SCENE_COUNT, PAIR_STATUS]
     for table in table_params():
         for row in table:
             numbers += [n for n, _col in row]
@@ -175,14 +177,19 @@ def dynamic():
     lines = [
         '              <ParameterBlock Id="%s_PB-nnn" Name="HueCommissioning" Text="Inbetriebnahme" Icon="import" HelpContext="HUE-Inbetriebnahme">' % AID,
         '                <ParameterSeparator Id="%s" Text="Hue-Geräte laden und zuordnen" UIHint="Headline" />' % PS,
-        '                <ParameterSeparator Id="%s" Text="Das Gerät muss programmiert und mit der Hue-Bridge gepairt sein. Die Tabellen dieser Seite werden nur im ETS-Projekt gespeichert und nicht in das Gerät geladen." UIHint="Information" />' % PS,
+        '                <ParameterSeparator Id="%s" Text="Das Gerät muss mit dieser Applikation programmiert sein. Die Tabellen dieser Seite werden nur im ETS-Projekt gespeichert und nicht in das Gerät geladen." UIHint="Information" />' % PS,
         '                <ParameterSeparator Id="%s" Text="Es werden bis zu %d Leuchten, %d Schalter/Sensoren/Steckdosen und %d Szenen angezeigt. Größere Installationen bitte über das WebUI (Hue-Geräte laden) einrichten." UIHint="Information" />' % (PS, MAX_LIGHTS, MAX_ACCESSORIES, MAX_SCENES),
         '                <ParameterSeparator Id="%s" Text="" UIHint="HorizontalRuler" />' % PS,
-        '                <ParameterSeparator Id="%s" Text="1. Hue-Geräte von der Bridge laden" UIHint="Headline" />' % PS,
+        '                <ParameterSeparator Id="%s" Text="1. Hue-Bridge koppeln (Pairing)" UIHint="Headline" />' % PS,
+        '                <ParameterSeparator Id="%s" Text="Startet das Pairing. Anschließend innerhalb des Pairing-Zeitfensters den Link-Button an der Hue-Bridge drücken. Ist die Bridge bereits gekoppelt, entfällt dieser Schritt." UIHint="Information" />' % PS,
+        '                <Button Id="%s_B-%s00003" Text="Pairing starten" EventHandler="HUE_btnCommPair" EventHandlerOnline="ConnectionOriented" EventHandlerParameters="{ }" />' % (AID, TT),
+        '                <ParameterSeparator Id="%s" Text="{{0:Pairing-Status noch nicht abgefragt.}}" TextParameterRefId="%s" />' % (PS, pref(PAIR_STATUS)),
+        '                <ParameterSeparator Id="%s" Text="" UIHint="HorizontalRuler" />' % PS,
+        '                <ParameterSeparator Id="%s" Text="2. Hue-Geräte von der Bridge laden" UIHint="Headline" />' % PS,
         '                <Button Id="%s_B-%s00001" Text="Hue-Geräte laden" EventHandler="HUE_btnCommLoad" EventHandlerOnline="ConnectionOriented" EventHandlerParameters="{ }" />' % (AID, TT),
         '                <ParameterSeparator Id="%s" Text="{{0:Noch keine Hue-Geräte geladen.}}" TextParameterRefId="%s" />' % (PS, pref(STATUS)),
         '                <ParameterSeparator Id="%s" Text="" UIHint="HorizontalRuler" />' % PS,
-        '                <ParameterSeparator Id="%s" Text="2. Kanäle und Szenen-Slots zuordnen" UIHint="Headline" />' % PS,
+        '                <ParameterSeparator Id="%s" Text="3. Kanäle und Szenen-Slots zuordnen" UIHint="Headline" />' % PS,
         '                <ParameterSeparator Id="%s" Text="Pro Gerät den Hue-Kanal wählen, bei Leuchten zusätzlich, ob die Leuchte selbst, ihr Raum oder ihre Zone gesteuert wird. Bestehende Zuordnungen sind nach dem Laden bereits vorbelegt." UIHint="Information" />' % PS,
     ]
     for (key, _base, rows, columns, title, count), table in zip(TABLES, table_params()):
@@ -199,7 +206,7 @@ def dynamic():
         lines.append('                </choose>')
     lines += [
         '                <ParameterSeparator Id="%s" Text="" UIHint="HorizontalRuler" />' % PS,
-        '                <ParameterSeparator Id="%s" Text="3. Zuordnungen übernehmen" UIHint="Headline" />' % PS,
+        '                <ParameterSeparator Id="%s" Text="4. Zuordnungen übernehmen" UIHint="Headline" />' % PS,
         '                <ParameterSeparator Id="%s" Text="Überträgt Gerätetyp, Zieltyp und Ziel-ID in die gewählten Kanäle und die Szenen-IDs in die Szenen-Slots. Leere Kanalbeschreibungen erhalten den Hue-Namen. Bei doppelt belegten Kanälen oder Slots wird nichts übernommen." UIHint="Information" />' % PS,
         '                <Button Id="%s_B-%s00002" Text="Zuordnungen übernehmen" EventHandler="HUE_btnCommApply" EventHandlerParameters="{ }" />' % (AID, TT),
         '                <ParameterRefRef RefId="%s" HelpContext="HUE-Inbetriebnahme" />' % pref(RESULT),

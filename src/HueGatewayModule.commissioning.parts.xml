@@ -98,6 +98,7 @@
               <Parameter Id="%AID%_P-%TT%00102" Name="HUECommLightCount" ParameterType="%AID%_PT-HUECommCount" Text="Anzahl Leuchten" Value="0" Access="None" />
               <Parameter Id="%AID%_P-%TT%00103" Name="HUECommAccessoryCount" ParameterType="%AID%_PT-HUECommCount" Text="Anzahl Zubehör" Value="0" Access="None" />
               <Parameter Id="%AID%_P-%TT%00104" Name="HUECommSceneCount" ParameterType="%AID%_PT-HUECommCount" Text="Anzahl Szenen" Value="0" Access="None" />
+              <Parameter Id="%AID%_P-%TT%00105" Name="HUECommPairStatus" ParameterType="%AID%_PT-HUECommStatus" Text="Pairing-Status" Value="" Access="None" />
               <Parameter Id="%AID%_P-%TT%10101" Name="HUECommL01Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" />
               <Parameter Id="%AID%_P-%TT%10102" Name="HUECommL01Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" />
               <Parameter Id="%AID%_P-%TT%10103" Name="HUECommL01Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" />
@@ -1001,6 +1002,7 @@
               <ParameterRef Id="%AID%_P-%TT%00102_R-%TT%0010201" RefId="%AID%_P-%TT%00102" />
               <ParameterRef Id="%AID%_P-%TT%00103_R-%TT%0010301" RefId="%AID%_P-%TT%00103" />
               <ParameterRef Id="%AID%_P-%TT%00104_R-%TT%0010401" RefId="%AID%_P-%TT%00104" />
+              <ParameterRef Id="%AID%_P-%TT%00105_R-%TT%0010501" RefId="%AID%_P-%TT%00105" />
               <ParameterRef Id="%AID%_P-%TT%10101_R-%TT%1010101" RefId="%AID%_P-%TT%10101" />
               <ParameterRef Id="%AID%_P-%TT%10102_R-%TT%1010201" RefId="%AID%_P-%TT%10102" />
               <ParameterRef Id="%AID%_P-%TT%10103_R-%TT%1010301" RefId="%AID%_P-%TT%10103" />
@@ -1903,14 +1905,19 @@
             <Channel>
               <ParameterBlock Id="%AID%_PB-nnn" Name="HueCommissioning" Text="Inbetriebnahme" Icon="import" HelpContext="HUE-Inbetriebnahme">
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="Hue-Geräte laden und zuordnen" UIHint="Headline" />
-                <ParameterSeparator Id="%AID%_PS-nnn" Text="Das Gerät muss programmiert und mit der Hue-Bridge gepairt sein. Die Tabellen dieser Seite werden nur im ETS-Projekt gespeichert und nicht in das Gerät geladen." UIHint="Information" />
+                <ParameterSeparator Id="%AID%_PS-nnn" Text="Das Gerät muss mit dieser Applikation programmiert sein. Die Tabellen dieser Seite werden nur im ETS-Projekt gespeichert und nicht in das Gerät geladen." UIHint="Information" />
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="Es werden bis zu 64 Leuchten, 32 Schalter/Sensoren/Steckdosen und 64 Szenen angezeigt. Größere Installationen bitte über das WebUI (Hue-Geräte laden) einrichten." UIHint="Information" />
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="" UIHint="HorizontalRuler" />
-                <ParameterSeparator Id="%AID%_PS-nnn" Text="1. Hue-Geräte von der Bridge laden" UIHint="Headline" />
+                <ParameterSeparator Id="%AID%_PS-nnn" Text="1. Hue-Bridge koppeln (Pairing)" UIHint="Headline" />
+                <ParameterSeparator Id="%AID%_PS-nnn" Text="Startet das Pairing. Anschließend innerhalb des Pairing-Zeitfensters den Link-Button an der Hue-Bridge drücken. Ist die Bridge bereits gekoppelt, entfällt dieser Schritt." UIHint="Information" />
+                <Button Id="%AID%_B-%TT%00003" Text="Pairing starten" EventHandler="HUE_btnCommPair" EventHandlerOnline="ConnectionOriented" EventHandlerParameters="{ }" />
+                <ParameterSeparator Id="%AID%_PS-nnn" Text="{{0:Pairing-Status noch nicht abgefragt.}}" TextParameterRefId="%AID%_P-%TT%00105_R-%TT%0010501" />
+                <ParameterSeparator Id="%AID%_PS-nnn" Text="" UIHint="HorizontalRuler" />
+                <ParameterSeparator Id="%AID%_PS-nnn" Text="2. Hue-Geräte von der Bridge laden" UIHint="Headline" />
                 <Button Id="%AID%_B-%TT%00001" Text="Hue-Geräte laden" EventHandler="HUE_btnCommLoad" EventHandlerOnline="ConnectionOriented" EventHandlerParameters="{ }" />
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="{{0:Noch keine Hue-Geräte geladen.}}" TextParameterRefId="%AID%_P-%TT%00100_R-%TT%0010001" />
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="" UIHint="HorizontalRuler" />
-                <ParameterSeparator Id="%AID%_PS-nnn" Text="2. Kanäle und Szenen-Slots zuordnen" UIHint="Headline" />
+                <ParameterSeparator Id="%AID%_PS-nnn" Text="3. Kanäle und Szenen-Slots zuordnen" UIHint="Headline" />
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="Pro Gerät den Hue-Kanal wählen, bei Leuchten zusätzlich, ob die Leuchte selbst, ihr Raum oder ihre Zone gesteuert wird. Bestehende Zuordnungen sind nach dem Laden bereits vorbelegt." UIHint="Information" />
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="Leuchten" UIHint="Headline" />
                 <choose ParamRefId="%AID%_P-%TT%00102_R-%TT%0010201">
@@ -3123,7 +3130,7 @@
                   </when>
                 </choose>
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="" UIHint="HorizontalRuler" />
-                <ParameterSeparator Id="%AID%_PS-nnn" Text="3. Zuordnungen übernehmen" UIHint="Headline" />
+                <ParameterSeparator Id="%AID%_PS-nnn" Text="4. Zuordnungen übernehmen" UIHint="Headline" />
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="Überträgt Gerätetyp, Zieltyp und Ziel-ID in die gewählten Kanäle und die Szenen-IDs in die Szenen-Slots. Leere Kanalbeschreibungen erhalten den Hue-Namen. Bei doppelt belegten Kanälen oder Slots wird nichts übernommen." UIHint="Information" />
                 <Button Id="%AID%_B-%TT%00002" Text="Zuordnungen übernehmen" EventHandler="HUE_btnCommApply" EventHandlerParameters="{ }" />
                 <ParameterRefRef RefId="%AID%_P-%TT%00101_R-%TT%0010101" HelpContext="HUE-Inbetriebnahme" />
