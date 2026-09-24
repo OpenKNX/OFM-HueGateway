@@ -6,8 +6,8 @@
 // Gegenstelle im Gerät: HueGatewayModule::processFunctionProperty, objectIndex 0xA3,
 // propertyId 1. Erstes Datenbyte ist das Kommando:
 //   1 = Scan starten   -> [0,0] angenommen, [1,err] keine Bridge-Verbindung
-//   2 = Status         -> [0,0] läuft, [0,1,err,Leuchten,Zubehör,Szenen,Überlauf-Bits]
-//   3 = Zeile abholen  -> [3,Art,Index], Art 1 Leuchte, 2 Zubehör, 3 Szene
+//   2 = Status         -> [0,0] läuft, [0,1,err,Lichter,Zubehör,Szenen,Überlauf-Bits]
+//   3 = Zeile abholen  -> [3,Art,Index], Art 1 Licht, 2 Zubehör, 3 Szene
 //   4 = Pairing starten -> [0,0] gestartet, [1,1] nicht gestartet, [1,2] bereits gekoppelt
 //   5 = Pairing-Status -> [0,Zustand,Restsekunden], Zustand 0 wartet, 1 gekoppelt, 2 fehlgeschlagen
 // Das Abholen liefert bis zu 232 Byte und muss deshalb über
@@ -31,7 +31,7 @@ var HUE_COMM_CHANNEL_NAME_BYTES = 40;
 // Kanaltyp je Zubehörtyp (PT-HUECommAccessoryType -> PT-HUEChannelType), 0 = nicht zuordenbar
 var HUE_COMM_ACCESSORY_CHANNEL_TYPE = [0, 3, 3, 2, 4, 5, 0];
 var HUE_COMM_CHANNEL_TYPE_NAMES = ["Deaktiviert", "Licht", "Bewegungsmelder", "Taster/Schalter", "Kontaktsensor", "Steckdose"];
-var HUE_COMM_TARGET_NAMES = ["Leuchte", "Raum", "Zone"];
+var HUE_COMM_TARGET_NAMES = ["Licht", "Raum", "Zone"];
 
 function HUE_commSleep(milliseconds) {
     var currentTime = new Date().getTime();
@@ -163,8 +163,8 @@ function HUE_commFindChannel(device, id, channelTypes, targetType) {
 }
 
 // Bestehende Zuordnungen nach dem Laden in die Spalten Kanal / Steuern als / Slot übernehmen.
-// Ein Raum oder eine Zone wird nur bei der ersten Leuchte vorbelegt, sonst stünde derselbe
-// Kanal bei jeder Leuchte des Raums.
+// Ein Raum oder eine Zone wird nur beim ersten Licht vorbelegt, sonst stünde derselbe
+// Kanal bei jedem Licht des Raums.
 function HUE_commPreselect(device, lightCount, accessoryCount, sceneCount) {
     var seenGroups = "|";
     var r, ch;
@@ -296,7 +296,7 @@ function HUE_btnCommLoad(device, online, progress, context) {
             throw new Error("Hue: Die Abfrage der Hue-Bridge wurde nicht rechtzeitig fertig.");
         }
         if (done.length < 7 || done[2] !== 0) {
-            status.value = done[2] == 1 ? "Keine Verbindung zur Hue-Bridge." : "Die Hue-Bridge lieferte keine Leuchten.";
+            status.value = done[2] == 1 ? "Keine Verbindung zur Hue-Bridge." : "Die Hue-Bridge lieferte keine Lichter.";
             throw new Error("Hue: " + status.value + " Details im WebUI unter 'Hue-Geräte laden'.");
         }
 
@@ -325,7 +325,7 @@ function HUE_btnCommLoad(device, online, progress, context) {
             HUE_commParam(device, l + "Zone").value = t.text;
             fetched++;
             progress.setProgress(40 + Math.floor(58 * fetched / total));
-            progress.setText("Hue: Leuchte " + r + " von " + lightCount + " …");
+            progress.setText("Hue: Licht " + r + " von " + lightCount + " …");
         }
         for (r = 1; r <= accessoryCount; r++) {
             if (progress.isCanceled()) return;
@@ -356,7 +356,7 @@ function HUE_btnCommLoad(device, online, progress, context) {
         HUE_commParam(device, "HUECommSceneCount").value = sceneCount;
         HUE_commPreselect(device, lightCount, accessoryCount, sceneCount);
 
-        var text = lightCount + " Leuchten, " + accessoryCount + " Schalter/Sensoren, " + sceneCount + " Szenen geladen.";
+        var text = lightCount + " Lichter, " + accessoryCount + " Schalter/Sensoren, " + sceneCount + " Szenen geladen.";
         if (truncated) text += " Nicht alle Geräte passen in die Tabellen, Rest über das WebUI.";
         status.value = text;
         HUE_commParam(device, "HUECommResult").value = "";
@@ -368,7 +368,7 @@ function HUE_btnCommLoad(device, online, progress, context) {
 }
 
 // Merkt die gewünschte Zuordnung eines Kanals vor. Dieselbe Zuordnung zweimal ist kein
-// Konflikt (z.B. zwei Leuchten desselben Raums auf einem Kanal mit Ziel Raum).
+// Konflikt (z.B. zwei Lichter desselben Raums auf einem Kanal mit Ziel Raum).
 function HUE_commAssign(device, plan, ch, type, target, id, name, label) {
     if (!HUE_commParam(device, "CH" + ch + "ChannelType")) {
         plan.errors.push(label + ": Kanal Hue " + ch + " gibt es in dieser Applikation nicht.");
@@ -412,7 +412,7 @@ function HUE_btnCommApply(device, online, progress, context) {
         var targetName = target == 0 ? name : HUE_commParam(device, l + (target == 1 ? "Room" : "Zone")).value;
         label = HUE_COMM_TARGET_NAMES[target] + " '" + targetName + "'";
         if (id === "") {
-            errors.push("Leuchte '" + name + "' hat keine " + (target == 1 ? "Raum" : "Zone") + "-Zuordnung in der Hue-App.");
+            errors.push("Licht '" + name + "' hat keine " + (target == 1 ? "Raum" : "Zone") + "-Zuordnung in der Hue-App.");
             continue;
         }
         HUE_commAssign(device, plan, ch, 1, target, id, targetName, label);

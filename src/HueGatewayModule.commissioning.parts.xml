@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <?xml-model href="../../../../Organization/knxprod-support/knx_project_20/knx-editor.xsd" type="application/xml" schematypens="http://www.w3.org/2001/XMLSchema"?>
-<!-- Tabellen der ETS-Seite Inbetriebnahme: 64 Leuchten, 32 Schalter/Sensoren/Steckdosen, 64 Szenen. -->
+<!-- Tabellen der ETS-Seite Inbetriebnahme: 64 Lichter, 32 Schalter/Sensoren/Steckdosen, 64 Szenen. -->
 <KNX xmlns:op="http://github.com/OpenKNX/OpenKNXproducer" xmlns="http://knx.org/xml/project/20" CreatedBy="KNX MT" ToolVersion="5.1.255.16695">
   <ManufacturerData>
     <Manufacturer>
@@ -62,7 +62,7 @@
               </ParameterType>
               <ParameterType Id="%AID%_PT-HUECommTarget" Name="HUECommTarget">
                 <TypeRestriction Base="Value" SizeInBit="8" UIHint="DropDown">
-                  <Enumeration Text="Leuchte" Value="0" Id="%AID%_PT-HUECommTarget_EN-0" />
+                  <Enumeration Text="Licht" Value="0" Id="%AID%_PT-HUECommTarget_EN-0" />
                   <Enumeration Text="Raum" Value="1" Id="%AID%_PT-HUECommTarget_EN-1" />
                   <Enumeration Text="Zone" Value="2" Id="%AID%_PT-HUECommTarget_EN-2" />
                 </TypeRestriction>
@@ -95,12 +95,12 @@
             <Parameters>
               <Parameter Id="%AID%_P-%TT%00100" Name="HUECommStatus" ParameterType="%AID%_PT-HUECommStatus" Text="Status" Value="" Access="None" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%00101" Name="HUECommResult" ParameterType="%AID%_PT-HUECommResult" Text="Übernahme-Resultat" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%00102" Name="HUECommLightCount" ParameterType="%AID%_PT-HUECommCount" Text="Anzahl Leuchten" Value="0" Access="None" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%00102" Name="HUECommLightCount" ParameterType="%AID%_PT-HUECommCount" Text="Anzahl Lichter" Value="0" Access="None" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%00103" Name="HUECommAccessoryCount" ParameterType="%AID%_PT-HUECommCount" Text="Anzahl Zubehör" Value="0" Access="None" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%00104" Name="HUECommSceneCount" ParameterType="%AID%_PT-HUECommCount" Text="Anzahl Szenen" Value="0" Access="None" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%00105" Name="HUECommPairStatus" ParameterType="%AID%_PT-HUECommStatus" Text="Pairing-Status" Value="" Access="None" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10101" Name="HUECommL01Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%10102" Name="HUECommL01Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%10102" Name="HUECommL01Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10103" Name="HUECommL01Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10104" Name="HUECommL01RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10105" Name="HUECommL01Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -108,7 +108,7 @@
               <Parameter Id="%AID%_P-%TT%10107" Name="HUECommL01Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10108" Name="HUECommL01Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10201" Name="HUECommL02Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%10202" Name="HUECommL02Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%10202" Name="HUECommL02Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10203" Name="HUECommL02Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10204" Name="HUECommL02RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10205" Name="HUECommL02Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -116,7 +116,7 @@
               <Parameter Id="%AID%_P-%TT%10207" Name="HUECommL02Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10208" Name="HUECommL02Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10301" Name="HUECommL03Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%10302" Name="HUECommL03Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%10302" Name="HUECommL03Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10303" Name="HUECommL03Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10304" Name="HUECommL03RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10305" Name="HUECommL03Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -124,7 +124,7 @@
               <Parameter Id="%AID%_P-%TT%10307" Name="HUECommL03Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10308" Name="HUECommL03Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10401" Name="HUECommL04Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%10402" Name="HUECommL04Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%10402" Name="HUECommL04Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10403" Name="HUECommL04Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10404" Name="HUECommL04RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10405" Name="HUECommL04Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -132,7 +132,7 @@
               <Parameter Id="%AID%_P-%TT%10407" Name="HUECommL04Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10408" Name="HUECommL04Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10501" Name="HUECommL05Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%10502" Name="HUECommL05Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%10502" Name="HUECommL05Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10503" Name="HUECommL05Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10504" Name="HUECommL05RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10505" Name="HUECommL05Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -140,7 +140,7 @@
               <Parameter Id="%AID%_P-%TT%10507" Name="HUECommL05Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10508" Name="HUECommL05Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10601" Name="HUECommL06Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%10602" Name="HUECommL06Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%10602" Name="HUECommL06Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10603" Name="HUECommL06Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10604" Name="HUECommL06RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10605" Name="HUECommL06Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -148,7 +148,7 @@
               <Parameter Id="%AID%_P-%TT%10607" Name="HUECommL06Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10608" Name="HUECommL06Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10701" Name="HUECommL07Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%10702" Name="HUECommL07Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%10702" Name="HUECommL07Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10703" Name="HUECommL07Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10704" Name="HUECommL07RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10705" Name="HUECommL07Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -156,7 +156,7 @@
               <Parameter Id="%AID%_P-%TT%10707" Name="HUECommL07Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10708" Name="HUECommL07Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10801" Name="HUECommL08Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%10802" Name="HUECommL08Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%10802" Name="HUECommL08Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10803" Name="HUECommL08Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10804" Name="HUECommL08RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10805" Name="HUECommL08Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -164,7 +164,7 @@
               <Parameter Id="%AID%_P-%TT%10807" Name="HUECommL08Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10808" Name="HUECommL08Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10901" Name="HUECommL09Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%10902" Name="HUECommL09Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%10902" Name="HUECommL09Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10903" Name="HUECommL09Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10904" Name="HUECommL09RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10905" Name="HUECommL09Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -172,7 +172,7 @@
               <Parameter Id="%AID%_P-%TT%10907" Name="HUECommL09Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%10908" Name="HUECommL09Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11001" Name="HUECommL10Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%11002" Name="HUECommL10Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%11002" Name="HUECommL10Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11003" Name="HUECommL10Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11004" Name="HUECommL10RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11005" Name="HUECommL10Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -180,7 +180,7 @@
               <Parameter Id="%AID%_P-%TT%11007" Name="HUECommL10Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11008" Name="HUECommL10Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11101" Name="HUECommL11Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%11102" Name="HUECommL11Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%11102" Name="HUECommL11Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11103" Name="HUECommL11Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11104" Name="HUECommL11RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11105" Name="HUECommL11Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -188,7 +188,7 @@
               <Parameter Id="%AID%_P-%TT%11107" Name="HUECommL11Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11108" Name="HUECommL11Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11201" Name="HUECommL12Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%11202" Name="HUECommL12Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%11202" Name="HUECommL12Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11203" Name="HUECommL12Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11204" Name="HUECommL12RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11205" Name="HUECommL12Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -196,7 +196,7 @@
               <Parameter Id="%AID%_P-%TT%11207" Name="HUECommL12Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11208" Name="HUECommL12Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11301" Name="HUECommL13Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%11302" Name="HUECommL13Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%11302" Name="HUECommL13Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11303" Name="HUECommL13Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11304" Name="HUECommL13RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11305" Name="HUECommL13Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -204,7 +204,7 @@
               <Parameter Id="%AID%_P-%TT%11307" Name="HUECommL13Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11308" Name="HUECommL13Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11401" Name="HUECommL14Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%11402" Name="HUECommL14Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%11402" Name="HUECommL14Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11403" Name="HUECommL14Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11404" Name="HUECommL14RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11405" Name="HUECommL14Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -212,7 +212,7 @@
               <Parameter Id="%AID%_P-%TT%11407" Name="HUECommL14Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11408" Name="HUECommL14Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11501" Name="HUECommL15Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%11502" Name="HUECommL15Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%11502" Name="HUECommL15Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11503" Name="HUECommL15Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11504" Name="HUECommL15RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11505" Name="HUECommL15Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -220,7 +220,7 @@
               <Parameter Id="%AID%_P-%TT%11507" Name="HUECommL15Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11508" Name="HUECommL15Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11601" Name="HUECommL16Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%11602" Name="HUECommL16Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%11602" Name="HUECommL16Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11603" Name="HUECommL16Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11604" Name="HUECommL16RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11605" Name="HUECommL16Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -228,7 +228,7 @@
               <Parameter Id="%AID%_P-%TT%11607" Name="HUECommL16Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11608" Name="HUECommL16Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11701" Name="HUECommL17Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%11702" Name="HUECommL17Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%11702" Name="HUECommL17Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11703" Name="HUECommL17Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11704" Name="HUECommL17RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11705" Name="HUECommL17Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -236,7 +236,7 @@
               <Parameter Id="%AID%_P-%TT%11707" Name="HUECommL17Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11708" Name="HUECommL17Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11801" Name="HUECommL18Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%11802" Name="HUECommL18Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%11802" Name="HUECommL18Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11803" Name="HUECommL18Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11804" Name="HUECommL18RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11805" Name="HUECommL18Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -244,7 +244,7 @@
               <Parameter Id="%AID%_P-%TT%11807" Name="HUECommL18Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11808" Name="HUECommL18Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11901" Name="HUECommL19Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%11902" Name="HUECommL19Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%11902" Name="HUECommL19Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11903" Name="HUECommL19Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11904" Name="HUECommL19RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11905" Name="HUECommL19Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -252,7 +252,7 @@
               <Parameter Id="%AID%_P-%TT%11907" Name="HUECommL19Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%11908" Name="HUECommL19Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12001" Name="HUECommL20Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%12002" Name="HUECommL20Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%12002" Name="HUECommL20Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12003" Name="HUECommL20Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12004" Name="HUECommL20RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12005" Name="HUECommL20Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -260,7 +260,7 @@
               <Parameter Id="%AID%_P-%TT%12007" Name="HUECommL20Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12008" Name="HUECommL20Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12101" Name="HUECommL21Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%12102" Name="HUECommL21Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%12102" Name="HUECommL21Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12103" Name="HUECommL21Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12104" Name="HUECommL21RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12105" Name="HUECommL21Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -268,7 +268,7 @@
               <Parameter Id="%AID%_P-%TT%12107" Name="HUECommL21Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12108" Name="HUECommL21Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12201" Name="HUECommL22Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%12202" Name="HUECommL22Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%12202" Name="HUECommL22Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12203" Name="HUECommL22Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12204" Name="HUECommL22RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12205" Name="HUECommL22Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -276,7 +276,7 @@
               <Parameter Id="%AID%_P-%TT%12207" Name="HUECommL22Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12208" Name="HUECommL22Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12301" Name="HUECommL23Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%12302" Name="HUECommL23Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%12302" Name="HUECommL23Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12303" Name="HUECommL23Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12304" Name="HUECommL23RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12305" Name="HUECommL23Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -284,7 +284,7 @@
               <Parameter Id="%AID%_P-%TT%12307" Name="HUECommL23Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12308" Name="HUECommL23Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12401" Name="HUECommL24Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%12402" Name="HUECommL24Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%12402" Name="HUECommL24Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12403" Name="HUECommL24Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12404" Name="HUECommL24RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12405" Name="HUECommL24Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -292,7 +292,7 @@
               <Parameter Id="%AID%_P-%TT%12407" Name="HUECommL24Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12408" Name="HUECommL24Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12501" Name="HUECommL25Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%12502" Name="HUECommL25Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%12502" Name="HUECommL25Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12503" Name="HUECommL25Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12504" Name="HUECommL25RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12505" Name="HUECommL25Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -300,7 +300,7 @@
               <Parameter Id="%AID%_P-%TT%12507" Name="HUECommL25Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12508" Name="HUECommL25Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12601" Name="HUECommL26Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%12602" Name="HUECommL26Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%12602" Name="HUECommL26Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12603" Name="HUECommL26Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12604" Name="HUECommL26RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12605" Name="HUECommL26Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -308,7 +308,7 @@
               <Parameter Id="%AID%_P-%TT%12607" Name="HUECommL26Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12608" Name="HUECommL26Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12701" Name="HUECommL27Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%12702" Name="HUECommL27Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%12702" Name="HUECommL27Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12703" Name="HUECommL27Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12704" Name="HUECommL27RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12705" Name="HUECommL27Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -316,7 +316,7 @@
               <Parameter Id="%AID%_P-%TT%12707" Name="HUECommL27Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12708" Name="HUECommL27Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12801" Name="HUECommL28Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%12802" Name="HUECommL28Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%12802" Name="HUECommL28Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12803" Name="HUECommL28Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12804" Name="HUECommL28RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12805" Name="HUECommL28Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -324,7 +324,7 @@
               <Parameter Id="%AID%_P-%TT%12807" Name="HUECommL28Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12808" Name="HUECommL28Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12901" Name="HUECommL29Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%12902" Name="HUECommL29Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%12902" Name="HUECommL29Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12903" Name="HUECommL29Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12904" Name="HUECommL29RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12905" Name="HUECommL29Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -332,7 +332,7 @@
               <Parameter Id="%AID%_P-%TT%12907" Name="HUECommL29Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%12908" Name="HUECommL29Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13001" Name="HUECommL30Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%13002" Name="HUECommL30Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%13002" Name="HUECommL30Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13003" Name="HUECommL30Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13004" Name="HUECommL30RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13005" Name="HUECommL30Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -340,7 +340,7 @@
               <Parameter Id="%AID%_P-%TT%13007" Name="HUECommL30Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13008" Name="HUECommL30Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13101" Name="HUECommL31Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%13102" Name="HUECommL31Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%13102" Name="HUECommL31Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13103" Name="HUECommL31Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13104" Name="HUECommL31RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13105" Name="HUECommL31Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -348,7 +348,7 @@
               <Parameter Id="%AID%_P-%TT%13107" Name="HUECommL31Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13108" Name="HUECommL31Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13201" Name="HUECommL32Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%13202" Name="HUECommL32Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%13202" Name="HUECommL32Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13203" Name="HUECommL32Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13204" Name="HUECommL32RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13205" Name="HUECommL32Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -356,7 +356,7 @@
               <Parameter Id="%AID%_P-%TT%13207" Name="HUECommL32Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13208" Name="HUECommL32Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13301" Name="HUECommL33Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%13302" Name="HUECommL33Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%13302" Name="HUECommL33Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13303" Name="HUECommL33Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13304" Name="HUECommL33RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13305" Name="HUECommL33Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -364,7 +364,7 @@
               <Parameter Id="%AID%_P-%TT%13307" Name="HUECommL33Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13308" Name="HUECommL33Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13401" Name="HUECommL34Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%13402" Name="HUECommL34Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%13402" Name="HUECommL34Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13403" Name="HUECommL34Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13404" Name="HUECommL34RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13405" Name="HUECommL34Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -372,7 +372,7 @@
               <Parameter Id="%AID%_P-%TT%13407" Name="HUECommL34Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13408" Name="HUECommL34Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13501" Name="HUECommL35Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%13502" Name="HUECommL35Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%13502" Name="HUECommL35Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13503" Name="HUECommL35Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13504" Name="HUECommL35RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13505" Name="HUECommL35Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -380,7 +380,7 @@
               <Parameter Id="%AID%_P-%TT%13507" Name="HUECommL35Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13508" Name="HUECommL35Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13601" Name="HUECommL36Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%13602" Name="HUECommL36Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%13602" Name="HUECommL36Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13603" Name="HUECommL36Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13604" Name="HUECommL36RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13605" Name="HUECommL36Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -388,7 +388,7 @@
               <Parameter Id="%AID%_P-%TT%13607" Name="HUECommL36Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13608" Name="HUECommL36Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13701" Name="HUECommL37Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%13702" Name="HUECommL37Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%13702" Name="HUECommL37Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13703" Name="HUECommL37Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13704" Name="HUECommL37RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13705" Name="HUECommL37Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -396,7 +396,7 @@
               <Parameter Id="%AID%_P-%TT%13707" Name="HUECommL37Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13708" Name="HUECommL37Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13801" Name="HUECommL38Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%13802" Name="HUECommL38Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%13802" Name="HUECommL38Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13803" Name="HUECommL38Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13804" Name="HUECommL38RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13805" Name="HUECommL38Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -404,7 +404,7 @@
               <Parameter Id="%AID%_P-%TT%13807" Name="HUECommL38Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13808" Name="HUECommL38Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13901" Name="HUECommL39Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%13902" Name="HUECommL39Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%13902" Name="HUECommL39Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13903" Name="HUECommL39Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13904" Name="HUECommL39RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13905" Name="HUECommL39Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -412,7 +412,7 @@
               <Parameter Id="%AID%_P-%TT%13907" Name="HUECommL39Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%13908" Name="HUECommL39Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14001" Name="HUECommL40Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%14002" Name="HUECommL40Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%14002" Name="HUECommL40Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14003" Name="HUECommL40Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14004" Name="HUECommL40RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14005" Name="HUECommL40Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -420,7 +420,7 @@
               <Parameter Id="%AID%_P-%TT%14007" Name="HUECommL40Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14008" Name="HUECommL40Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14101" Name="HUECommL41Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%14102" Name="HUECommL41Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%14102" Name="HUECommL41Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14103" Name="HUECommL41Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14104" Name="HUECommL41RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14105" Name="HUECommL41Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -428,7 +428,7 @@
               <Parameter Id="%AID%_P-%TT%14107" Name="HUECommL41Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14108" Name="HUECommL41Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14201" Name="HUECommL42Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%14202" Name="HUECommL42Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%14202" Name="HUECommL42Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14203" Name="HUECommL42Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14204" Name="HUECommL42RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14205" Name="HUECommL42Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -436,7 +436,7 @@
               <Parameter Id="%AID%_P-%TT%14207" Name="HUECommL42Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14208" Name="HUECommL42Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14301" Name="HUECommL43Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%14302" Name="HUECommL43Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%14302" Name="HUECommL43Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14303" Name="HUECommL43Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14304" Name="HUECommL43RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14305" Name="HUECommL43Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -444,7 +444,7 @@
               <Parameter Id="%AID%_P-%TT%14307" Name="HUECommL43Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14308" Name="HUECommL43Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14401" Name="HUECommL44Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%14402" Name="HUECommL44Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%14402" Name="HUECommL44Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14403" Name="HUECommL44Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14404" Name="HUECommL44RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14405" Name="HUECommL44Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -452,7 +452,7 @@
               <Parameter Id="%AID%_P-%TT%14407" Name="HUECommL44Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14408" Name="HUECommL44Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14501" Name="HUECommL45Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%14502" Name="HUECommL45Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%14502" Name="HUECommL45Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14503" Name="HUECommL45Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14504" Name="HUECommL45RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14505" Name="HUECommL45Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -460,7 +460,7 @@
               <Parameter Id="%AID%_P-%TT%14507" Name="HUECommL45Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14508" Name="HUECommL45Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14601" Name="HUECommL46Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%14602" Name="HUECommL46Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%14602" Name="HUECommL46Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14603" Name="HUECommL46Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14604" Name="HUECommL46RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14605" Name="HUECommL46Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -468,7 +468,7 @@
               <Parameter Id="%AID%_P-%TT%14607" Name="HUECommL46Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14608" Name="HUECommL46Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14701" Name="HUECommL47Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%14702" Name="HUECommL47Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%14702" Name="HUECommL47Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14703" Name="HUECommL47Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14704" Name="HUECommL47RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14705" Name="HUECommL47Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -476,7 +476,7 @@
               <Parameter Id="%AID%_P-%TT%14707" Name="HUECommL47Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14708" Name="HUECommL47Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14801" Name="HUECommL48Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%14802" Name="HUECommL48Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%14802" Name="HUECommL48Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14803" Name="HUECommL48Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14804" Name="HUECommL48RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14805" Name="HUECommL48Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -484,7 +484,7 @@
               <Parameter Id="%AID%_P-%TT%14807" Name="HUECommL48Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14808" Name="HUECommL48Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14901" Name="HUECommL49Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%14902" Name="HUECommL49Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%14902" Name="HUECommL49Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14903" Name="HUECommL49Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14904" Name="HUECommL49RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14905" Name="HUECommL49Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -492,7 +492,7 @@
               <Parameter Id="%AID%_P-%TT%14907" Name="HUECommL49Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%14908" Name="HUECommL49Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15001" Name="HUECommL50Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%15002" Name="HUECommL50Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%15002" Name="HUECommL50Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15003" Name="HUECommL50Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15004" Name="HUECommL50RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15005" Name="HUECommL50Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -500,7 +500,7 @@
               <Parameter Id="%AID%_P-%TT%15007" Name="HUECommL50Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15008" Name="HUECommL50Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15101" Name="HUECommL51Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%15102" Name="HUECommL51Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%15102" Name="HUECommL51Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15103" Name="HUECommL51Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15104" Name="HUECommL51RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15105" Name="HUECommL51Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -508,7 +508,7 @@
               <Parameter Id="%AID%_P-%TT%15107" Name="HUECommL51Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15108" Name="HUECommL51Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15201" Name="HUECommL52Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%15202" Name="HUECommL52Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%15202" Name="HUECommL52Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15203" Name="HUECommL52Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15204" Name="HUECommL52RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15205" Name="HUECommL52Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -516,7 +516,7 @@
               <Parameter Id="%AID%_P-%TT%15207" Name="HUECommL52Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15208" Name="HUECommL52Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15301" Name="HUECommL53Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%15302" Name="HUECommL53Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%15302" Name="HUECommL53Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15303" Name="HUECommL53Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15304" Name="HUECommL53RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15305" Name="HUECommL53Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -524,7 +524,7 @@
               <Parameter Id="%AID%_P-%TT%15307" Name="HUECommL53Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15308" Name="HUECommL53Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15401" Name="HUECommL54Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%15402" Name="HUECommL54Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%15402" Name="HUECommL54Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15403" Name="HUECommL54Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15404" Name="HUECommL54RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15405" Name="HUECommL54Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -532,7 +532,7 @@
               <Parameter Id="%AID%_P-%TT%15407" Name="HUECommL54Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15408" Name="HUECommL54Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15501" Name="HUECommL55Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%15502" Name="HUECommL55Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%15502" Name="HUECommL55Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15503" Name="HUECommL55Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15504" Name="HUECommL55RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15505" Name="HUECommL55Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -540,7 +540,7 @@
               <Parameter Id="%AID%_P-%TT%15507" Name="HUECommL55Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15508" Name="HUECommL55Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15601" Name="HUECommL56Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%15602" Name="HUECommL56Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%15602" Name="HUECommL56Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15603" Name="HUECommL56Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15604" Name="HUECommL56RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15605" Name="HUECommL56Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -548,7 +548,7 @@
               <Parameter Id="%AID%_P-%TT%15607" Name="HUECommL56Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15608" Name="HUECommL56Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15701" Name="HUECommL57Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%15702" Name="HUECommL57Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%15702" Name="HUECommL57Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15703" Name="HUECommL57Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15704" Name="HUECommL57RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15705" Name="HUECommL57Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -556,7 +556,7 @@
               <Parameter Id="%AID%_P-%TT%15707" Name="HUECommL57Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15708" Name="HUECommL57Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15801" Name="HUECommL58Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%15802" Name="HUECommL58Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%15802" Name="HUECommL58Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15803" Name="HUECommL58Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15804" Name="HUECommL58RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15805" Name="HUECommL58Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -564,7 +564,7 @@
               <Parameter Id="%AID%_P-%TT%15807" Name="HUECommL58Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15808" Name="HUECommL58Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15901" Name="HUECommL59Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%15902" Name="HUECommL59Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%15902" Name="HUECommL59Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15903" Name="HUECommL59Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15904" Name="HUECommL59RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15905" Name="HUECommL59Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -572,7 +572,7 @@
               <Parameter Id="%AID%_P-%TT%15907" Name="HUECommL59Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%15908" Name="HUECommL59Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16001" Name="HUECommL60Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%16002" Name="HUECommL60Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%16002" Name="HUECommL60Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16003" Name="HUECommL60Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16004" Name="HUECommL60RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16005" Name="HUECommL60Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -580,7 +580,7 @@
               <Parameter Id="%AID%_P-%TT%16007" Name="HUECommL60Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16008" Name="HUECommL60Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16101" Name="HUECommL61Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%16102" Name="HUECommL61Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%16102" Name="HUECommL61Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16103" Name="HUECommL61Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16104" Name="HUECommL61RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16105" Name="HUECommL61Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -588,7 +588,7 @@
               <Parameter Id="%AID%_P-%TT%16107" Name="HUECommL61Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16108" Name="HUECommL61Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16201" Name="HUECommL62Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%16202" Name="HUECommL62Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%16202" Name="HUECommL62Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16203" Name="HUECommL62Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16204" Name="HUECommL62RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16205" Name="HUECommL62Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -596,7 +596,7 @@
               <Parameter Id="%AID%_P-%TT%16207" Name="HUECommL62Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16208" Name="HUECommL62Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16301" Name="HUECommL63Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%16302" Name="HUECommL63Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%16302" Name="HUECommL63Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16303" Name="HUECommL63Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16304" Name="HUECommL63RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16305" Name="HUECommL63Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -604,7 +604,7 @@
               <Parameter Id="%AID%_P-%TT%16307" Name="HUECommL63Channel" ParameterType="%AID%_PT-HUECommChannel" Text="Kanal" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16308" Name="HUECommL63Target" ParameterType="%AID%_PT-HUECommTarget" Text="Steuern als" Value="0" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16401" Name="HUECommL64Name" ParameterType="%AID%_PT-HUECommName" Text="Name" Value="" Access="Read" op:configTransfer="never" />
-              <Parameter Id="%AID%_P-%TT%16402" Name="HUECommL64Id" ParameterType="%AID%_PT-HUECommId" Text="Leuchten-ID" Value="" Access="Read" op:configTransfer="never" />
+              <Parameter Id="%AID%_P-%TT%16402" Name="HUECommL64Id" ParameterType="%AID%_PT-HUECommId" Text="Licht-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16403" Name="HUECommL64Room" ParameterType="%AID%_PT-HUECommName" Text="Raum" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16404" Name="HUECommL64RoomId" ParameterType="%AID%_PT-HUECommId" Text="Raum-ID" Value="" Access="Read" op:configTransfer="never" />
               <Parameter Id="%AID%_P-%TT%16405" Name="HUECommL64Zone" ParameterType="%AID%_PT-HUECommName" Text="Zone" Value="" Access="Read" op:configTransfer="never" />
@@ -1910,7 +1910,7 @@
                 <ParameterRefRef RefId="%AID%_P-%TT%00104_R-%TT%0010401" />
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="Hue-Geräte laden und zuordnen" UIHint="Headline" />
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="Das Gerät muss mit dieser Applikation programmiert sein. Die Tabellen dieser Seite werden nur im ETS-Projekt gespeichert und nicht in das Gerät geladen." UIHint="Information" />
-                <ParameterSeparator Id="%AID%_PS-nnn" Text="Es werden bis zu 64 Leuchten, 32 Schalter/Sensoren/Steckdosen und 64 Szenen angezeigt. Größere Installationen bitte über das WebUI (Hue-Geräte laden) einrichten." UIHint="Information" />
+                <ParameterSeparator Id="%AID%_PS-nnn" Text="Es werden bis zu 64 Lichter, 32 Schalter/Sensoren/Steckdosen und 64 Szenen angezeigt. Größere Installationen bitte über das WebUI (Hue-Geräte laden) einrichten." UIHint="Information" />
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="" UIHint="HorizontalRuler" />
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="1. Hue-Bridge koppeln (Pairing)" UIHint="Headline" />
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="Startet das Pairing. Anschließend innerhalb des Pairing-Zeitfensters den Link-Button an der Hue-Bridge drücken. Ist die Bridge bereits gekoppelt, entfällt dieser Schritt." UIHint="Information" />
@@ -1922,8 +1922,8 @@
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="{{0:Noch keine Hue-Geräte geladen.}}" TextParameterRefId="%AID%_P-%TT%00100_R-%TT%0010001" />
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="" UIHint="HorizontalRuler" />
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="3. Kanäle und Szenen-Slots zuordnen" UIHint="Headline" />
-                <ParameterSeparator Id="%AID%_PS-nnn" Text="Pro Gerät den Hue-Kanal wählen, bei Leuchten zusätzlich, ob die Leuchte selbst, ihr Raum oder ihre Zone gesteuert wird. Bestehende Zuordnungen sind nach dem Laden bereits vorbelegt." UIHint="Information" />
-                <ParameterSeparator Id="%AID%_PS-nnn" Text="Leuchten" UIHint="Headline" />
+                <ParameterSeparator Id="%AID%_PS-nnn" Text="Pro Gerät den Hue-Kanal wählen, bei Lichtern zusätzlich, ob das Licht selbst, sein Raum oder seine Zone gesteuert wird. Bestehende Zuordnungen sind nach dem Laden bereits vorbelegt." UIHint="Information" />
+                <ParameterSeparator Id="%AID%_PS-nnn" Text="Lichter" UIHint="Headline" />
                 <choose ParamRefId="%AID%_P-%TT%00102_R-%TT%0010201">
                   <when test="0">
                     <ParameterSeparator Id="%AID%_PS-nnn" Text="Keine Einträge." />
@@ -1950,7 +1950,7 @@
                       </Rows>
                       <Columns>
                         <Column Id="%AID%_PB-%TT%CL1_C-1" Name="C1" Text="Name" Width="22%" />
-                        <Column Id="%AID%_PB-%TT%CL1_C-2" Name="C2" Text="Leuchten-ID" Width="16%" />
+                        <Column Id="%AID%_PB-%TT%CL1_C-2" Name="C2" Text="Licht-ID" Width="16%" />
                         <Column Id="%AID%_PB-%TT%CL1_C-3" Name="C3" Text="Raum" Width="16%" />
                         <Column Id="%AID%_PB-%TT%CL1_C-4" Name="C4" Text="Raum-ID" Width="16%" />
                         <Column Id="%AID%_PB-%TT%CL1_C-5" Name="C5" Text="Zone" Width="16%" />
@@ -2110,7 +2110,7 @@
                       </Rows>
                       <Columns>
                         <Column Id="%AID%_PB-%TT%CL2_C-1" Name="C1" Text="Name" Width="22%" />
-                        <Column Id="%AID%_PB-%TT%CL2_C-2" Name="C2" Text="Leuchten-ID" Width="16%" />
+                        <Column Id="%AID%_PB-%TT%CL2_C-2" Name="C2" Text="Licht-ID" Width="16%" />
                         <Column Id="%AID%_PB-%TT%CL2_C-3" Name="C3" Text="Raum" Width="16%" />
                         <Column Id="%AID%_PB-%TT%CL2_C-4" Name="C4" Text="Raum-ID" Width="16%" />
                         <Column Id="%AID%_PB-%TT%CL2_C-5" Name="C5" Text="Zone" Width="16%" />
@@ -2270,7 +2270,7 @@
                       </Rows>
                       <Columns>
                         <Column Id="%AID%_PB-%TT%CL3_C-1" Name="C1" Text="Name" Width="22%" />
-                        <Column Id="%AID%_PB-%TT%CL3_C-2" Name="C2" Text="Leuchten-ID" Width="16%" />
+                        <Column Id="%AID%_PB-%TT%CL3_C-2" Name="C2" Text="Licht-ID" Width="16%" />
                         <Column Id="%AID%_PB-%TT%CL3_C-3" Name="C3" Text="Raum" Width="16%" />
                         <Column Id="%AID%_PB-%TT%CL3_C-4" Name="C4" Text="Raum-ID" Width="16%" />
                         <Column Id="%AID%_PB-%TT%CL3_C-5" Name="C5" Text="Zone" Width="16%" />
@@ -2430,7 +2430,7 @@
                       </Rows>
                       <Columns>
                         <Column Id="%AID%_PB-%TT%CL4_C-1" Name="C1" Text="Name" Width="22%" />
-                        <Column Id="%AID%_PB-%TT%CL4_C-2" Name="C2" Text="Leuchten-ID" Width="16%" />
+                        <Column Id="%AID%_PB-%TT%CL4_C-2" Name="C2" Text="Licht-ID" Width="16%" />
                         <Column Id="%AID%_PB-%TT%CL4_C-3" Name="C3" Text="Raum" Width="16%" />
                         <Column Id="%AID%_PB-%TT%CL4_C-4" Name="C4" Text="Raum-ID" Width="16%" />
                         <Column Id="%AID%_PB-%TT%CL4_C-5" Name="C5" Text="Zone" Width="16%" />

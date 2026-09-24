@@ -192,7 +192,7 @@ private:
     std::vector<CommissioningLight> _commLights;
     std::vector<CommissioningAccessory> _commAccessories;
     std::vector<CommissioningScene> _commScenes;
-    uint8_t _commTruncatedFlags;  // Bit 0 Leuchten, Bit 1 Zubehör, Bit 2 Szenen
+    uint8_t _commTruncatedFlags;  // Bit 0 Lichter, Bit 1 Zubehör, Bit 2 Szenen
     bool _etsScanPending;         // von der ETS angefordert, Ergebnis noch nicht fertig
     uint8_t _etsScanError;
     void clearCommissioningResult();
