@@ -176,6 +176,10 @@ def table_block(key, table, columns, first, last, index):
 def dynamic():
     lines = [
         '              <ParameterBlock Id="%s_PB-nnn" Name="HueCommissioning" Text="Inbetriebnahme" Icon="import" HelpContext="HUE-Inbetriebnahme">' % AID,
+        '                <!-- Versteckt: Zählparameter müssen im Dynamic-Teil stehen, damit die choose-Abfragen greifen -->',
+        '                <ParameterRefRef RefId="%s" />' % pref(LIGHT_COUNT),
+        '                <ParameterRefRef RefId="%s" />' % pref(ACCESSORY_COUNT),
+        '                <ParameterRefRef RefId="%s" />' % pref(SCENE_COUNT),
         '                <ParameterSeparator Id="%s" Text="Hue-Geräte laden und zuordnen" UIHint="Headline" />' % PS,
         '                <ParameterSeparator Id="%s" Text="Das Gerät muss mit dieser Applikation programmiert sein. Die Tabellen dieser Seite werden nur im ETS-Projekt gespeichert und nicht in das Gerät geladen." UIHint="Information" />' % PS,
         '                <ParameterSeparator Id="%s" Text="Es werden bis zu %d Leuchten, %d Schalter/Sensoren/Steckdosen und %d Szenen angezeigt. Größere Installationen bitte über das WebUI (Hue-Geräte laden) einrichten." UIHint="Information" />' % (PS, MAX_LIGHTS, MAX_ACCESSORIES, MAX_SCENES),

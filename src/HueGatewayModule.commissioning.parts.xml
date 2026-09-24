@@ -1904,6 +1904,10 @@
           <Dynamic>
             <Channel>
               <ParameterBlock Id="%AID%_PB-nnn" Name="HueCommissioning" Text="Inbetriebnahme" Icon="import" HelpContext="HUE-Inbetriebnahme">
+                <!-- Versteckt: Zählparameter müssen im Dynamic-Teil stehen, damit die choose-Abfragen greifen -->
+                <ParameterRefRef RefId="%AID%_P-%TT%00102_R-%TT%0010201" />
+                <ParameterRefRef RefId="%AID%_P-%TT%00103_R-%TT%0010301" />
+                <ParameterRefRef RefId="%AID%_P-%TT%00104_R-%TT%0010401" />
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="Hue-Geräte laden und zuordnen" UIHint="Headline" />
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="Das Gerät muss mit dieser Applikation programmiert sein. Die Tabellen dieser Seite werden nur im ETS-Projekt gespeichert und nicht in das Gerät geladen." UIHint="Information" />
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="Es werden bis zu 64 Leuchten, 32 Schalter/Sensoren/Steckdosen und 64 Szenen angezeigt. Größere Installationen bitte über das WebUI (Hue-Geräte laden) einrichten." UIHint="Information" />
