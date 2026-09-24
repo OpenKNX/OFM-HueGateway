@@ -13,3 +13,4 @@ __pycache__
 platformio.ini.user
 .github/
 src/HueGatewayModule.share.xml.bak
+tools/

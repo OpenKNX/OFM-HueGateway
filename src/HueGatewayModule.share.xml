@@ -467,7 +467,7 @@
                 </TypeRestriction>
               </ParameterType>
 
-              <!-- Inbetriebnahme (speicherlos, erzeugt von tools/gen_commissioning.py) -->
+              <!-- Inbetriebnahme (speicherlos) -->
               <op:include href="HueGatewayModule.commissioning.parts.xml" xpath="//ParameterTypes/*" prefix="HUE" />
 
             </ParameterTypes>

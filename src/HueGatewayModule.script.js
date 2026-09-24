@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------------------
 // Inbetriebnahme: Bridge koppeln, Hue-Geräte aus der ETS laden und Kanälen / Szenen-Slots
 // zuordnen.
-// Seite und Tabellen: HueGatewayModule.commissioning.parts.xml (tools/gen_commissioning.py).
+// Seite und Tabellen: HueGatewayModule.commissioning.parts.xml.
 //
 // Gegenstelle im Gerät: HueGatewayModule::processFunctionProperty, objectIndex 0xA3,
 // propertyId 1. Erstes Datenbyte ist das Kommando:

@@ -73,7 +73,8 @@ static constexpr unsigned long kWebScanCacheStaleMs = 15000UL;
 static constexpr unsigned long kWebScanTimeoutMs = 180000UL;
 
 // ETS-Inbetriebnahme (Gegenstelle: HueGatewayModule.script.js). Die Grenzen müssen zu
-// den Tabellen in HueGatewayModule.commissioning.parts.xml passen (tools/gen_commissioning.py).
+// den Tabellen in HueGatewayModule.commissioning.parts.xml und den HUE_COMM_MAX_*-Werten in
+// HueGatewayModule.script.js passen.
 static constexpr uint8_t kEtsFunctionObject = 0xA3;
 static constexpr uint8_t kEtsFunctionProperty = 1;
 static constexpr uint8_t kEtsCmdStart = 1;
