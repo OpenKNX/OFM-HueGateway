@@ -27,6 +27,8 @@ OpenKNX Funktionsmodul zur Integration von Philips Hue Geräten in KNX-Systeme.
 - Gerätetyp Kontaktsensor (Kontaktstatus, optional Sabotage, Batterie)
 - Gerätetyp Taster/Schalter (bis zu 4 Tasten, Kurz-/Langdruck frei belegbar, Drehregler-Unterstützung)
 - Szenensteuerung (DPT 18.001, bis zu 8 Slots je Kanal; Abruf und optionales Speichern; inkl. Abruf global konfigurierter Hue-Szenen)
+- ETS-Seite „Inbetriebnahme": Bridge-Pairing starten, Hue-Geräte laden und Kanälen bzw. Szenen-Slots direkt in der ETS zuordnen (Tabellenwerte markier- und kopierbar)
+- Kanalauswahl-Seite zur Aktivierung der Kanäle, analog zum OpenKNX-Standardmuster
 - Webinterface für Pairing, Gerätescan und Diagnose (`/hue`)
 - Bidirektionale Status-Updates (Event Stream)
 - ETS-Konfiguration
