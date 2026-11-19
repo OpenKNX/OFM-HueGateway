@@ -98,7 +98,7 @@ private:
     
     
     // Device Management
-    static const int MAX_CHANNELS = 32;  ///< Max configurable channels (was MAX_LIGHTS=24)
+    static const int MAX_CHANNELS = HUE_ChannelCount;  ///< Max configurable channels, follows OAM-defined NumChannels
     static const int MAX_LIGHTS = MAX_CHANNELS;  ///< Backward-compat alias
     HueGatewayDevice* _devices[MAX_CHANNELS];  ///< Polymorphic device array
     /// Helper: returns the channel as HueGatewayLight* or nullptr if not a light.

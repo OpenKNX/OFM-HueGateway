@@ -400,7 +400,7 @@ Auf der Seite **Kanalauswahl** werden die Kanäle aktiviert. Sie steht direkt ü
 
 | Spalte | Bedeutung |
 |---|---|
-| **Kanal** | Feste Bezeichnung des Kanals (`Hue 1` … `Hue 32`) |
+| **Kanal** | Feste Bezeichnung des Kanals (`Hue 1` … `Hue 64`) |
 | **Gerätetyp** | `Deaktiviert` oder der Gerätetyp des Kanals (Licht, Bewegungsmelder, Taster/Schalter, Kontaktsensor, Steckdose) |
 | **Beschreibung** | Freier Text des Kanals, auch bei `Deaktiviert` eingebbar |
 

@@ -58,6 +58,38 @@
                   <Enumeration Text="Hue 30" Value="30" Id="%AID%_PT-HUECommChannel_EN-30" />
                   <Enumeration Text="Hue 31" Value="31" Id="%AID%_PT-HUECommChannel_EN-31" />
                   <Enumeration Text="Hue 32" Value="32" Id="%AID%_PT-HUECommChannel_EN-32" />
+                  <Enumeration Text="Hue 33" Value="33" Id="%AID%_PT-HUECommChannel_EN-33" />
+                  <Enumeration Text="Hue 34" Value="34" Id="%AID%_PT-HUECommChannel_EN-34" />
+                  <Enumeration Text="Hue 35" Value="35" Id="%AID%_PT-HUECommChannel_EN-35" />
+                  <Enumeration Text="Hue 36" Value="36" Id="%AID%_PT-HUECommChannel_EN-36" />
+                  <Enumeration Text="Hue 37" Value="37" Id="%AID%_PT-HUECommChannel_EN-37" />
+                  <Enumeration Text="Hue 38" Value="38" Id="%AID%_PT-HUECommChannel_EN-38" />
+                  <Enumeration Text="Hue 39" Value="39" Id="%AID%_PT-HUECommChannel_EN-39" />
+                  <Enumeration Text="Hue 40" Value="40" Id="%AID%_PT-HUECommChannel_EN-40" />
+                  <Enumeration Text="Hue 41" Value="41" Id="%AID%_PT-HUECommChannel_EN-41" />
+                  <Enumeration Text="Hue 42" Value="42" Id="%AID%_PT-HUECommChannel_EN-42" />
+                  <Enumeration Text="Hue 43" Value="43" Id="%AID%_PT-HUECommChannel_EN-43" />
+                  <Enumeration Text="Hue 44" Value="44" Id="%AID%_PT-HUECommChannel_EN-44" />
+                  <Enumeration Text="Hue 45" Value="45" Id="%AID%_PT-HUECommChannel_EN-45" />
+                  <Enumeration Text="Hue 46" Value="46" Id="%AID%_PT-HUECommChannel_EN-46" />
+                  <Enumeration Text="Hue 47" Value="47" Id="%AID%_PT-HUECommChannel_EN-47" />
+                  <Enumeration Text="Hue 48" Value="48" Id="%AID%_PT-HUECommChannel_EN-48" />
+                  <Enumeration Text="Hue 49" Value="49" Id="%AID%_PT-HUECommChannel_EN-49" />
+                  <Enumeration Text="Hue 50" Value="50" Id="%AID%_PT-HUECommChannel_EN-50" />
+                  <Enumeration Text="Hue 51" Value="51" Id="%AID%_PT-HUECommChannel_EN-51" />
+                  <Enumeration Text="Hue 52" Value="52" Id="%AID%_PT-HUECommChannel_EN-52" />
+                  <Enumeration Text="Hue 53" Value="53" Id="%AID%_PT-HUECommChannel_EN-53" />
+                  <Enumeration Text="Hue 54" Value="54" Id="%AID%_PT-HUECommChannel_EN-54" />
+                  <Enumeration Text="Hue 55" Value="55" Id="%AID%_PT-HUECommChannel_EN-55" />
+                  <Enumeration Text="Hue 56" Value="56" Id="%AID%_PT-HUECommChannel_EN-56" />
+                  <Enumeration Text="Hue 57" Value="57" Id="%AID%_PT-HUECommChannel_EN-57" />
+                  <Enumeration Text="Hue 58" Value="58" Id="%AID%_PT-HUECommChannel_EN-58" />
+                  <Enumeration Text="Hue 59" Value="59" Id="%AID%_PT-HUECommChannel_EN-59" />
+                  <Enumeration Text="Hue 60" Value="60" Id="%AID%_PT-HUECommChannel_EN-60" />
+                  <Enumeration Text="Hue 61" Value="61" Id="%AID%_PT-HUECommChannel_EN-61" />
+                  <Enumeration Text="Hue 62" Value="62" Id="%AID%_PT-HUECommChannel_EN-62" />
+                  <Enumeration Text="Hue 63" Value="63" Id="%AID%_PT-HUECommChannel_EN-63" />
+                  <Enumeration Text="Hue 64" Value="64" Id="%AID%_PT-HUECommChannel_EN-64" />
                 </TypeRestriction>
               </ParameterType>
               <ParameterType Id="%AID%_PT-HUECommTarget" Name="HUECommTarget">

@@ -22,7 +22,7 @@ var HUE_COMM_PROPERTY = 1;
 var HUE_COMM_MAX_LIGHTS = 64;
 var HUE_COMM_MAX_ACCESSORIES = 32;
 var HUE_COMM_MAX_SCENES = 64;
-var HUE_COMM_CHANNELS = 32;
+var HUE_COMM_CHANNELS = 64;
 var HUE_COMM_SCENE_SLOTS = 8;
 var HUE_COMM_SCAN_TIMEOUT_MS = 120000;
 // Pairing-Zeitfenster ist maximal 120 s, danach richtet das Gerät noch die Kanäle ein
