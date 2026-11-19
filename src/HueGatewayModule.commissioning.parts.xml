@@ -1981,12 +1981,12 @@
                         <Row Id="%AID%_PB-%TT%CL1_R-16" Name="R16" Text="16" />
                       </Rows>
                       <Columns>
-                        <Column Id="%AID%_PB-%TT%CL1_C-1" Name="C1" Text="Name" Width="22%" />
-                        <Column Id="%AID%_PB-%TT%CL1_C-2" Name="C2" Text="Licht-ID" Width="16%" />
-                        <Column Id="%AID%_PB-%TT%CL1_C-3" Name="C3" Text="Raum" Width="16%" />
-                        <Column Id="%AID%_PB-%TT%CL1_C-4" Name="C4" Text="Raum-ID" Width="16%" />
-                        <Column Id="%AID%_PB-%TT%CL1_C-5" Name="C5" Text="Zone" Width="16%" />
-                        <Column Id="%AID%_PB-%TT%CL1_C-6" Name="C6" Text="Zone-ID" Width="16%" />
+                        <Column Id="%AID%_PB-%TT%CL1_C-1" Name="C1" Text="Name" Width="30%" />
+                        <Column Id="%AID%_PB-%TT%CL1_C-2" Name="C2" Text="Licht-ID" Width="50%" />
+                        <Column Id="%AID%_PB-%TT%CL1_C-3" Name="C3" Text="Raum" Width="20%" />
+                        <Column Id="%AID%_PB-%TT%CL1_C-4" Name="C4" Text="Raum-ID" Width="50%" />
+                        <Column Id="%AID%_PB-%TT%CL1_C-5" Name="C5" Text="Zone" Width="22%" />
+                        <Column Id="%AID%_PB-%TT%CL1_C-6" Name="C6" Text="Zone-ID" Width="50%" />
                         <Column Id="%AID%_PB-%TT%CL1_C-7" Name="C7" Text="Kanal" Width="13%" />
                         <Column Id="%AID%_PB-%TT%CL1_C-8" Name="C8" Text="Steuern als" Width="16%" />
                       </Columns>
@@ -2141,12 +2141,12 @@
                         <Row Id="%AID%_PB-%TT%CL2_R-16" Name="R16" Text="32" />
                       </Rows>
                       <Columns>
-                        <Column Id="%AID%_PB-%TT%CL2_C-1" Name="C1" Text="Name" Width="22%" />
-                        <Column Id="%AID%_PB-%TT%CL2_C-2" Name="C2" Text="Licht-ID" Width="16%" />
-                        <Column Id="%AID%_PB-%TT%CL2_C-3" Name="C3" Text="Raum" Width="16%" />
-                        <Column Id="%AID%_PB-%TT%CL2_C-4" Name="C4" Text="Raum-ID" Width="16%" />
-                        <Column Id="%AID%_PB-%TT%CL2_C-5" Name="C5" Text="Zone" Width="16%" />
-                        <Column Id="%AID%_PB-%TT%CL2_C-6" Name="C6" Text="Zone-ID" Width="16%" />
+                        <Column Id="%AID%_PB-%TT%CL2_C-1" Name="C1" Text="Name" Width="30%" />
+                        <Column Id="%AID%_PB-%TT%CL2_C-2" Name="C2" Text="Licht-ID" Width="50%" />
+                        <Column Id="%AID%_PB-%TT%CL2_C-3" Name="C3" Text="Raum" Width="20%" />
+                        <Column Id="%AID%_PB-%TT%CL2_C-4" Name="C4" Text="Raum-ID" Width="50%" />
+                        <Column Id="%AID%_PB-%TT%CL2_C-5" Name="C5" Text="Zone" Width="22%" />
+                        <Column Id="%AID%_PB-%TT%CL2_C-6" Name="C6" Text="Zone-ID" Width="50%" />
                         <Column Id="%AID%_PB-%TT%CL2_C-7" Name="C7" Text="Kanal" Width="13%" />
                         <Column Id="%AID%_PB-%TT%CL2_C-8" Name="C8" Text="Steuern als" Width="16%" />
                       </Columns>
@@ -2301,12 +2301,12 @@
                         <Row Id="%AID%_PB-%TT%CL3_R-16" Name="R16" Text="48" />
                       </Rows>
                       <Columns>
-                        <Column Id="%AID%_PB-%TT%CL3_C-1" Name="C1" Text="Name" Width="22%" />
-                        <Column Id="%AID%_PB-%TT%CL3_C-2" Name="C2" Text="Licht-ID" Width="16%" />
-                        <Column Id="%AID%_PB-%TT%CL3_C-3" Name="C3" Text="Raum" Width="16%" />
-                        <Column Id="%AID%_PB-%TT%CL3_C-4" Name="C4" Text="Raum-ID" Width="16%" />
-                        <Column Id="%AID%_PB-%TT%CL3_C-5" Name="C5" Text="Zone" Width="16%" />
-                        <Column Id="%AID%_PB-%TT%CL3_C-6" Name="C6" Text="Zone-ID" Width="16%" />
+                        <Column Id="%AID%_PB-%TT%CL3_C-1" Name="C1" Text="Name" Width="30%" />
+                        <Column Id="%AID%_PB-%TT%CL3_C-2" Name="C2" Text="Licht-ID" Width="50%" />
+                        <Column Id="%AID%_PB-%TT%CL3_C-3" Name="C3" Text="Raum" Width="20%" />
+                        <Column Id="%AID%_PB-%TT%CL3_C-4" Name="C4" Text="Raum-ID" Width="50%" />
+                        <Column Id="%AID%_PB-%TT%CL3_C-5" Name="C5" Text="Zone" Width="22%" />
+                        <Column Id="%AID%_PB-%TT%CL3_C-6" Name="C6" Text="Zone-ID" Width="50%" />
                         <Column Id="%AID%_PB-%TT%CL3_C-7" Name="C7" Text="Kanal" Width="13%" />
                         <Column Id="%AID%_PB-%TT%CL3_C-8" Name="C8" Text="Steuern als" Width="16%" />
                       </Columns>
@@ -2461,12 +2461,12 @@
                         <Row Id="%AID%_PB-%TT%CL4_R-16" Name="R16" Text="64" />
                       </Rows>
                       <Columns>
-                        <Column Id="%AID%_PB-%TT%CL4_C-1" Name="C1" Text="Name" Width="22%" />
-                        <Column Id="%AID%_PB-%TT%CL4_C-2" Name="C2" Text="Licht-ID" Width="16%" />
-                        <Column Id="%AID%_PB-%TT%CL4_C-3" Name="C3" Text="Raum" Width="16%" />
-                        <Column Id="%AID%_PB-%TT%CL4_C-4" Name="C4" Text="Raum-ID" Width="16%" />
-                        <Column Id="%AID%_PB-%TT%CL4_C-5" Name="C5" Text="Zone" Width="16%" />
-                        <Column Id="%AID%_PB-%TT%CL4_C-6" Name="C6" Text="Zone-ID" Width="16%" />
+                        <Column Id="%AID%_PB-%TT%CL4_C-1" Name="C1" Text="Name" Width="30%" />
+                        <Column Id="%AID%_PB-%TT%CL4_C-2" Name="C2" Text="Licht-ID" Width="50%" />
+                        <Column Id="%AID%_PB-%TT%CL4_C-3" Name="C3" Text="Raum" Width="20%" />
+                        <Column Id="%AID%_PB-%TT%CL4_C-4" Name="C4" Text="Raum-ID" Width="50%" />
+                        <Column Id="%AID%_PB-%TT%CL4_C-5" Name="C5" Text="Zone" Width="22%" />
+                        <Column Id="%AID%_PB-%TT%CL4_C-6" Name="C6" Text="Zone-ID" Width="50%" />
                         <Column Id="%AID%_PB-%TT%CL4_C-7" Name="C7" Text="Kanal" Width="13%" />
                         <Column Id="%AID%_PB-%TT%CL4_C-8" Name="C8" Text="Steuern als" Width="16%" />
                       </Columns>
@@ -2627,9 +2627,9 @@
                         <Row Id="%AID%_PB-%TT%CA1_R-16" Name="R16" Text="16" />
                       </Rows>
                       <Columns>
-                        <Column Id="%AID%_PB-%TT%CA1_C-1" Name="C1" Text="Name" Width="25%" />
+                        <Column Id="%AID%_PB-%TT%CA1_C-1" Name="C1" Text="Name" Width="30%" />
                         <Column Id="%AID%_PB-%TT%CA1_C-2" Name="C2" Text="Typ" Width="20%" />
-                        <Column Id="%AID%_PB-%TT%CA1_C-3" Name="C3" Text="ID" Width="40%" />
+                        <Column Id="%AID%_PB-%TT%CA1_C-3" Name="C3" Text="ID" Width="50%" />
                         <Column Id="%AID%_PB-%TT%CA1_C-4" Name="C4" Text="Kanal" Width="15%" />
                       </Columns>
                       <ParameterRefRef RefId="%AID%_P-%TT%20101_R-%TT%2010101" Cell="1,1" />
@@ -2719,9 +2719,9 @@
                         <Row Id="%AID%_PB-%TT%CA2_R-16" Name="R16" Text="32" />
                       </Rows>
                       <Columns>
-                        <Column Id="%AID%_PB-%TT%CA2_C-1" Name="C1" Text="Name" Width="25%" />
+                        <Column Id="%AID%_PB-%TT%CA2_C-1" Name="C1" Text="Name" Width="30%" />
                         <Column Id="%AID%_PB-%TT%CA2_C-2" Name="C2" Text="Typ" Width="20%" />
-                        <Column Id="%AID%_PB-%TT%CA2_C-3" Name="C3" Text="ID" Width="40%" />
+                        <Column Id="%AID%_PB-%TT%CA2_C-3" Name="C3" Text="ID" Width="50%" />
                         <Column Id="%AID%_PB-%TT%CA2_C-4" Name="C4" Text="Kanal" Width="15%" />
                       </Columns>
                       <ParameterRefRef RefId="%AID%_P-%TT%21701_R-%TT%2170101" Cell="1,1" />
@@ -2817,9 +2817,9 @@
                         <Row Id="%AID%_PB-%TT%CS1_R-16" Name="R16" Text="16" />
                       </Rows>
                       <Columns>
-                        <Column Id="%AID%_PB-%TT%CS1_C-1" Name="C1" Text="Name" Width="25%" />
+                        <Column Id="%AID%_PB-%TT%CS1_C-1" Name="C1" Text="Name" Width="30%" />
                         <Column Id="%AID%_PB-%TT%CS1_C-2" Name="C2" Text="Raum" Width="20%" />
-                        <Column Id="%AID%_PB-%TT%CS1_C-3" Name="C3" Text="Szenen-ID" Width="40%" />
+                        <Column Id="%AID%_PB-%TT%CS1_C-3" Name="C3" Text="Szenen-ID" Width="50%" />
                         <Column Id="%AID%_PB-%TT%CS1_C-4" Name="C4" Text="Szenen-Slot" Width="15%" />
                       </Columns>
                       <ParameterRefRef RefId="%AID%_P-%TT%30101_R-%TT%3010101" Cell="1,1" />
@@ -2909,9 +2909,9 @@
                         <Row Id="%AID%_PB-%TT%CS2_R-16" Name="R16" Text="32" />
                       </Rows>
                       <Columns>
-                        <Column Id="%AID%_PB-%TT%CS2_C-1" Name="C1" Text="Name" Width="25%" />
+                        <Column Id="%AID%_PB-%TT%CS2_C-1" Name="C1" Text="Name" Width="30%" />
                         <Column Id="%AID%_PB-%TT%CS2_C-2" Name="C2" Text="Raum" Width="20%" />
-                        <Column Id="%AID%_PB-%TT%CS2_C-3" Name="C3" Text="Szenen-ID" Width="40%" />
+                        <Column Id="%AID%_PB-%TT%CS2_C-3" Name="C3" Text="Szenen-ID" Width="50%" />
                         <Column Id="%AID%_PB-%TT%CS2_C-4" Name="C4" Text="Szenen-Slot" Width="15%" />
                       </Columns>
                       <ParameterRefRef RefId="%AID%_P-%TT%31701_R-%TT%3170101" Cell="1,1" />
@@ -3001,9 +3001,9 @@
                         <Row Id="%AID%_PB-%TT%CS3_R-16" Name="R16" Text="48" />
                       </Rows>
                       <Columns>
-                        <Column Id="%AID%_PB-%TT%CS3_C-1" Name="C1" Text="Name" Width="25%" />
+                        <Column Id="%AID%_PB-%TT%CS3_C-1" Name="C1" Text="Name" Width="30%" />
                         <Column Id="%AID%_PB-%TT%CS3_C-2" Name="C2" Text="Raum" Width="20%" />
-                        <Column Id="%AID%_PB-%TT%CS3_C-3" Name="C3" Text="Szenen-ID" Width="40%" />
+                        <Column Id="%AID%_PB-%TT%CS3_C-3" Name="C3" Text="Szenen-ID" Width="50%" />
                         <Column Id="%AID%_PB-%TT%CS3_C-4" Name="C4" Text="Szenen-Slot" Width="15%" />
                       </Columns>
                       <ParameterRefRef RefId="%AID%_P-%TT%33301_R-%TT%3330101" Cell="1,1" />
@@ -3093,9 +3093,9 @@
                         <Row Id="%AID%_PB-%TT%CS4_R-16" Name="R16" Text="64" />
                       </Rows>
                       <Columns>
-                        <Column Id="%AID%_PB-%TT%CS4_C-1" Name="C1" Text="Name" Width="25%" />
+                        <Column Id="%AID%_PB-%TT%CS4_C-1" Name="C1" Text="Name" Width="30%" />
                         <Column Id="%AID%_PB-%TT%CS4_C-2" Name="C2" Text="Raum" Width="20%" />
-                        <Column Id="%AID%_PB-%TT%CS4_C-3" Name="C3" Text="Szenen-ID" Width="40%" />
+                        <Column Id="%AID%_PB-%TT%CS4_C-3" Name="C3" Text="Szenen-ID" Width="50%" />
                         <Column Id="%AID%_PB-%TT%CS4_C-4" Name="C4" Text="Szenen-Slot" Width="15%" />
                       </Columns>
                       <ParameterRefRef RefId="%AID%_P-%TT%34901_R-%TT%3490101" Cell="1,1" />
