@@ -1490,7 +1490,7 @@ const std::string HueGatewayModule::name()
 
 const std::string HueGatewayModule::version()
 {
-    std::string v = MODULE_HueGatewayModule_Version;
+    std::string v = MODULE_HueGateway_Version;
     auto pos = v.find('+');
     if (pos != std::string::npos)
         v = v.substr(0, pos);
