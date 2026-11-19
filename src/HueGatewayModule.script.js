@@ -402,12 +402,35 @@ function HUE_btnCommApply(device, online, progress, context) {
         return;
     }
 
+    // Räume/Zonen, die über "Steuern als Raum/Zone" einen Kanal bekommen. Lichter darin
+    // werden schon mitgesteuert; eine zusätzliche Einzelzuordnung bleibt erlaubt, wird aber gemeldet.
+    var groupIds = [], groupLabels = [], hints = [];
+    for (r = 1; r <= lightCount; r++) {
+        var gl = "HUECommL" + HUE_commPad(r);
+        var gTarget = HUE_commParam(device, gl + "Target").value;
+        if (HUE_commParam(device, gl + "Channel").value == 0 || gTarget == 0) continue;
+        var gId = HUE_commParam(device, gl + (gTarget == 1 ? "RoomId" : "ZoneId")).value;
+        if (gId === "") continue;
+        groupIds.push(gId);
+        groupLabels.push(HUE_COMM_TARGET_NAMES[gTarget] + " '" + HUE_commParam(device, gl + (gTarget == 1 ? "Room" : "Zone")).value + "' (Hue " + HUE_commParam(device, gl + "Channel").value + ")");
+    }
+
     for (r = 1; r <= lightCount; r++) {
         var l = "HUECommL" + HUE_commPad(r);
         ch = HUE_commParam(device, l + "Channel").value;
         if (ch == 0) continue;
         var target = HUE_commParam(device, l + "Target").value;
         var name = HUE_commParam(device, l + "Name").value;
+        if (target == 0) {
+            var coveredBy = "";
+            for (var g = 0; g < groupIds.length && coveredBy === ""; g++) {
+                if (HUE_commSame(groupIds[g], HUE_commParam(device, l + "RoomId").value) ||
+                    HUE_commSame(groupIds[g], HUE_commParam(device, l + "ZoneId").value))
+                    coveredBy = groupLabels[g];
+            }
+            if (coveredBy !== "")
+                hints.push("Hinweis: Licht '" + name + "' (Hue " + ch + ") wird zusätzlich über " + coveredBy + " gesteuert.");
+        }
         var id = HUE_commParam(device, l + (target == 1 ? "RoomId" : (target == 2 ? "ZoneId" : "Id"))).value;
         var targetName = target == 0 ? name : HUE_commParam(device, l + (target == 1 ? "Room" : "Zone")).value;
         label = HUE_COMM_TARGET_NAMES[target] + " '" + targetName + "'";
@@ -444,7 +467,7 @@ function HUE_btnCommApply(device, online, progress, context) {
     }
 
     if (errors.length > 0) {
-        result.value = "Nichts übernommen:\n" + errors.join("\n");
+        result.value = "Nichts übernommen:\n" + errors.concat(hints).join("\n");
         return;
     }
 
@@ -483,5 +506,6 @@ function HUE_btnCommApply(device, online, progress, context) {
         lines.push("Hue Szenen aktiviert.");
     }
 
+    lines = lines.concat(hints);
     result.value = lines.length ? lines.join("\n") : "Keine Zuordnung gewählt.";
 }
