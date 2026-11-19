@@ -1,4 +1,4 @@
-### Hue-Ziel-Geraete-ID-oder-Name
+﻿### Hue-Ziel-Geraete-ID-oder-Name
 
 Zielfeld für direkte Gerätezuordnung. Akzeptiert sowohl eine numerische Geräte-ID (RID) als auch einen eindeutigen Gerätenamen.
 

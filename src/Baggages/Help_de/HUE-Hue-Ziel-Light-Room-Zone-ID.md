@@ -1,4 +1,4 @@
-### Hue Ziel (Light-/Room-/Zone-ID)
+﻿### Hue Ziel (Light-/Room-/Zone-ID)
 
 Primäres Zielfeld für alle Zieltypen.
 

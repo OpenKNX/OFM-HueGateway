@@ -1,4 +1,4 @@
-### Nächste Schritte nach dem Pairing
+﻿### Nächste Schritte nach dem Pairing
 
 Nach erfolgreicher Kopplung (LED grün dauerhaft) erfolgt die eigentliche Gerätezuordnung:
 
@@ -13,3 +13,4 @@ Empfehlungen für robuste Inbetriebnahme:
 - Bei Namen, die für Licht, Raum und Zone gleich lauten, kann ein Präfix die Suche eingrenzen: `room:<name>` bzw. `zone:<name>`. Eine ID braucht kein Präfix, sie ist eindeutig (zudem passt `room:`/`zone:` plus ID nicht in das 40-Zeichen-Feld).
 
 Empfehlung: Erst mit 1-2 Kanälen testen, danach auf alle Kanäle ausrollen.
+

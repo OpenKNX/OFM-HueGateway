@@ -1,4 +1,4 @@
-### Inbetriebnahme
+﻿### Inbetriebnahme
 
 Auf dieser Seite wird die Hue-Bridge gekoppelt, die Hue-Geräte werden direkt aus der ETS von der Bridge geladen und den Kanälen bzw. Szenen-Slots zugeordnet. Das WebUI wird dafür nicht benötigt.
 
@@ -12,6 +12,14 @@ Ablauf:
 3. **Zuordnen**: Pro Gerät den Hue-Kanal wählen. Bei Lichtern zusätzlich wählen, ob das Licht selbst, sein Raum oder seine Zone gesteuert wird. Szenen werden einem der 8 Szenen-Slots zugeordnet.
 4. **Zuordnungen übernehmen**: Überträgt in jeden gewählten Kanal den Gerätetyp, bei Licht den Zieltyp und die Ziel-ID. Leere Kanalbeschreibungen erhalten den Hue-Namen. Szenen-IDs werden in die Szenen-Slots geschrieben, die Hue Szenen werden dabei aktiviert.
 
+Die Tabellen:
+
+| Tabelle | Spalten |
+|---|---|
+| Lichter | Name, Licht-ID, Raum, Raum-ID, Zone, Zone-ID, Kanal, Steuern als (Licht/Raum/Zone) |
+| Schalter, Sensoren und Steckdosen | Name, Typ, ID, Kanal |
+| Szenen | Name, Raum, Szenen-ID, Szenen-Slot |
+
 Das **Übernahme-Resultat** listet jeden geänderten Kanal und Slot auf. Ist ein Kanal oder Slot doppelt belegt, fehlt einem Licht der gewählte Raum bzw. die gewählte Zone oder ist ein Gerätetyp nicht zuordenbar, wird **nichts** übernommen und die Ursache angezeigt.
 
 Hinweise:
@@ -20,3 +28,4 @@ Hinweise:
 - Eine abgewählte Zuordnung (Kanal auf „–“) löscht keinen Kanal; bestehende Kanäle bleiben unverändert.
 - Es werden bis zu 64 Lichter, 32 Schalter/Sensoren/Steckdosen und 64 Szenen angezeigt. Größere Installationen bitte über das WebUI (`http://<IP-des-OpenKNX-Geräts>/hue/scan`) einrichten.
 - Hue-Steckdosen erscheinen nur unter *Schalter, Sensoren und Steckdosen*.
+

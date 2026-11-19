@@ -3,6 +3,7 @@
 - Bridge-Erkennung passend gewählt: mDNS im selben VLAN oder manuelle IP bei Segmentierung
 - Bridge gefunden, authentifiziert und Verbindungsstatus geprüft
 - Benötigte Kanäle in der Kanalauswahl mit passendem Gerätetyp aktiviert
+- Hue-Geräte auf der Seite Inbetriebnahme geladen und zugeordnet (oder Ziele über das WebUI von Hand eingetragen)
 - Zieltyp und Hue Ziel pro Kanal geprüft
 - Gerätetyp und Lampentyp passend zur realen Hardware
 - Sync-Richtung und Polling passend zur Anwendung parametriert

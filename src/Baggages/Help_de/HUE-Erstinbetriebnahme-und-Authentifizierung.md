@@ -1,4 +1,4 @@
-### Erstinbetriebnahme und Authentifizierung
+﻿### Erstinbetriebnahme und Authentifizierung
 
 Die Inbetriebnahme kann auf drei Arten erfolgen:
 

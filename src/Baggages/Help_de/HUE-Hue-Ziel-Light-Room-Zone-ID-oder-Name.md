@@ -1,4 +1,4 @@
-### Hue-Ziel-Light-Room-Zone-ID-oder-Name
+﻿### Hue-Ziel-Light-Room-Zone-ID-oder-Name
 
 Primäres Zielfeld für alle Zieltypen. Akzeptiert sowohl eine numerische ID (RID) als auch einen eindeutigen Namen.
 

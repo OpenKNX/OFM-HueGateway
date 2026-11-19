@@ -1,4 +1,4 @@
-### Hue Ziel (Geräte-ID)
+﻿### Hue Ziel (Geräte-ID)
 
 Zielfeld für Gerätetypen, die direkt auf ein einzelnes Hue-Gerät zeigen, insbesondere:
 
