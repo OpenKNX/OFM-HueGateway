@@ -63,8 +63,8 @@ OpenKNX Funktionsmodul zur Integration von Philips Hue Geräten in KNX-Systeme.
 ## Development
 
 ```bash
-git clone https://github.com/OpenKNX/OFM-HueGateway OFM-HueGatewayModule
-cd OFM-HueGatewayModule
+git clone https://github.com/OpenKNX/OFM-HueGateway
+cd OFM-HueGateway
 pio run
 ```
 
