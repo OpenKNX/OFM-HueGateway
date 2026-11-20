@@ -1,0 +1,15 @@
+# Baut bei jedem Push die knxprod und die Release-Firmware von OAM-HueGateway mit genau diesem Commit.
+on: [push]
+
+jobs:
+  ofm-check-job:
+    name: Check OFM
+
+    uses: openknx/actions/.github/workflows/openknx-ofm-check.yml@v0
+    with:
+      ofm_prefix: HUE
+      oam: OAM-HueGateway
+      # Fest gesetzt: Die automatische Branch-Wahl im zentralen Workflow greift derzeit nicht und nähme sonst v1.
+      oam_ref: v1dev
+      target: Release
+      KNXPROD_PREFIX: HueGateway

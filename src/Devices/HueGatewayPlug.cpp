@@ -7,15 +7,16 @@ void HueGatewayPlug::sendStatusToKnx()
     if (!_initialized)
         return;
 
+    // valueCompare(): value() would send on every poll, not just on a change.
     if (_koSwitch > 0)
-        knx.getGroupObject(_koSwitch).value(_on, Dpt(1, 1));
+        knx.getGroupObject(_koSwitch).valueCompare(_on, Dpt(1, 1));
 
     if (_koStatusSwitch > 0)
-        knx.getGroupObject(_koStatusSwitch).value(_on, Dpt(1, 1));
+        knx.getGroupObject(_koStatusSwitch).valueCompare(_on, Dpt(1, 1));
 
     // KO9: Erreichbar (optional, DPST-1-2)
     if (_optReachable && _koReachable > 0)
-        knx.getGroupObject(_koReachable).value(_reachable, Dpt(1, 2));
+        knx.getGroupObject(_koReachable).valueCompare(_reachable, Dpt(1, 2));
 
     Serial.printf("[HueGatewayPlug] %s - Status -> KNX: On=%d\n",
                   _name.c_str(), _on ? 1 : 0);

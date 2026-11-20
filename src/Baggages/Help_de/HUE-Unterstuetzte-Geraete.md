@@ -8,21 +8,21 @@ Eine Prüfung auf bestimmte Modell- oder Herstellernamen findet nicht statt – 
 
 | ETS-Gerätetyp | Hue API v2 Ressource | Erkennung | KNX-Funktionen |
 |---|---|---|---|
-| **Licht** | `light` | Alle Light-Ressourcen ohne Steckdosen-Archetype | Schalten, Dimmen, Farbtemperatur, RGB (je nach Fähigkeit) | Ja |
+| **Licht** | `light` | Alle Light-Ressourcen ohne Steckdosen-Archetype | Schalten, Dimmen, Farbtemperatur, RGB (je nach Fähigkeit) |
 | **Steckdose** | `light` + Archetype enthält *plug*, *socket* oder *outlet* | Archetype-Substring-Prüfung | Schalten Ein/Aus |
 | **Taster/Schalter** | `button`, `relative_rotary` | Service-Typ einer Geräte-Ressource | Tastenereignisse (Kurz-/Langdruck), Drehregler |
 | **Bewegungsmelder** | `motion` | Service-Typ einer Geräte-Ressource | Präsenz, optional Temperatur, Helligkeit, Batterie |
-| **Kontaktsensor** | `contact_sensor` | Service-Typ einer Geräte-Ressource | Kontaktstatus, optional Manipulation, Temperatur, Batterie | 
-| **Raum/Zone** | `grouped_light` | Aggregierte Lichtressource eines Raumes oder einer Zone | Schalten, Dimmen, Farbtemperatur, RGB (je nach enthaltenen Leuchten) | 
+| **Kontaktsensor** | `contact_sensor` | Service-Typ einer Geräte-Ressource | Kontaktstatus, optional Manipulation, Batterie |
+| **Raum/Zone** | `grouped_light` | Aggregierte Lichtressource eines Raumes oder einer Zone | Schalten, Dimmen, Farbtemperatur, RGB (je nach enthaltenen Leuchten) |
 
 Die Fähigkeiten einer Leuchte (dimmbar, Farbtemperatur, Farbe) werden automatisch anhand der von der Bridge gemeldeten JSON-Felder erkannt:
 
 | Lampentyp in ETS | Voraussetzung auf Bridge-Seite |
 |---|---|
 | Ein/Aus | Nur `on/off`-Feld vorhanden |
-| Dimmbar | `dimming`-Feld vorhanden | 
+| Dimmbar | `dimming`-Feld vorhanden |
 | Farbtemperatur | `color_temperature`-Feld vorhanden (Mirek 153–500) |
-| Farbe (RGB) | `color`-Feld vorhanden (CIE 1931 XY) | 
+| Farbe (RGB) | `color`-Feld vorhanden (CIE 1931 XY) |
 
 ### Philips Hue Produkte (Signify)
 
@@ -30,7 +30,7 @@ Die Fähigkeiten einer Leuchte (dimmbar, Farbtemperatur, Farbe) werden automatis
 
 | Produktreihe | Typ | Lampentyp in ETS | Getestet |
 |---|---|---|---|
-| Hue White | E27, E14, GU10, A19, BR30, PAR38 | Dimmbar | Ja  |
+| Hue White | E27, E14, GU10, A19, BR30, PAR38 | Dimmbar | Ja |
 | Hue White Ambiance | E27, E14, GU10, A19, BR30, Lightstrip | Farbtemperatur | Ja |
 | Hue White and Color Ambiance | E27, E14, GU10, A19, BR30, Lightstrip Plus | Farbe (RGB) | Ja |
 | Hue Filament | ST64, G93, G125, A60, ST72, T75 | Farbtemperatur | Nein |
@@ -53,7 +53,7 @@ Die Fähigkeiten einer Leuchte (dimmbar, Farbtemperatur, Farbe) werden automatis
 
 | Produkt | Archetype | Lampentyp | Getestet |
 |---|---|---|---|
-| Hue Smart Plug (EU ) | `hue_siren` / `plug` | Steckdose (Ein/Aus) | Nein |
+| Hue Smart Plug (EU) | `plug` | Steckdose (Ein/Aus) | Nein |
 
 #### Sensoren
 

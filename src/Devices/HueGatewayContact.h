@@ -29,7 +29,7 @@ public:
         , _initialized(false)
     {}
 
-    uint8_t deviceType() const override { return 3; }
+    PT_HUEChannelType deviceType() const override { return PT_HUEChannelType::Kontaktsensor; }
 
     String getResourceId() const override { return _resourceId; }
     String getName() const override { return _name; }

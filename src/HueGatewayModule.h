@@ -9,13 +9,13 @@
 #include "knxprod.h"
 #include "HueGatewayAuth.h"
 #include "HCL/HCLMasterManager.h"
-#include "WebUI.h"
 #include "Devices/HueGatewayDevice.h"
 
 // Forward Declarations
 class HueGatewayClient;
 class HueGatewayLight;
 class HueGatewayPlug;
+namespace OpenKNX { namespace Network { class WebRequest; class WebResponse; struct WebSocketFrame; } }
 struct HueGatewayEventLightUpdate;
 struct HueGatewayEventSensorUpdate;
 
@@ -26,8 +26,8 @@ struct HueGatewayEventSensorUpdate;
  * It communicates with the Hue Bridge via Hue API v2 and exposes device
  * functions through KNX communication objects.
  * 
- * @version 0.3.9
- * @date 2026-03-23
+ * @version 0.4.0
+ * @date 2026-04-16
  */
 
 class HueGatewayModule : public OpenKNX::Module
@@ -46,6 +46,7 @@ public:
     uint16_t flashSize() override;
     void writeFlash() override;
     void readFlash(const uint8_t* data, const uint16_t size) override;
+    bool processFunctionProperty(uint8_t objectIndex, uint8_t propertyId, uint8_t length, uint8_t* data, uint8_t* resultData, uint8_t& resultLength) override;
 
     enum class HclLockFallbackMode : uint8_t {
         None = 0,
@@ -70,7 +71,11 @@ public:
         DurationOrTime = 3,
         ExternalOnly = 4
     };
-    
+
+#ifdef OPENKNX_WEBSERVER
+    void markChannelDirty(int channel);
+#endif
+
 private:
     struct DiagnosticLogEntry {
         unsigned long uptimeMs;
@@ -93,7 +98,7 @@ private:
     
     
     // Device Management
-    static const int MAX_CHANNELS = 32;  ///< Max configurable channels (was MAX_LIGHTS=24)
+    static const int MAX_CHANNELS = HUE_ChannelCount;  ///< Max configurable channels, follows OAM-defined NumChannels
     static const int MAX_LIGHTS = MAX_CHANNELS;  ///< Backward-compat alias
     HueGatewayDevice* _devices[MAX_CHANNELS];  ///< Polymorphic device array
     /// Helper: returns the channel as HueGatewayLight* or nullptr if not a light.
@@ -163,6 +168,35 @@ private:
     String _lastWebScanHtml;
     String _lastWebScanText;
     String _lastWebScanError;
+
+    // ETS-Inbetriebnahme: kompaktes Scan-Ergebnis für HueGatewayModule.script.js
+    // (Function Property 0xA3/1). Befüllt in updateWebScanCache().
+    struct CommissioningLight {
+        String id;
+        String name;
+        String roomId;
+        String roomName;
+        String zoneId;
+        String zoneName;
+    };
+    struct CommissioningAccessory {
+        uint8_t type;  // 1 Taster, 2 Taster mit Drehelement, 3 Bewegungsmelder, 4 Kontaktsensor, 5 Steckdose, 6 Sonstiges
+        String id;
+        String name;
+    };
+    struct CommissioningScene {
+        String id;
+        String name;
+        String groupName;
+    };
+    std::vector<CommissioningLight> _commLights;
+    std::vector<CommissioningAccessory> _commAccessories;
+    std::vector<CommissioningScene> _commScenes;
+    uint8_t _commTruncatedFlags;  // Bit 0 Lichter, Bit 1 Zubehör, Bit 2 Szenen
+    bool _etsScanPending;         // von der ETS angefordert, Ergebnis noch nicht fertig
+    uint8_t _etsScanError;
+    void clearCommissioningResult();
+
     bool _hclLockActive;
     uint8_t _hclLockFallbackMode;
     uint8_t _hclFallbackPolicy;
@@ -199,6 +233,10 @@ private:
     int16_t _hclManagerLockActivationMinuteOfDay[HCL::MasterManager::MAX_MASTERS];
     bool _hclChannelLockActive[MAX_CHANNELS];
     uint8_t _hclChannelLockFallbackMode[MAX_CHANNELS];
+    uint8_t _hclChannelAutoStandby[MAX_CHANNELS];
+    uint8_t _hclChannelFallbackPolicy[MAX_CHANNELS];
+    uint32_t _hclChannelFallbackDurationMs[MAX_CHANNELS];
+    uint16_t _hclChannelFallbackReleaseMinuteOfDay[MAX_CHANNELS];
     unsigned long _hclChannelLockActivatedMs[MAX_CHANNELS];
     unsigned long _hclChannelLockAutoReleaseMs[MAX_CHANNELS];
     int16_t _hclChannelLockActivationDayOfYear[MAX_CHANNELS];
@@ -231,49 +269,53 @@ private:
     String _diagLastWriteTraceResult[MAX_CHANNELS];
     String _diagLastWriteTraceMethod[MAX_CHANNELS];
     String _diagLastWriteTraceEndpoint[MAX_CHANNELS];
+    bool _diagTargetUnresolved[MAX_CHANNELS];
 
     // Last setup snapshot for diagnostics.
     uint8_t _diagLastEnabledChannels;
     int _diagLastBridgeLightCount;
     int _diagLastRoomTargetCount;
     int _diagLastZoneTargetCount;
-    bool _diagLastHasUnresolvedGroupTarget;
+    bool _diagLastHasUnresolvedTarget;
     
     void setupBridge();
     void setupDevices();
     void setupHCL();
     void processBehaviorInstanceAutoDelete();
     void checkConnection();
-    void refreshLightStatus();
+    void refreshLightStatus(bool fastTrackOnly = false);
     void applyEventStreamUpdates(const HueGatewayEventLightUpdate* updates, int updateCount);
     void applyEventStreamDeviceUpdates(const HueGatewayEventSensorUpdate* updates, int updateCount);
-    void setupWebUI();
     void setupMDNS();
     void refreshNetworkServices();
     void pollAuthentication();
     bool initClientWithAppKey();
     bool startPairing();
-    
-    // Web UI handlers (absolute URIs)
-    static esp_err_t handleWebRoot(httpd_req_t* req);
-    static esp_err_t handleWebScan(httpd_req_t* req);
-    static esp_err_t handleWebScanText(httpd_req_t* req);
-    static esp_err_t handleWebStatus(httpd_req_t* req);
-    static esp_err_t handleWebPair(httpd_req_t* req);
-    static esp_err_t handleWebResetAuth(httpd_req_t* req);
-    static esp_err_t handleWebDiagnose(httpd_req_t* req);
-    static esp_err_t handleWebDiagnoseText(httpd_req_t* req);
-    static esp_err_t handleWebRetrySetup(httpd_req_t* req);
-    
-    // Web UI pages (under WEBUI_BASE_URI)
-    static esp_err_t pageWebRoot(const char* uri, httpd_req_t* req, void* arg);
-    static esp_err_t pageWebScan(const char* uri, httpd_req_t* req, void* arg);
-    static esp_err_t pageWebStatus(const char* uri, httpd_req_t* req, void* arg);
-    static esp_err_t pageWebPair(const char* uri, httpd_req_t* req, void* arg);
-    static esp_err_t pageWebResetAuth(const char* uri, httpd_req_t* req, void* arg);
-    static esp_err_t pageWebDiagnose(const char* uri, httpd_req_t* req, void* arg);
-    static esp_err_t pageWebRetrySetup(const char* uri, httpd_req_t* req, void* arg);
-    
+
+#ifdef OPENKNX_WEBSERVER
+    void setupWebUI();
+    void handleWebRoot(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebScan(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebScanText(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebStatus(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebPair(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebResetAuth(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebDiagnose(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebDiagnoseText(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebRetrySetup(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebFadeTest(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebLive(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleWebLichtmanager(OpenKNX::Network::WebRequest& req, OpenKNX::Network::WebResponse& res);
+    void handleLiveWsConnect(int clientId, bool connected);
+    void handleLiveWsMessage(int clientId, OpenKNX::Network::WebSocketFrame* frame);
+    void flushLiveUpdates();
+    void buildChannelStateJson(int channel, String& out);
+    void sendLiveSnapshot(int clientFd);
+    bool _liveDirty[MAX_CHANNELS];
+    unsigned long _liveLastSentMs[MAX_CHANNELS];
+    unsigned long _livePeriodicRefreshMs = 0;
+#endif // OPENKNX_WEBSERVER
+
     // Scan functions
     void performBridgeScan();
     void updateWebScanCache();
@@ -282,11 +324,30 @@ private:
     String buildDiagnosticReport(size_t requestedDepth, const String& testerNote, bool includeNetworkDetails);
     void appendDiagnosticLog(const char* level, const char* category, const String& message);
     void resetDevices();
+
+    // Fade test: drives one channel through a fixed sequence of Hue payloads and
+    // samples the resulting brightness, to determine which payload the bridge
+    // actually ramps and whether it clobbers its stored brightness.
+    enum class FadeTestPhase : uint8_t { Put, Sample, Settle };
+    bool startFadeTest(int channelIndex, String& error);
+    void loopFadeTest();
+    void finishFadeTest();
+    int8_t _fadeTestChannel = -1;
+    uint8_t _fadeTestStep = 0;
+    uint8_t _fadeTestSampleIndex = 0;
+    FadeTestPhase _fadeTestPhase = FadeTestPhase::Put;
+    unsigned long _fadeTestNextMs = 0;
+    bool _fadeTestLockTaken = false;
+    String _fadeTestReport;
     
     // Helper Methods
     bool hasNetworkConnectivity() const;
     String getBridgeIP();
     uint8_t countEnabledChannels() const;
+    // Kanaltyp aus der ETS; Deaktiviert auch für Kanäle außerhalb des gültigen Bereichs.
+    PT_HUEChannelType channelType(uint8_t channelIndex) const;
+    // Kanal ist gewählt und nicht suspendiert.
+    bool channelConfigured(uint8_t channelIndex) const;
     void setHclLock(bool active, const char* reason);
     void publishHclLockStatus();
     void setHclManagerLock(uint8_t managerNumber, bool active, const char* reason);

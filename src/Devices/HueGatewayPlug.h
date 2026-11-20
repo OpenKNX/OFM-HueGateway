@@ -33,7 +33,7 @@ public:
         , _initialized(false)
     {}
 
-    uint8_t deviceType() const override { return 4; }
+    PT_HUEChannelType deviceType() const override { return PT_HUEChannelType::Steckdose; }
 
     String getResourceId() const override { return _resourceId; }
     String getName() const override { return _name; }

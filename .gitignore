@@ -1,6 +1,8 @@
 .pio
-.github/
-.vscode
+.github/*
+!.github/workflows/
+.vscode/*
+!.vscode/tasks.json
 .DS_Store
 *.pyc
 __pycache__
@@ -10,4 +12,5 @@ __pycache__
 .clang_complete
 .gcc-flags.json
 platformio.ini.user
-.github/
+src/HueGatewayModule.share.xml.bak
+tools/

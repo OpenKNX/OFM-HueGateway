@@ -19,32 +19,21 @@ Empfehlung: **Deaktivieren**, wenn die Hue-Leuchten vollständig über KNX geste
 
 #### 2-Tasten-Dimmer
 
-- Taste 1: Gewerk `Licht`
-- Kurzdruck: Schalten
-- Langdruck: Dimmen
-- Taste 2: Gewerk `Licht`
-- Kurzdruck: Schalten
-- Langdruck: Dimmen
+- Taste 1: Kurzdruck = **Schalten (DPT 1.001)**, Langdruck = **Dimmen Start/Stop (DPT 3.007)**
+- Taste 2: Kurzdruck = **Schalten (DPT 1.001)**, Langdruck = **Dimmen Start/Stop (DPT 3.007)**
 
 Geeignet für kompakte Wandtaster mit Auf/Ab-Logik.
 
 #### 4-Tasten-Szenentaster
 
-- Taste 1-4: Gewerk `Licht`
-- Kurzdruck: Szene abrufen
-- Optional Langdruck: Zusatzfunktion oder deaktiviert
+- Taste 1–4: Kurzdruck = **Szenennummer (DPT 18.001)**, Langdruck = **Kein Langdruck**
 
 Geeignet für Raumsteuerungen mit fester Szenenzuordnung wie `Arbeiten`, `Entspannen`, `Abend`, `Aus`.
 
 #### Jalousie-Taster
 
-- Gewerk `Jalousie`
-- Kurzdruck: Stop / Lamellen
-- Langdruck: Auf / Ab
+- Kurzdruck = **Schritt/Stop (DPT 1.007)** (Richtung: Auf oder Ab)
+- Langdruck = **Fahren (DPT 1.008)** (Richtung: Auf oder Ab)
 
-Sinnvoll, wenn ein Hue-Taster nicht für Licht, sondern für eine KNX-Funktion im Raum genutzt werden soll.
-
-#### Auswahl des Gewerks
-
-Wählen Sie das Gewerk passend zur gewünschten KNX-Funktion. Die sichtbaren Parameter und Kommunikationsobjekte passen sich automatisch an. Wenn eine Taste unerwartete Objekte zeigt, ist meist das falsche Gewerk ausgewählt.
+Sinnvoll, wenn ein Hue-Taster nicht für Licht, sondern für eine KNX-Jalousie-Funktion genutzt werden soll.
 
