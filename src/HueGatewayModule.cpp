@@ -4071,19 +4071,22 @@ void HueGatewayModule::refreshLightStatus(bool fastTrackOnly)
 
     Serial.printf("[HueGatewayModule] Polling Hue bridge for %d due channel(s)\n", dueChannels);
 
-    static HueGatewayLightState cachedLights[MAX_LIGHTS];
+    // Heap-allocated once instead of static arrays: with 64 channels the four state
+    // buffers take ~35 KB, which as .bss left too little internal DRAM for FreeRTOS
+    // to start. Allocations above 4 KB go to PSRAM when it is enabled.
+    static HueGatewayLightState* cachedLights = new HueGatewayLightState[MAX_LIGHTS];
     static int cachedCount = 0;
     static unsigned long cacheValidUntilMs = 0;
 
-    static HueGatewayLightState pollLights[MAX_LIGHTS];
+    static HueGatewayLightState* pollLights = new HueGatewayLightState[MAX_LIGHTS];
     HueGatewayLightState* lightSnapshot = pollLights;
     int count = 0;
 
-    static HueGatewayLightState cachedGroupedLights[MAX_LIGHTS];
+    static HueGatewayLightState* cachedGroupedLights = new HueGatewayLightState[MAX_LIGHTS];
     static int cachedGroupedCount = 0;
     static unsigned long groupedCacheValidUntilMs = 0;
 
-    static HueGatewayLightState pollGroupedLights[MAX_LIGHTS];
+    static HueGatewayLightState* pollGroupedLights = new HueGatewayLightState[MAX_LIGHTS];
     HueGatewayLightState* groupedSnapshot = pollGroupedLights;
     int groupedCount = 0;
 
