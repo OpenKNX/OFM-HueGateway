@@ -2,7 +2,7 @@
 
 Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumentiert.
 
-## Geplantes folgendes Release [0.10.0]
+## [0.10.0] - 2026-11-20 — 64 Hue-Kanäle
 
 > **Hinweis (Build):** Die Bibliothek heißt jetzt `OFM-HueGateway` statt `OFM-HueGatewayModule`, passend zum Ordnernamen. Der OpenKNX-Build sucht den Git-Hash jedes Moduls unter `lib/<Bibliotheksname>`; mit dem alten Namen schlug der Linux-Build fehl. Projekte, die die Bibliothek über den Namen einbinden, müssen ihn anpassen. Das Versions-Makro heißt jetzt `MODULE_HueGateway_Version`.
 
