@@ -5887,12 +5887,21 @@ bool HueGatewayModule::startPairing()
 
 void HueGatewayModule::updateInfoLED()
 {
-    static BridgeStatus lastStatus = BridgeStatus::DISCONNECTED;
-    if (lastStatus == _bridgeStatus)
+    // OGM-Common owns the LED until the startup delay is over and then switches it to
+    // steady green; take over afterwards and apply the current bridge status once.
+    if (!openknx.afterStartupDelay())
     {
         return;
     }
 
+    static bool initialPatternApplied = false;
+    static BridgeStatus lastStatus = BridgeStatus::DISCONNECTED;
+    if (initialPatternApplied && lastStatus == _bridgeStatus)
+    {
+        return;
+    }
+
+    initialPatternApplied = true;
     lastStatus = _bridgeStatus;
 
     auto* led = openknx.leds.getLed(OpenKNX::Led::LedType::LED_TYPE_INFO1);
