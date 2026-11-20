@@ -2,6 +2,22 @@
 
 Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumentiert.
 
+## Geplantes folgendes Release [0.10.0]
+
+> **Hinweis (Build):** Die Bibliothek heißt jetzt `OFM-HueGateway` statt `OFM-HueGatewayModule`, passend zum Ordnernamen. Der OpenKNX-Build sucht den Git-Hash jedes Moduls unter `lib/<Bibliotheksname>`; mit dem alten Namen schlug der Linux-Build fehl. Projekte, die die Bibliothek über den Namen einbinden, müssen ihn anpassen. Das Versions-Makro heißt jetzt `MODULE_HueGateway_Version`.
+
+### Hinzugefügt
+- **Bis zu 64 Hue-Kanäle.** Die Kanalanzahl folgt jetzt `HUE_ChannelCount` aus `knxprod.h` statt fest 32; das OAM legt sie über `NumChannels` fest. Die Kanalauswahl auf der Seite „Inbetriebnahme" bietet „Hue 33" bis „Hue 64" an, und „Zuordnungen übernehmen" prüft alle 64 Kanäle. Die Grenzen für Schalter/Sensoren/Steckdosen (32) und Bridge-Gruppen bleiben unverändert.
+- **Hinweis auf doppelte Steuerung**: Ist ein Licht einem eigenen Kanal zugeordnet und sein Raum oder seine Zone zusätzlich über „Steuern als Raum/Zone", nennt das Übernahme-Resultat diesen Raum bzw. diese Zone mit Kanal. Die Zuordnung wird trotzdem übernommen; der Hinweis erscheint auch, wenn wegen Fehlern nichts übernommen wird.
+- **Werte der Inbetriebnahme-Tabellen sind kopierbar.** Name, Raum, Zone und alle IDs sind jetzt normale Textfelder statt reiner Beschriftungen und lassen sich markieren und kopieren. ID-Spalten akzeptieren nur einen leeren Wert oder eine Hue-UUID; „Hue-Geräte laden" überschreibt ohnehin alle Zellen. Die Typ-Spalte bleibt schreibgeschützt, und alle Parameter bleiben vom Konfigurationstransfer ausgenommen.
+
+### Geändert
+- **Breitere Spalten auf der Seite „Inbetriebnahme"**: Namen 30 %, alle ID-Spalten 50 %, Raum 20 % und Zone 22 %, in den Tabellen für Lichter, Zubehör und Szenen. UUIDs brechen nicht mehr um; die ETS scrollt die Tabellen waagrecht.
+
+### Behoben
+- **Gerät startete mit 64 Kanälen nicht mehr, sondern in einer Reboot-Schleife.** Die vier Status-Puffer in `refreshLightStatus()` belegten als statische Arrays etwa 35 KB internen DRAM; danach blieb zu wenig Heap, damit FreeRTOS den Idle-Task anlegen konnte (`assert failed: vApplicationGetIdleTaskMemory`). Die Puffer werden jetzt beim ersten Aufruf einmalig angelegt und liegen bei aktivem PSRAM dort.
+- **Info1-LED blieb nach dem Start dauergrün statt den Bridge-Status zu zeigen.** OGM-Common schaltet Info1 nach der Startverzögerung auf Grün; das Modul hat die LED nur bei einem Statuswechsel gesetzt und den Anfangsstatus „Keine Verbindung" nie angezeigt. Das Modul überlässt die LED jetzt bis zum Ende der Startverzögerung OGM-Common (unprogrammierte Geräte blinken wie bei allen OpenKNX-Geräten) und zeigt danach sofort den aktuellen Bridge-Status.
+
 ## [0.9.0] - 2026-09-24 — Inbetriebnahme aus der ETS
 
 ### Hinzugefügt
