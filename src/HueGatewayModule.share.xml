@@ -639,7 +639,7 @@
                 <ParameterSeparator Id="%AID%_PS-HUERelDimLine" Text="" UIHint="HorizontalRuler" />
                 <ParameterSeparator Id="%AID%_PS-HUERelDim" Text="Relatives Dimmen" UIHint="Headline" />
                 <ParameterRefRef RefId="%AID%_P-%TT%00078_R-%TT%0007801" HelpContext="HUE-Relatives-Dimmen" />
-                <ParameterSeparator Id="%AID%_PS-HUERelDimInfo" Text="Kleinere Werte = schnelleres Dimmen. Standard: 80ms für flüssiges Dimmen." UIHint="Information" />
+                <ParameterSeparator Id="%AID%_PS-HUERelDimInfo" Text="Kleinere Werte = schnelleres Dimmen. Standard: 120 ms." UIHint="Information" />
                 
                 <!-- Status-KO nur anzeigen wenn aktiviert -->
                 <choose ParamRefId="%AID%_P-%TT%00006_R-%TT%0000601">

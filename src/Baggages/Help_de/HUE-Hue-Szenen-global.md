@@ -4,6 +4,7 @@ Bis zu **8 Hue-Szenen** können global (auf Modulebene) als RID-Referenz hinterl
 
 - **Hue Szene 1..8 (RID)**: Ressourcen-ID der Szene aus dem Hue-System
 
+
 Ermittlung der Scene-RID:
 - ETS: Seite **Inbetriebnahme** (Szene laden, Szenen-Slot wählen, übernehmen)
 - Webinterface: `http://<IP-des-OpenKNX-Geräts>/hue/scan`

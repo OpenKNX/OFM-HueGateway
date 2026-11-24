@@ -36,6 +36,7 @@ Die Kommunikation erfolgt über die Hue Bridge (Hue API v2).
   * [Relatives Dimmen](#relatives-dimmen)
   * [Hue Szenen aktivieren](#hue-szenen-aktivieren)
 * [**Inbetriebnahme**](#inbetriebnahme)
+  * [Räume und Zonen zuordnen](#räume-und-zonen-zuordnen)
 * [**Kanalauswahl**](#kanalauswahl)
 * [**Kanal 1-n (Hue Ziele)**](#kanal-1-n-hue-ziele)
   * [Beschreibung](#beschreibung)
@@ -213,6 +214,9 @@ Nach erfolgreicher Kopplung an der Bridge werden sie vom Modul wie native Hue-Le
 <!-- DOC -->
 ## Bridge-Konfiguration
 
+<!-- DOC Skip="1" -->
+<kbd>![Seite Philips Hue, Allgemein](pics/hue-allgemein.png)</kbd>
+
 <!-- DOC -->
 ### Bridge Erkennung
 
@@ -233,8 +237,12 @@ Beispiel: `192.168.1.100`
 Die Inbetriebnahme kann auf drei Arten erfolgen:
 
 #### Variante 1: Pairing auf der ETS-Seite Inbetriebnahme (empfohlen)
-. ETS-Download ausführen.. Auf der Seite **Inbetriebnahme** den Button **Pairing starten** drücken (Busverbindung erforderlich).. Innerhalb des Pairing-Fensters den Link-Button an der Hue Bridge drücken. Die ETS zeigt die verbleibende Zeit und meldet den Erfolg.. Das Modul speichert den App-Key persistent.
- die Bridge bereits gekoppelt, startet der Button kein neues Pairing. Für ein erneutes Pairing zuerst **Authentication zurücksetzen** oder eine der folgenden Varianten nutzen.
+1. ETS-Download ausführen.
+2. Auf der Seite **Inbetriebnahme** den Button **Pairing starten** drücken (Busverbindung erforderlich).
+3. Innerhalb des Pairing-Fensters den Link-Button an der Hue Bridge drücken. Die ETS zeigt die verbleibende Zeit und meldet den Erfolg.
+4. Das Modul speichert den App-Key persistent.
+
+Ist die Bridge bereits gekoppelt, startet der Button kein neues Pairing. Für ein erneutes Pairing zuerst **Authentication zurücksetzen** oder eine der folgenden Varianten nutzen.
 
 #### Variante 2: Pairing per ETS (Pairing Trigger KO)
 
@@ -350,7 +358,7 @@ Legt fest, wie schnell ein relatives Dimmkommando (DPT 3.007) pro Schritt übern
 Hinweise:
 - Kleinere Werte = schnelleres Dimmen.
 - Gilt für alle Kanäle mit Lampentyp `Dimmbar` oder höher.
-- Typischer Richtwert: `80..150 ms`.
+- Standardwert: `120 ms`. Typischer Richtwert: `80..150 ms`.
 
 <!-- DOC -->
 ### Hue Szenen aktivieren
@@ -377,6 +385,12 @@ Ablauf:
 3. **Zuordnen**: Pro Gerät den Hue-Kanal wählen. Bei Lichtern zusätzlich wählen, ob das Licht selbst, sein Raum oder seine Zone gesteuert wird. Szenen werden einem der 8 Szenen-Slots zugeordnet.
 4. **Zuordnungen übernehmen**: Überträgt in jeden gewählten Kanal den Gerätetyp, bei Licht den Zieltyp und die Ziel-ID. Leere Kanalbeschreibungen erhalten den Hue-Namen. Szenen-IDs werden in die Szenen-Slots geschrieben, die Hue Szenen werden dabei aktiviert.
 
+<!-- DOC Skip="1" -->
+Die Screenshots in dieser Beschreibung zeigen eine Beispielinstallation mit erfundenen Namen und IDs.
+
+<!-- DOC Skip="1" -->
+<kbd>![Seite Inbetriebnahme nach Pairing und Laden](pics/inbetriebnahme-uebersicht.png)</kbd>
+
 Die Tabellen:
 
 | Tabelle | Spalten |
@@ -385,7 +399,35 @@ Die Tabellen:
 | Schalter, Sensoren und Steckdosen | Name, Typ, ID, Kanal |
 | Szenen | Name, Raum, Szenen-ID, Szenen-Slot |
 
-Das **Übernahme-Resultat** listet jeden geänderten Kanal und Slot auf. Ist ein Kanal oder Slot doppelt belegt, fehlt einem Licht der gewählte Raum bzw. die gewählte Zone oder ist ein Gerätetyp nicht zuordenbar, wird **nichts** übernommen und die Ursache angezeigt.
+<!-- DOC Skip="1" -->
+<kbd>![Tabelle Lichter mit Raum, Zone, Kanal und Steuern als](pics/inbetriebnahme-lichter.png)</kbd>
+
+<!-- DOC Skip="1" -->
+<kbd>![Tabelle Schalter, Sensoren und Steckdosen](pics/inbetriebnahme-zubehoer.png)</kbd>
+
+<!-- DOC Skip="1" -->
+<kbd>![Tabelle Szenen](pics/inbetriebnahme-szenen.png)</kbd>
+
+### Räume und Zonen zuordnen
+
+Räume und Zonen haben in der Tabelle *Lichter* **keine eigene Zeile**. Sie stehen als Spalten *Raum*, *Raum-ID*, *Zone* und *Zone-ID* bei jeder Lampe, die zu ihnen gehört.
+
+Um einen Raum oder eine Zone auf einen Kanal zu legen:
+1. Eine beliebige Lampe aus diesem Raum bzw. dieser Zone auswählen.
+2. Bei dieser Lampe den Kanal wählen und *Steuern als* auf **Raum** bzw. **Zone** stellen.
+3. Bei den übrigen Lampen desselben Raums bzw. derselben Zone den Kanal auf „–“ lassen.
+
+Beim Übernehmen wird dann die Raum- bzw. Zonen-ID in den Kanal geschrieben, nicht die ID der Lampe. Im Beispiel oben steuert *Hue 2* über die Stehleuchte den ganzen Raum *Wohnzimmer* und *Hue 5* über die Leselampe die Zone *Erdgeschoss*.
+
+Ein Raum oder eine Zone belegt nur einen Kanal, egal wie viele Lampen darin sind. Lampen, die immer gemeinsam geschaltet werden, sollten deshalb besser über ihren Raum oder ihre Zone angesteuert werden; das spart Kanäle.
+
+<!-- DOC Skip="1" -->
+<kbd>![Kanal Hue 2 mit Zieltyp Raum-ID nach dem Übernehmen](pics/kanal-raum-wohnzimmer.png)</kbd>
+
+Das **Übernahme-Resultat** listet jeden geänderten Kanal und Slot auf. Ist ein Kanal oder Slot doppelt belegt, fehlt einem Licht der gewählte Raum bzw. die gewählte Zone oder ist ein Gerätetyp nicht zuordenbar, wird **nichts** übernommen und die Ursache angezeigt. Wird ein Licht über einen eigenen Kanal und zusätzlich über seinen Raum bzw. seine Zone gesteuert, erscheint ein Hinweis; die Zuordnung wird trotzdem übernommen.
+
+<!-- DOC Skip="1" -->
+<kbd>![Übernahme-Resultat mit Hinweis auf doppelte Steuerung](pics/inbetriebnahme-resultat.png)</kbd>
 
 Hinweise:
 - Die Tabellen werden nur im ETS-Projekt gespeichert und nicht in das Gerät geladen. Die übernommenen Werte werden erst mit dem nächsten Download wirksam.
@@ -393,6 +435,7 @@ Hinweise:
 - Eine abgewählte Zuordnung (Kanal auf „–“) löscht keinen Kanal; bestehende Kanäle bleiben unverändert.
 - Es werden bis zu 64 Lichter, 32 Schalter/Sensoren/Steckdosen und 64 Szenen angezeigt. Größere Installationen bitte über das WebUI (`http://<IP-des-OpenKNX-Geräts>/hue/scan`) einrichten.
 - Hue-Steckdosen erscheinen nur unter *Schalter, Sensoren und Steckdosen*.
+- Die Hue-Bridge selbst erscheint in der Tabelle *Schalter, Sensoren und Steckdosen* mit dem Typ *Sonstiges*, weil sie sich in der Hue API als Gerät meldet. Sie wird keinem Kanal zugeordnet und kann ignoriert werden.
 
 ## Kanalauswahl
 
@@ -409,6 +452,9 @@ Hinweise:
 - Der Gerätetyp lässt sich hier oder im Kanalkopf ändern; beide Felder sind synchron. Im Kanalkopf fehlt der Wert `Deaktiviert`, dort wird ein Kanal über die Kanalauswahl abgeschaltet.
 - Suspendierte Kanäle (siehe [Suspendiert](#suspendiert)) bleiben in der Liste und im Baum, sind dort aber mit einem Sperrsymbol gekennzeichnet.
 - Nur aktive Kanäle belegen Kommunikationsobjekte und werden von der Firmware verarbeitet.
+
+<!-- DOC Skip="1" -->
+<kbd>![Kanalauswahl mit den Kanälen der Beispielinstallation](pics/hue-kanalauswahl.png)</kbd>
 
 <!-- DOC HelpContext="Kanal" -->
 ## Kanal 1-n (Hue Ziele)
@@ -445,11 +491,14 @@ Der Kanal bleibt im Baum sichtbar und wird dort mit einem Sperrsymbol (⛔) vor 
 <!-- DOC -->
 ### Zieltyp
 
-Legt fest, ob der Kanal ein **Licht**, einen **Raum** oder eine **Zone** steuert.
+Legt fest, ob der Kanal ein **Licht**, einen **Raum** oder eine **Zone** steuert. Die Auswahl in der ETS lautet `Licht-ID`, `Raum-ID` oder `Zone-ID`.
 
 Hinweis:
 - Bei **Raum/Zone** wird intern auf `grouped_light` aufgelöst.
 - Der Kanal bleibt damit auch bei Änderungen innerhalb des Raums/der Zone nutzbar.
+
+<!-- DOC Skip="1" -->
+<kbd>![Kanal mit Zieltyp Raum-ID](pics/kanal-raum-wohnzimmer.png)</kbd>
 
 <!-- DOC -->
 ### Hue Ziel (Light-/Room-/Zone-ID)
@@ -668,11 +717,17 @@ Empfehlung: **Deaktivieren**, wenn die Hue-Leuchten vollständig über KNX geste
 
 Geeignet für kompakte Wandtaster mit Auf/Ab-Logik.
 
+<!-- DOC Skip="1" -->
+<kbd>![Taster/Schalter als 2-Tasten-Dimmer](pics/taster-2-tasten-dimmer.png)</kbd>
+
 #### 4-Tasten-Szenentaster
 
 - Taste 1–4: Kurzdruck = **Szenennummer (DPT 18.001)**, Langdruck = **Kein Langdruck**
 
 Geeignet für Raumsteuerungen mit fester Szenenzuordnung wie `Arbeiten`, `Entspannen`, `Abend`, `Aus`.
+
+<!-- DOC Skip="1" -->
+<kbd>![Taster/Schalter als 4-Tasten-Szenentaster](pics/taster-4-tasten-szenen.png)</kbd>
 
 #### Jalousie-Taster
 
@@ -680,6 +735,9 @@ Geeignet für Raumsteuerungen mit fester Szenenzuordnung wie `Arbeiten`, `Entspa
 - Langdruck = **Fahren (DPT 1.008)** (Richtung: Auf oder Ab)
 
 Sinnvoll, wenn ein Hue-Taster nicht für Licht, sondern für eine KNX-Jalousie-Funktion genutzt werden soll.
+
+<!-- DOC Skip="1" -->
+<kbd>![Taster/Schalter als Jalousie-Taster](pics/taster-jalousie.png)</kbd>
 
 <!-- DOC -->
 ### Taste Kurzdruck
@@ -731,16 +789,19 @@ Wenn der Hue-Schalter über einen Drehregler verfügt (z. B. Hue Tap Dial):
   - **Wertgeber** (DPT 5.001): Absoluter Prozentwert
   - **Lautstärke** (DPT 3.007): Lautstärkeregelung (relatives Dimmen auf Medien-KO)
   - **Farbtemperatur** (DPT 7.600): Farbtemperatur in Kelvin
-- **Schrittweite (%)**: Prozentwert je Rastschritt (Standardwert: 5 %)
+- **Schrittweite**: Prozentwert je Rastschritt, wählbar `2 %`, `3 %`, `6 %`, `13 %` oder `25 %` (Standardwert: `13 %`)
+
+<!-- DOC Skip="1" -->
+<kbd>![Hue Tap Dial mit Drehregler](pics/taster-drehregler.png)</kbd>
 
 <!-- DOC -->
 ### Lampentyp
 
 Der Lampentyp bestimmt, welche KOs sichtbar/aktiv sind:
-- **Nur schalten**: Schalten + Status Schalten
-- **Dimmbar**: zusätzlich Helligkeit/Dimmen + Status Helligkeit
-- **Farbtemperatur**: zusätzlich Farbtemperatur + Status Farbtemperatur
-- **Farbe RGB**: zusätzlich RGB + Status RGB
+- **Ein/Aus (On/Off)**: Schalten + Status Schalten
+- **Dimmbar (Dimmable)**: zusätzlich Helligkeit/Dimmen + Status Helligkeit
+- **Farbtemperatur (White Ambiance)**: zusätzlich Farbtemperatur + Status Farbtemperatur
+- **Farbe RGB (Color Ambiance)**: zusätzlich RGB + Status RGB
 
 Hinweis: Sichtbar nur bei Gerätetyp **Licht**.
 
@@ -825,6 +886,9 @@ Legt fest, ob das Szenen-KO auch Speicherbefehle (DPT 18.001, Bit 7 = 1) auswert
 
 Jeder Slot kann unabhängig parametriert werden. Ist die **Szenennummer** auf `0` (inaktiv) gesetzt, wird der Slot ignoriert.
 
+<!-- DOC Skip="1" -->
+<kbd>![Szenen-Slots eines Raum-Kanals](pics/hue-kanal-szenen.png)</kbd>
+
 **Szenennummer**: KNX-Szenennummer 1..64 (entspricht Bit 0..5 im DPT, also KNX-intern 0..63)
 
 **Aktion**: Legt fest, was beim Abruf dieser Szene passiert. Die verfügbaren Optionen hängen vom **Lampentyp** des Kanals ab.
@@ -907,6 +971,9 @@ Bei `Kein Lichtmanager` arbeitet der Kanal ohne automatische Sollwert-Übernahme
 Wirksam sind nur Lichtmanager, die im Modul Lichtmanager in der **Kanalauswahl** aktiviert und nicht suspendiert sind. Ist ein anderer Lichtmanager zugeordnet, arbeitet der Kanal wie bei `Kein Lichtmanager` und das Gateway meldet dies im Log.
 Verfügbar ab Lampentyp `Dimmbar`. Dimmbare Lampen folgen nur der Helligkeit des Lichtmanagers; dessen HCL-Achsen dürfen dafür nicht auf `Nur Farbtemperatur` stehen.
 
+<!-- DOC Skip="1" -->
+<kbd>![Kanal mit Lichtmanager-Zuordnung und Sperre](pics/hue-kanal-lichtmanager.png)</kbd>
+
 <!-- DOC -->
 ### Sperre (kanal-spezifisch)
 
@@ -973,6 +1040,9 @@ Bis zu **8 Hue-Szenen** können global (auf Modulebene) als RID-Referenz hinterl
 
 - **Hue Szene 1..8 (RID)**: Ressourcen-ID der Szene aus dem Hue-System
 
+<!-- DOC Skip="1" -->
+<kbd>![Seite Hue Szenen mit zwei übernommenen Szenen](pics/hue-szenen-global.png)</kbd>
+
 Ermittlung der Scene-RID:
 - ETS: Seite **Inbetriebnahme** (Szene laden, Szenen-Slot wählen, übernehmen)
 - Webinterface: `http://<IP-des-OpenKNX-Geräts>/hue/scan`
@@ -1037,7 +1107,7 @@ Die folgenden Tabellen fassen alle Kommunikationsobjekte zusammen. Details zu Si
 | 1 | 1.017 | [Pairing Trigger](#pairing-trigger) | Eingang zum Auslösen des ETS-gestützten Pairings |
 | (LMG) | 1.003 / 1.011 | [Sperre (global) / Status Sperre](#sperre-global--status-sperre) | Globale Lichtmanager-Sperre inkl. Statusrückmeldung |
 | (LMG) | 1.017 | [Entsperren Trigger](#entsperren-trigger) | Hebt globale, manager- und kanal-spezifische Sperren gleichzeitig auf |
-| (LMG) | 1.003 / 1.011 | [Sperre Lichtmanager 1..8 / Status](#sperre-lichtmanager-18--status) | Sperrobjekte je Lichtmanager; sichtbar nur für in der Kanalauswahl aktivierte Lichtmanager |
+| (LMG) | 1.003 / 1.011 | [Sperre Lichtmanager 1..N / Status](#sperre-lichtmanager-1n--status) | Sperrobjekte je Lichtmanager; sichtbar nur für in der Kanalauswahl aktivierte Lichtmanager |
 | (LMG) | 5.001 / 7.600 | [Lichtmanager Status Helligkeit Soll / Farbtemperatur Soll](#lichtmanager-status-helligkeit-soll--farbtemperatur-soll) | Je Lichtmanager zwei Sollwert-KOs; Sichtbarkeit abhängig von Option „Status-KOs je Lichtmanager" |
 
 (LMG) = Objekt des Moduls [OFM-LightManager](https://github.com/OpenKNX/OFM-LightManager/blob/v1/doc/Applikationsbeschreibung-LightManager.md), das im kombinierten Gerät gemeinsam mit den Hue-spezifischen Objekten erscheint; KO-Nummer siehe dessen Applikationsbeschreibung.
@@ -1109,7 +1179,7 @@ Globale Sperre inkl. Statusrückmeldung.
 1-Bit Triggerobjekt zum gleichzeitigen Aufheben aller globalen, manager-spezifischen und kanal-spezifischen Sperren.
 
 <!-- DOC -->
-#### Sperre Lichtmanager 1..8 / Status
+#### Sperre Lichtmanager 1..N / Status
 
 Lichtmanager-spezifische Sperrobjekte inkl. Statusrückmeldung.
 Sichtbar nur für Lichtmanager, die in der Kanalauswahl des Lichtmanagers aktiviert sind.
@@ -1184,47 +1254,64 @@ Sichtbar nur wenn **Szenensteuerung aktivieren** am Kanal gesetzt ist.
 ## Projektierungsbeispiele
 
 ### Beispiel 1: Schalten ohne Rückmeldung
-- Lampentyp: Nur schalten
+- Lampentyp: Ein/Aus (On/Off)
 - Sync: Nur KNX zu Hue
-- Polling: 0
+- Polling: entfällt; bei „Nur KNX zu Hue" blendet die ETS das Polling-Intervall aus, weil keine Rückmeldung von der Bridge gelesen wird
+
+<!-- DOC Skip="1" -->
+<kbd>![Beispiel 1: Schalten ohne Rückmeldung](pics/beispiel-1-schalten.png)</kbd>
 
 ### Beispiel 2: Standard-Wohnraum
-- Lampentyp: Dimmbar
+- Lampentyp: Dimmbar (Dimmable)
 - Sync: Bidirektional
 - Polling: 10 s
+
+<!-- DOC Skip="1" -->
+<kbd>![Beispiel 2: Standard-Wohnraum](pics/beispiel-2-wohnraum.png)</kbd>
 
 ### Beispiel 3: Lichtmanager im Arbeitszimmer
-- Lampentyp: Farbtemperatur
-- Lichtmanager: 1
-- Intervall Lichtmanager: 60 s
+- Lampentyp: Farbtemperatur (White Ambiance)
+- Zuordnung Lichtmanager: Lichtmanager 1
+- Aktualisierungsintervall des Lichtmanagers: 60 s
 - Sperre Lichtmanager 1 via KO auf GA für Präsenz/Abwesenheit
 
+<!-- DOC Skip="1" -->
+<kbd>![Beispiel 3: Lichtmanager im Kanal](pics/hue-kanal-lichtmanager.png)</kbd>
+
 ### Beispiel 4: Raumsteuerung (Zone/Room) mit Rückmeldung
-- Zieltyp: Raum
-- Hue Ziel: Room-ID (RID)
-- Lampentyp: Dimmbar oder höher
+- Zieltyp: Raum-ID
+- Hue Ziel-ID: ID des Raums
+- Lampentyp: Dimmbar (Dimmable) oder höher
 - Sync: Bidirektional
 - Polling: 10 s
 
+<!-- DOC Skip="1" -->
+<kbd>![Beispiel 4: Raumsteuerung mit Rückmeldung](pics/beispiel-4-raum.png)</kbd>
+
 ### Beispiel 5: Zone mit Farbtemperatur/RGB
-- Zieltyp: Zone
-- Hue Ziel: Zone-ID (RID)
-- Lampentyp: Farbe RGB
+- Zieltyp: Zone-ID
+- Hue Ziel-ID: ID der Zone
+- Lampentyp: Farbe RGB (Color Ambiance)
 - Sync: Bidirektional
 - Polling: 5..15 s
 - Hinweis: Wirkung abhängig von Fähigkeiten der enthaltenen Leuchten
 
-### Beispiel 6: Lichtmanager mit Saison-Profil (Auto-DST)
-- Lampentyp: Farbtemperatur
-- Lichtmanager: 1
-- Saison-Modus: Auto-DST
-- Winter-Stützpunkte: SP1 `06:30 / 3000K / 30%`, SP2 `12:00 / 5000K / 80%`, SP3 `19:00 / 2700K / 60%`, SP4 `22:00 / 2200K / 20%`
-- Sommer-Stützpunkte (SP1–SP4 jeweils Sommer Aktiv = Ja): SP1 `06:30 / 4000K / 40%`, SP2 `12:00 / 5500K / 90%`, SP3 `19:00 / 3800K / 70%`, SP4 `22:00 / 2700K / 25%`
-- Hinweis: Im Sommer ist SP3 um 19 Uhr deutlich kühler (3800K statt 2700K), weil das Umgebungslicht noch hell ist.
+<!-- DOC Skip="1" -->
+<kbd>![Beispiel 5: Zone mit Farbe RGB](pics/beispiel-5-zone.png)</kbd>
 
-### Beispiel 7: Saison-Umschaltung per KNX-Logik (Modus „Per Objekt")
-- Saison-Modus: Per Objekt
-- KO `LM 1: Sommer aktiv` mit Ausgang einer Logik verbinden, die aus Datum/Uhrzeit den Sommer erkennt
+### Beispiel 6: Lichtmanager mit Sommer- und Winter-Profil
+- Lampentyp: Farbtemperatur (White Ambiance)
+- Zuordnung Lichtmanager: Lichtmanager 1
+- Lichtmanager 1: **Saisonale Umschaltung** `Automatisch (Astro + Offset)`, **Anzahl Profile** `2 Profile`
+- Profil 1 „Winter", Saison `Winter`: SP1 `06:30 / 30 % / 3000 K`, SP2 `12:00 / 80 % / 5000 K`, SP3 `19:00 / 60 % / 2700 K`, SP4 `22:00 / 20 % / 2200 K`
+- Profil 2 „Sommer", Saison `Sommer`: SP1 `06:30 / 40 % / 4000 K`, SP2 `12:00 / 90 % / 5500 K`, SP3 `19:00 / 70 % / 3800 K`, SP4 `22:00 / 25 % / 2700 K`
+- Beide Profile gelten für alle Wochentage (**Gilt für** Mo–So).
+- Hinweis: Im Sommer ist SP3 um 19 Uhr deutlich kühler (3800 K statt 2700 K), weil das Umgebungslicht noch hell ist.
+- Details zu Profilen und Saison: [Applikationsbeschreibung OFM-LightManager](https://github.com/OpenKNX/OFM-LightManager/blob/v1/doc/Applikationsbeschreibung-LightManager.md#saison-profil)
+
+### Beispiel 7: Saison-Umschaltung per KNX-Logik
+- Lichtmanager 1: **Saisonale Umschaltung** `Kommunikationsobjekt`
+- KO `LM 1: Eingang, Sommer=1` mit dem Ausgang einer Logik verbinden, die aus Datum/Uhrzeit den Sommer erkennt
 - Oder: KO an einen Taster hängen, der manuell zwischen Sommer/Winter umschaltet
 - Vorteil: Vollständige externe Kontrolle; z. B. auch Zwischensaison-Profile möglich
 

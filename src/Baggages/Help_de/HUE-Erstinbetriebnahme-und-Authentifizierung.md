@@ -3,8 +3,12 @@
 Die Inbetriebnahme kann auf drei Arten erfolgen:
 
 #### Variante 1: Pairing auf der ETS-Seite Inbetriebnahme (empfohlen)
-. ETS-Download ausführen.. Auf der Seite **Inbetriebnahme** den Button **Pairing starten** drücken (Busverbindung erforderlich).. Innerhalb des Pairing-Fensters den Link-Button an der Hue Bridge drücken. Die ETS zeigt die verbleibende Zeit und meldet den Erfolg.. Das Modul speichert den App-Key persistent.
- die Bridge bereits gekoppelt, startet der Button kein neues Pairing. Für ein erneutes Pairing zuerst **Authentication zurücksetzen** oder eine der folgenden Varianten nutzen.
+1. ETS-Download ausführen.
+2. Auf der Seite **Inbetriebnahme** den Button **Pairing starten** drücken (Busverbindung erforderlich).
+3. Innerhalb des Pairing-Fensters den Link-Button an der Hue Bridge drücken. Die ETS zeigt die verbleibende Zeit und meldet den Erfolg.
+4. Das Modul speichert den App-Key persistent.
+
+Ist die Bridge bereits gekoppelt, startet der Button kein neues Pairing. Für ein erneutes Pairing zuerst **Authentication zurücksetzen** oder eine der folgenden Varianten nutzen.
 
 #### Variante 2: Pairing per ETS (Pairing Trigger KO)
 

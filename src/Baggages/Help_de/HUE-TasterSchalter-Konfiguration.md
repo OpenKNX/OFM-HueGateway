@@ -24,11 +24,13 @@ Empfehlung: **Deaktivieren**, wenn die Hue-Leuchten vollständig über KNX geste
 
 Geeignet für kompakte Wandtaster mit Auf/Ab-Logik.
 
+
 #### 4-Tasten-Szenentaster
 
 - Taste 1–4: Kurzdruck = **Szenennummer (DPT 18.001)**, Langdruck = **Kein Langdruck**
 
 Geeignet für Raumsteuerungen mit fester Szenenzuordnung wie `Arbeiten`, `Entspannen`, `Abend`, `Aus`.
+
 
 #### Jalousie-Taster
 
@@ -36,4 +38,5 @@ Geeignet für Raumsteuerungen mit fester Szenenzuordnung wie `Arbeiten`, `Entspa
 - Langdruck = **Fahren (DPT 1.008)** (Richtung: Auf oder Ab)
 
 Sinnvoll, wenn ein Hue-Taster nicht für Licht, sondern für eine KNX-Jalousie-Funktion genutzt werden soll.
+
 

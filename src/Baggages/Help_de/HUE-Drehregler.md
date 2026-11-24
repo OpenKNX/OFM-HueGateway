@@ -8,5 +8,6 @@ Wenn der Hue-Schalter über einen Drehregler verfügt (z. B. Hue Tap Dial):
   - **Wertgeber** (DPT 5.001): Absoluter Prozentwert
   - **Lautstärke** (DPT 3.007): Lautstärkeregelung (relatives Dimmen auf Medien-KO)
   - **Farbtemperatur** (DPT 7.600): Farbtemperatur in Kelvin
-- **Schrittweite (%)**: Prozentwert je Rastschritt (Standardwert: 5 %)
+- **Schrittweite**: Prozentwert je Rastschritt, wählbar `2 %`, `3 %`, `6 %`, `13 %` oder `25 %` (Standardwert: `13 %`)
+
 
