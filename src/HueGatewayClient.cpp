@@ -36,6 +36,10 @@ void tlsPsramFree(void* ptr)
     free(ptr); // frees both regions
 }
 
+// True once mbedTLS takes its buffers from PSRAM; only then may an idle command
+// connection stay open (see loopKeepAlive()).
+static bool sTlsBuffersInPsram = false;
+
 void installPsramTlsAllocatorOnce()
 {
     static bool attempted = false;
@@ -56,6 +60,7 @@ void installPsramTlsAllocatorOnce()
         return;
     }
 
+    sTlsBuffersInPsram = true;
     logInfo("HueGatewayClient", "TLS allocator: PSRAM (psramFree=%u internalFree=%u internalLargest=%u)",
             static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)),
             internalBefore,
@@ -1965,21 +1970,35 @@ bool HueGatewayClient::releaseEventStreamForRetry(const char* method, bool event
     return true;
 }
 
-void HueGatewayClient::loopIdleDisconnect()
+void HueGatewayClient::loopKeepAlive()
 {
-    // 15 s, the value aiohttp uses by default (BaseConnector: keepalive_timeout =
-    // 15.0) and therefore what aiohue and Home Assistant hold open against a Hue
-    // bridge. Philips does not document the bridge side, so this is the longest span
-    // with evidence behind it rather than a guess. A connection the bridge dropped
-    // earlier lands in the retry path and shows up as retry=1 in the TIMING lines.
-    //
-    // It used to be 3 s because the TLS context occupied internal RAM the EventStream
-    // needed. With the buffers in PSRAM, closing frees about 130 bytes of internal
-    // RAM -- the reason is gone, while each cold handshake still costs ~900 ms.
+    if (_lastHttpActivityMs == 0) return;
+    const unsigned long idleMs = millis() - _lastHttpActivityMs;
+
+    if (sTlsBuffersInPsram)
+    {
+        // Keep the command connection open. A cold TLS handshake costs ~900 ms on
+        // this hardware (about 95 ms from a PC, which is why Home Assistant shows no
+        // such delay although aiohttp drops idle connections after 15 s as well), and
+        // it hit the first command after every pause.
+        //
+        // Measured against a Hue bridge (2026-11-26): it closes an idle connection
+        // after 600 s and leaves a used one open (358 requests in 12 min). Refresh at
+        // half of that, so bridges with a shorter idle timeout are covered too. Should
+        // the bridge close it anyway, the retry path reconnects (retry=1 in TIMING).
+        static constexpr unsigned long kHttpKeepAliveMs = 300000UL;
+
+        if (idleMs < kHttpKeepAliveMs) return;
+        pingBridgeApiV2(); // httpGet() marks the activity again, also when it fails
+        return;
+    }
+
+    // Without PSRAM buffers the TLS context occupies internal RAM the EventStream needs to
+    // come up, so the idle connection has to go. 15 s is what aiohttp holds open by
+    // default (BaseConnector: keepalive_timeout = 15.0).
     static constexpr unsigned long kHttpIdleCloseMs = 15000UL;
 
-    if (_lastHttpActivityMs == 0) return;
-    if ((millis() - _lastHttpActivityMs) < kHttpIdleCloseMs) return;
+    if (idleMs < kHttpIdleCloseMs) return;
 
     _lastHttpActivityMs = 0;
     if (!_secureClient.connected()) return;
@@ -2532,8 +2551,8 @@ int HueGatewayClient::httpGet(const String& endpoint, JsonDocument& doc, JsonDoc
     }
 
     _diagStats.lastHttpStatusCode = statusCode;
-    // Also mark GET activity: a connection a poll opened must fall to the idle close
-    // as well, otherwise its TLS context would sit there until the next command.
+    // Also mark GET activity: it resets the keep-alive timer, and without PSRAM a
+    // connection a poll opened must fall to the idle close as well.
     _lastHttpActivityMs = millis();
 
     logInfo("HueGatewayClient", "TIMING GET %s start=%lu dur=%lums reused=%d retry=%u status=%d internalFree=%u internalLargest=%u",

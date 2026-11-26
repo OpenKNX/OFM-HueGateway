@@ -2,6 +2,16 @@
 
 Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumentiert.
 
+## [0.10.1] - 2026-11-26 — Dauerhafte Verbindung zur Bridge 
+
+### Behoben
+- **Der erste Schaltbefehl nach 15 s Pause brauchte etwa eine Sekunde.** Das Gateway hat die HTTPS-Verbindung für Befehle nach 15 s Leerlauf selbst geschlossen; der nächste Befehl musste sie neu aufbauen, und der TLS-Handshake kostet auf dem ESP32 rund 900 ms. Die Verbindung bleibt jetzt offen und wird nach 5 Minuten Leerlauf mit einer kleinen Anfrage aufgefrischt. Gemessen an einer Hue Bridge: Sie schließt eine ungenutzte Verbindung nach 600 s und lässt eine genutzte offen. Schließt die Bridge die Verbindung trotzdem, baut das Gateway sie wie bisher beim nächsten Befehl neu auf. Geräte ohne PSRAM schließen die Verbindung weiterhin nach 15 s, weil der TLS-Speicher dort dem Eventstream fehlen würde.
+- Der ETS-Hinweis zur Dimmgeschwindigkeit nannte 80 ms als Standard; der Vorgabewert ist 120 ms.
+
+### Geändert
+- **Applikationsbeschreibung mit Screenshots** einer Beispielinstallation (Inbetriebnahme, Bridge-Konfiguration, Kanalauswahl, Taster-Beispiele, Szenen, Lichtmanager, Projektierungsbeispiele). Die Bilder sind von der ETS-Kontexthilfe ausgenommen. Neuer Abschnitt „Räume und Zonen zuordnen".
+- Applikationsbeschreibung korrigiert: Der Status kommt im Normalbetrieb über den Eventstream der Bridge, das Polling-Intervall gilt nur als Rückfallebene. Lampentyp- und Zieltyp-Bezeichnungen wie in der ETS, Schrittweite des Drehreglers, Pairing-Variante 1 und die Beispiele 6 und 7 zur saisonalen Umschaltung.
+
 ## [0.10.0] - 2026-11-20 — 64 Hue-Kanäle
 
 > **Hinweis (Build):** Die Bibliothek heißt jetzt `OFM-HueGateway` statt `OFM-HueGatewayModule`, passend zum Ordnernamen. Der OpenKNX-Build sucht den Git-Hash jedes Moduls unter `lib/<Bibliotheksname>`; mit dem alten Namen schlug der Linux-Build fehl. Projekte, die die Bibliothek über den Namen einbinden, müssen ihn anpassen. Das Versions-Makro heißt jetzt `MODULE_HueGateway_Version`.

@@ -822,28 +822,33 @@ Hinweis:
 
 Latenz-Hinweis:
 - `Nur KNX zu Hue`: direkte KNX-Steuerung, aber keine Hue-Rückmeldung.
-- `Nur Hue zu KNX`: Statusänderungen werden nur mit Polling-/Abfrage-Latenz auf KNX sichtbar.
-- `Bidirektional`: meist beste Alltagswahl; Änderungen aus App oder Direktbedienung erscheinen dennoch nicht instantan, sondern gemäß Abfrageintervall.
+- `Nur Hue zu KNX`: Statusänderungen meldet die Bridge über ihren Eventstream; sie erscheinen ohne Abfrageintervall auf KNX.
+- `Bidirektional`: meist beste Alltagswahl; Änderungen aus App oder Direktbedienung kommen ebenfalls über den Eventstream.
+- Nur solange der Eventstream nicht verbunden ist, gilt das [Polling-Intervall](#polling-intervall); Änderungen erscheinen dann erst mit der nächsten Abfrage.
 
 Empfehlung: Für einzelne Leuchten meist `Bidirektional`, für reine Statusobjekte oder Monitoring-Kanäle auch `Nur Hue zu KNX`.
 
 <!-- DOC -->
 ### Polling-Intervall
 
-Status-Abfrageintervall in Sekunden.
+Status-Abfrageintervall in Sekunden für den Fall, dass der Eventstream der Bridge nicht verfügbar ist.
 Empfehlung: `5..30 s` je nach Kanalzahl und Netzlast.
 
+So kommt der Status vom Hue-System auf KNX:
+- **Normalbetrieb (Eventstream)**: Das Gateway hält eine Verbindung zum Eventstream der Bridge offen. Die Bridge meldet darüber jede Änderung von sich aus (Push), auch Änderungen aus der Hue-App oder von Hue-Schaltern. Es wird nicht zyklisch abgefragt.
+- **Rückfallebene (Polling)**: Nur solange der Eventstream nicht verbunden ist, liest das Gateway die Kanäle zyklisch im hier eingestellten Intervall.
+- **Nach KNX-Kommandos**: Das Gateway liest den betroffenen Kanal zusätzlich kurz nach (Fast-Track), weil der Eventstream z. B. nach einem einfachen Einschalten keine Helligkeit mitliefert.
+
 Wichtig:
-- `0` = zyklisches Polling für diesen Kanal deaktiviert.
-- Bei `>0` wird der Kanal gemäß Intervall aus Hue gelesen (abhängig von Sync-Richtung).
-- Nach KNX-Kommandos erfolgt zusätzlich ein kurzer Fast-Track-Statusabgleich.
+- `0` = zyklisches Polling für diesen Kanal deaktiviert. Fällt der Eventstream aus, wird dieser Kanal dann nicht mehr aktualisiert.
+- Bei `>0` wird der Kanal in der Rückfallebene gemäß Intervall aus Hue gelesen (abhängig von Sync-Richtung).
 
 Praxisempfehlungen:
 - Einzelne Lampen: meist `5..15 s`
 - Räume oder Zonen: meist `15..30 s`
 - Viele aktive Kanäle: größere Werte wählen, um Bridge und Netzwerk zu entlasten
 
-Zu kleine Werte bringen in großen Projekten oft keinen echten Mehrwert, erzeugen aber mehr HTTP-Last auf der Hue-Bridge.
+Zu kleine Werte bringen in großen Projekten oft keinen echten Mehrwert, erzeugen in der Rückfallebene aber mehr HTTP-Last auf der Hue-Bridge.
 
 <!-- DOC -->
 ### Statusverhalten bei Zieltyp Raum/Zone
@@ -853,7 +858,7 @@ Für Raum/Zone wird intern über `grouped_light` gesteuert.
 Praxisverhalten:
 - KNX->Hue-Kommandos (Schalten/Dimmen/CT/RGB) werden auf das Gruppen-Ziel gesendet.
 - Status-KOs werden nach erfolgreichen Kommandos aktualisiert.
-- Externe Änderungen (z. B. Hue App) werden je nach Event-/Polling-Zuordnung übernommen.
+- Externe Änderungen (z. B. Hue App) kommen über den Eventstream der Bridge, ohne Eventstream über das Polling.
 
 Hinweis:
 - In bestimmten Konstellationen kann kein exakter physischer Gruppen-Istzustand aller Mitglieder abgebildet werden.
@@ -1341,7 +1346,7 @@ Hinweis: Im HueGateway muss am Kanal mindestens der Lampentyp `Dimmbar` gewählt
 
 ### Status fehlt
 - Sync auf **Nur Hue zu KNX** oder **Bidirektional** gesetzt?
-- Polling-Intervall sinnvoll gesetzt (`0` deaktiviert zyklisches Polling)?
+- Polling-Intervall sinnvoll gesetzt? Es gilt nur, solange der Eventstream nicht verbunden ist (`0` deaktiviert das zyklische Polling).
 - Status-KO mit GA verbunden?
 - Zieltyp/Hue Ziel korrekt und auflösbar?
 - Bei Raum/Zone: Rückmeldeverhalten mit Hue-App-Änderungen gesondert verifizieren.
@@ -1351,9 +1356,8 @@ Hinweis: Im HueGateway muss am Kanal mindestens der Lampentyp `Dimmbar` gewählt
 - Dieses Verhalten ist systembedingt und sollte im Projekt mit dem gewünschten Zieltyp getestet werden.
 
 ### Hue-Status kommt stark verzögert an
-- Polling-Intervall zu hoch?
-- Bei vielen Kanälen bewusst größere Werte gesetzt?
-- Hue-App-Änderungen werden nicht sofort gepusht, sondern gemäß Abfrageintervall übernommen.
+- Im Normalbetrieb meldet die Bridge Änderungen über ihren Eventstream ohne Wartezeit, auch Änderungen aus der Hue-App. Kommt der Status verzögert, ist der Eventstream wahrscheinlich nicht verbunden; das Gateway arbeitet dann mit Polling. Der Diagnosebericht zeigt den Zustand im Abschnitt `[HttpEventStats]`.
+- In diesem Fall: Polling-Intervall zu hoch? Bei vielen Kanälen bewusst größere Werte gesetzt?
 - Ist ein Kanalziel nicht auflösbar (`targetUnresolved=1` im Diagnosebericht), verzichtet das Gateway für **alle** Kanäle auf die Live-Rückmeldung der Bridge und arbeitet nur mit Polling. Betroffene Kanäle korrigieren oder deaktivieren.
 
 ### Szenen reagieren nicht wie erwartet

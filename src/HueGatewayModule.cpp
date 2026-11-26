@@ -1170,8 +1170,8 @@ void HueGatewayModule::loop()
     {
         const uint8_t configuredChannels = countEnabledChannels();
 
-        // Releases the commands' kept-alive connection after a short idle period.
-        _client->loopIdleDisconnect();
+        // Keeps the commands' connection to the bridge open across idle periods.
+        _client->loopKeepAlive();
 
         const bool suppressEventStreamRetryForSetup = (configuredChannels > 0) && _deviceSetupNeedsRetry;
 

@@ -10,8 +10,9 @@ Hinweis:
 
 Latenz-Hinweis:
 - `Nur KNX zu Hue`: direkte KNX-Steuerung, aber keine Hue-Rückmeldung.
-- `Nur Hue zu KNX`: Statusänderungen werden nur mit Polling-/Abfrage-Latenz auf KNX sichtbar.
-- `Bidirektional`: meist beste Alltagswahl; Änderungen aus App oder Direktbedienung erscheinen dennoch nicht instantan, sondern gemäß Abfrageintervall.
+- `Nur Hue zu KNX`: Statusänderungen meldet die Bridge über ihren Eventstream; sie erscheinen ohne Abfrageintervall auf KNX.
+- `Bidirektional`: meist beste Alltagswahl; Änderungen aus App oder Direktbedienung kommen ebenfalls über den Eventstream.
+- Nur solange der Eventstream nicht verbunden ist, gilt das Polling-Intervall; Änderungen erscheinen dann erst mit der nächsten Abfrage.
 
 Empfehlung: Für einzelne Leuchten meist `Bidirektional`, für reine Statusobjekte oder Monitoring-Kanäle auch `Nur Hue zu KNX`.
 

@@ -273,12 +273,13 @@ public:
     bool pingBridgeApiV2();
 
     /**
-    * @brief Closes an idle kept-alive REST connection. Call from the module loop.
-    * Commands keep the TLS connection open so a series of them needs only one
-    * handshake. Once idle it has to go: the TLS context occupies internal RAM, and
-    * that is exactly what the EventStream needs to come up.
+    * @brief Keeps the REST connection for commands open. Call from the module loop.
+    * With PSRAM it refreshes the idle TLS connection with a small request before
+    * the bridge closes it, so the first command after a pause needs no handshake.
+    * Without PSRAM it closes the idle connection: the TLS context then occupies
+    * internal RAM, and that is exactly what the EventStream needs to come up.
      */
-    void loopIdleDisconnect();
+    void loopKeepAlive();
 
     /**
     * @brief Frees the EventStream's TLS context so a failed request can be retried.
