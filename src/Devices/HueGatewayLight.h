@@ -31,7 +31,7 @@ public:
     ~HueGatewayLight() override;
 
     /** Device type: 0 = Licht */
-    uint8_t deviceType() const override { return 0; }
+    PT_HUEChannelType deviceType() const override { return PT_HUEChannelType::Licht; }
     
     /**
     * @brief Initializes KO mapping for this light channel.
@@ -96,8 +96,17 @@ public:
     * Called by event stream updates or by polling fallback.
     * @param on On/off state
     * @param brightness Brightness 0-254 (Hue range)
+    * @param brightnessFresh false when brightness is not a value reported by the
+    *        bridge but the cached one (event without brightness, grouped event)
      */
-    void updateFromHue(bool on, uint8_t brightness, uint16_t colorTempKelvin, uint8_t red, uint8_t green, uint8_t blue);
+    void updateFromHue(bool on, uint8_t brightness, uint16_t colorTempKelvin, uint8_t red, uint8_t green, uint8_t blue,
+                       bool brightnessFresh = true);
+
+    /**
+    * @brief True while an outside switch-on after a soft KNX off waits for the
+    *        bridge brightness to decide whether to restore (see setSoftOffRestore).
+     */
+    bool isSoftOffCheckPending() const { return _softOffCheckPending; }
     
     /**
     * @brief Sends current state feedback to KNX status KOs.
@@ -133,7 +142,7 @@ public:
     uint8_t getBlue() const { return _currentBlue; }
     
     /**
-    * @brief Assigns HCL master (0 = none, 1-8 = master number).
+    * @brief Assigns HCL master (0 = none, 1-16 = master number).
      */
     void setHCLMaster(uint8_t masterNum) override { _hclMasterNum = masterNum; }
     
@@ -144,6 +153,8 @@ public:
 
     void setHCLChannelLock(bool lockActive) override { _hclChannelLockActive = lockActive; }
     bool isHCLChannelLocked() const override { return _hclChannelLockActive; }
+
+    static unsigned long globalHclWriteNextAllowedMs();
 
     /**
     * @brief Sets ETS light type (0=switch,1=dimm,2=ct,3=rgb).
@@ -158,6 +169,22 @@ public:
     void setSwitchTransitionDurations(uint8_t onTransitionSec, uint8_t offTransitionSec) override;
     uint8_t getSwitchOnTransitionSec() const override { return _switchOnTransitionSec; }
     uint8_t getSwitchOffTransitionSec() const override { return _switchOffTransitionSec; }
+
+    /**
+    * @brief Restore the remembered brightness when the light is switched on from
+    *        outside (Hue app/switch/automation) at ~1 % after a soft KNX off.
+     */
+    void setSoftOffRestore(bool enabled) { _softOffRestore = enabled; }
+
+    /** Remembered brightness for a plain switch-on (Hue 0-254, 0 = none). */
+    uint8_t getRestoreBrightness() const { return _lastNonZeroBrightnessHue; }
+
+    /** Sets the remembered brightness (e.g. from flash) if none is known yet. */
+    void setRestoreBrightness(uint8_t brightness)
+    {
+        if (_lastNonZeroBrightnessHue == 0)
+            _lastNonZeroBrightnessHue = brightness;
+    }
 
     void setGroupedTarget(bool groupedTarget) override { _isGroupedTarget = groupedTarget; }
     bool isGroupedTarget() const override { return _isGroupedTarget; }
@@ -191,7 +218,7 @@ private:
     bool _isGroupedTarget;
     
     // HCL configuration and current interpolation state.
-    uint8_t _hclMasterNum;  // 0 = no HCL, 1-8 = HCL master number
+    uint8_t _hclMasterNum;  // 0 = no HCL, 1-16 = HCL master number
     bool _hclChannelLockActive;
     bool _fadingActive;     // true while a fade transition is active
     uint16_t _currentKelvin; // Current color temperature in Kelvin
@@ -199,8 +226,23 @@ private:
     uint8_t _lastHCLBrightness; // Last applied HCL brightness (%)
     uint16_t _hclPhaseOffsetMs;
     unsigned long _nextHCLDueMs;
+
+    // Pending HCL value pushed from LightManagerModule
+    uint16_t _pendingHclKelvin;
+    uint8_t  _pendingHclBrightness;
+    uint8_t  _pendingHclFadeDuration;
+    bool     _hclValuePending;
     unsigned long _lastHueWriteSuccessMs;
     
+    // Set by processKnxSwitch(false), cleared when bridge confirms on=false.
+    // Used to suppress brightness-cache updates during a commanded fade-out.
+    bool _switchOffPending;
+
+    // Soft-off restore: the bridge keeps ~1 % after an off with transition.
+    bool _softOffRestore;       // ETS option
+    bool _softOffByKnx;         // last off was a KNX off with transition
+    bool _softOffCheckPending;  // switched on from outside, waiting for brightness
+
     // Lifecycle flags.
     bool _initialized;
     unsigned long _lastUpdate;
@@ -217,14 +259,15 @@ private:
     /**
     * @brief Sends current on/brightness state to Hue Bridge.
      */
-    void sendToHue(uint8_t fadeDurationSec = 0);
+    void sendToHue(uint8_t fadeDurationSec = 0, bool includeOnState = true);
     
     /**
     * @brief Sends current state including color temperature to Hue Bridge.
     * @param kelvin Color temperature in Kelvin (2000-6500)
     * @param fadeDuration Transition duration in seconds (0 = immediate)
+    * @param includeOnState false omits the on-state so the write cannot switch anything on
      */
-    void sendToHueWithColorTemp(uint16_t kelvin, uint8_t fadeDuration = 0);
+    void sendToHueWithColorTemp(uint16_t kelvin, uint8_t fadeDuration = 0, bool includeOnState = true);
     void applyRelativeDimmingLegacy(bool brighter, uint8_t steps);
     void applyRelativeDimmingCache(bool brighter, uint8_t steps);
     

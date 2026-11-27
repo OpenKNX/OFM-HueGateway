@@ -4,6 +4,7 @@
 #include <memory>
 #include <math.h>
 #include <esp_heap_caps.h>
+#include <mbedtls/platform.h>
 #include "OpenKNX.h"
 
 namespace
@@ -19,6 +20,53 @@ static constexpr uint32_t kTlsMinInternalLargestBlockBytes = 50000U;
 #endif
 static constexpr unsigned long kLightLocationCacheMs = 300000UL;
 
+// mbedTLS takes its session buffers -- two content buffers plus state, tens of KB
+// per context -- from internal RAM. That budget fits exactly one context on this
+// hardware, which is why the EventStream and a command connection could not be up
+// at the same time. With PSRAM present the buffers can live there instead.
+void* tlsPsramCalloc(size_t count, size_t size)
+{
+    void* ptr = heap_caps_calloc(count, size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (ptr == nullptr) ptr = calloc(count, size); // PSRAM exhausted: internal RAM still works
+    return ptr;
+}
+
+void tlsPsramFree(void* ptr)
+{
+    free(ptr); // frees both regions
+}
+
+// True once mbedTLS takes its buffers from PSRAM; only then may an idle command
+// connection stay open (see loopKeepAlive()).
+static bool sTlsBuffersInPsram = false;
+
+void installPsramTlsAllocatorOnce()
+{
+    static bool attempted = false;
+    if (attempted) return;
+    attempted = true;
+
+    const unsigned internalBefore = static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+
+    if (!psramFound())
+    {
+        logInfo("HueGatewayClient", "TLS allocator: internal RAM (no PSRAM found, internalFree=%u)", internalBefore);
+        return;
+    }
+
+    if (mbedtls_platform_set_calloc_free(tlsPsramCalloc, tlsPsramFree) != 0)
+    {
+        logError("HueGatewayClient", "TLS allocator: switch to PSRAM refused, staying on internal RAM");
+        return;
+    }
+
+    sTlsBuffersInPsram = true;
+    logInfo("HueGatewayClient", "TLS allocator: PSRAM (psramFree=%u internalFree=%u internalLargest=%u)",
+            static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)),
+            internalBefore,
+            static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)));
+}
+
 bool isHttpSuccessStatus(int statusCode)
 {
     return statusCode >= 200 && statusCode < 300;
@@ -33,6 +81,7 @@ bool hasTlsInternalHeadroom()
 
 void logHeapStats(const char* phase)
 {
+#ifdef OPENKNX_DEBUG
     const uint32_t freeHeap = ESP.getFreeHeap();
     const uint32_t minFreeHeap = ESP.getMinFreeHeap();
     const size_t free8Bit = heap_caps_get_free_size(MALLOC_CAP_8BIT);
@@ -52,6 +101,9 @@ void logHeapStats(const char* phase)
              static_cast<unsigned>(freeInternal),
              static_cast<unsigned>(largestInternal),
              static_cast<unsigned long>(fragPercent));
+#else
+    (void)phase;
+#endif
 }
 
 bool extractResourceRef(JsonVariantConst refVar, String& outRid, String& outType)
@@ -125,6 +177,11 @@ HueGatewayClient::HueGatewayClient()
     , _eventAutoRestartEnabled(true)
     , _behaviorInstanceEventPending(false)
     , _diagStats{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", ""}
+    , _eventConnectPending(false)
+    , _eventConnectDone(false)
+    , _eventConnectOk(false)
+    , _eventConnectAbort(false)
+    , _eventConnectTask(nullptr)
 {
 }
 
@@ -142,6 +199,9 @@ bool HueGatewayClient::begin(const String& bridgeIP, const String& appKey)
         return false;
     }
     
+    // Before the first TLS context is built: move mbedTLS off the internal heap.
+    installPsramTlsAllocatorOnce();
+
     _bridgeIP = bridgeIP;
     _appKey = appKey;
     _initialized = true;
@@ -401,6 +461,8 @@ int HueGatewayClient::getGroupedLights(HueGatewayLightState* groupedLights, int 
     JsonObject groupedFilterData = groupedFilterRoot["data"][0].to<JsonObject>();
     groupedFilterData["id"] = true;
     groupedFilterData["metadata"]["name"] = true;
+    groupedFilterData["owner"]["rid"] = true;
+    groupedFilterData["owner"]["rtype"] = true;
     groupedFilterData["on"]["on"] = true;
     groupedFilterData["dimming"]["brightness"] = true;
     groupedFilterData["color_temperature"]["mirek"] = true;
@@ -465,6 +527,22 @@ int HueGatewayClient::getGroupedLights(HueGatewayLightState* groupedLights, int 
         groupedLights[count].zone = "-";
         groupedLights[count].zoneRid = "-";
         groupedLights[count].zoneIdV1 = "-";
+
+        // The room or zone this grouped_light belongs to. Its id is what a light's
+        // roomRid/zoneRid holds, so the group's member lights can be found.
+        const char* ownerRid = item["owner"]["rid"] | "";
+        const char* ownerType = item["owner"]["rtype"] | "";
+        if (ownerRid[0] != '\0')
+        {
+            if (strcmp(ownerType, "room") == 0)
+            {
+                groupedLights[count].roomRid = String(ownerRid);
+            }
+            else if (strcmp(ownerType, "zone") == 0)
+            {
+                groupedLights[count].zoneRid = String(ownerRid);
+            }
+        }
 
         count++;
     }
@@ -997,7 +1075,7 @@ bool HueGatewayClient::setGroupedLightBrightness(const String& groupedLightId, u
     return false;
 }
 
-bool HueGatewayClient::setLightState(const String& lightId, bool on, uint8_t brightness, uint8_t fadeDurationSec)
+bool HueGatewayClient::setLightState(const String& lightId, bool on, uint8_t brightness, uint8_t fadeDurationSec, bool includeOnState)
 {
     if (!_initialized)
         return false;
@@ -1007,8 +1085,14 @@ bool HueGatewayClient::setLightState(const String& lightId, bool on, uint8_t bri
     String endpoint = "/clip/v2/resource/light/" + lightId;
     
     DynamicJsonDocument doc(512);
-    doc["on"]["on"] = on;
-    if (on)
+    if (includeOnState)
+    {
+        doc["on"]["on"] = on;
+    }
+    // Only send a dimming value when we actually have one (>0). Sending
+    // brightness=0 would make the bridge clamp to its minimum (~1%) instead
+    // of keeping its last-known brightness. Omitting the field = keep last value.
+    if (on && brightness > 0)
     {
         doc["dimming"]["brightness"] = brightnessPct;
     }
@@ -1035,7 +1119,7 @@ bool HueGatewayClient::setLightState(const String& lightId, bool on, uint8_t bri
     }
 }
 
-bool HueGatewayClient::setGroupedLightState(const String& groupedLightId, bool on, uint8_t brightness, uint8_t fadeDurationSec)
+bool HueGatewayClient::setGroupedLightState(const String& groupedLightId, bool on, uint8_t brightness, uint8_t fadeDurationSec, bool includeOnState)
 {
     if (!_initialized)
         return false;
@@ -1045,8 +1129,14 @@ bool HueGatewayClient::setGroupedLightState(const String& groupedLightId, bool o
     String endpoint = "/clip/v2/resource/grouped_light/" + groupedLightId;
 
     DynamicJsonDocument doc(512);
-    doc["on"]["on"] = on;
-    if (on)
+    // on:true on a grouped_light switches every member on, so periodic HCL
+    // follow-up must omit it (see HueGatewayLight::loop).
+    if (includeOnState)
+    {
+        doc["on"]["on"] = on;
+    }
+    // See setLightState: omit dimming at brightness=0 to keep last bridge value.
+    if (on && brightness > 0)
     {
         doc["dimming"]["brightness"] = brightnessPct;
     }
@@ -1367,8 +1457,8 @@ int HueGatewayClient::getZoneTargets(HueGatewayTargetInfo* targets, int maxTarge
     return getTargetsForEndpoint("/clip/v2/resource/zone", targets, maxTargets);
 }
 
-bool HueGatewayClient::setLightStateWithColorTemp(const String& lightId, bool on, uint8_t brightness, 
-                                                   uint16_t mirek, uint8_t fadeDurationSec)
+bool HueGatewayClient::setLightStateWithColorTemp(const String& lightId, bool on, uint8_t brightness,
+                                                   uint16_t mirek, uint8_t fadeDurationSec, bool includeOnState)
 {
     if (!_initialized)
         return false;
@@ -1389,10 +1479,16 @@ bool HueGatewayClient::setLightStateWithColorTemp(const String& lightId, bool on
     
     // API v2 structure with on, dimming, color_temperature, and dynamics
     DynamicJsonDocument doc(512);
-    doc["on"]["on"] = on;
+    if (includeOnState)
+    {
+        doc["on"]["on"] = on;
+    }
     if (on)
     {
-        doc["dimming"]["brightness"] = brightnessPct;
+        // Omit dimming at brightness=0 so the bridge keeps its last-known
+        // brightness; still apply the requested color temperature.
+        if (brightness > 0)
+            doc["dimming"]["brightness"] = brightnessPct;
         doc["color_temperature"]["mirek"] = clampedMirek;
     }
     if (fadeDurationSec > 0) {
@@ -1421,7 +1517,8 @@ bool HueGatewayClient::setGroupedLightStateWithColorTemp(const String& groupedLi
                                                           bool on,
                                                           uint8_t brightness,
                                                           uint16_t mirek,
-                                                          uint8_t fadeDurationSec)
+                                                          uint8_t fadeDurationSec,
+                                                          bool includeOnState)
 {
     if (!_initialized)
         return false;
@@ -1436,10 +1533,17 @@ bool HueGatewayClient::setGroupedLightStateWithColorTemp(const String& groupedLi
     String endpoint = "/clip/v2/resource/grouped_light/" + groupedLightId;
 
     DynamicJsonDocument doc(512);
-    doc["on"]["on"] = on;
+    // See setGroupedLightState: on:true would switch every group member on.
+    if (includeOnState)
+    {
+        doc["on"]["on"] = on;
+    }
     if (on)
     {
-        doc["dimming"]["brightness"] = brightnessPct;
+        // Omit dimming at brightness=0 so the bridge keeps its last-known
+        // brightness; still apply the requested color temperature.
+        if (brightness > 0)
+            doc["dimming"]["brightness"] = brightnessPct;
         doc["color_temperature"]["mirek"] = clampedMirek;
     }
     if (fadeDurationSec > 0)
@@ -1526,6 +1630,43 @@ bool HueGatewayClient::setGroupedLightColorTemperature(const String& groupedLigh
 
     logError("HueGatewayClient", "PUT grouped_light color_temperature failed - HTTP %d", statusCode);
     return false;
+}
+
+bool HueGatewayClient::diagRawPut(const char* resourceType, const String& rid, const String& payload)
+{
+    if (!_initialized)
+        return false;
+
+    const String endpoint = String("/clip/v2/resource/") + resourceType + "/" + rid;
+    return isHttpSuccessStatus(httpPut(endpoint, payload));
+}
+
+bool HueGatewayClient::diagReadState(const char* resourceType, const String& rid, bool& on, uint8_t& brightnessPercent)
+{
+    if (!_initialized)
+        return false;
+
+    const String endpoint = String("/clip/v2/resource/") + resourceType + "/" + rid;
+
+    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument filterDoc(256);
+    filterDoc.clear();
+    JsonObject filterRoot = filterDoc.to<JsonObject>();
+    JsonObject filterData = filterRoot["data"][0].to<JsonObject>();
+    filterData["on"]["on"] = true;
+    filterData["dimming"]["brightness"] = true;
+    doc.clear();
+    if (!isHttpSuccessStatus(httpGet(endpoint, doc, &filterDoc)))
+        return false;
+
+    JsonVariantConst item = doc["data"][0];
+    if (item.isNull())
+        return false;
+
+    on = item["on"]["on"] | false;
+    const float pct = item["dimming"]["brightness"] | 0.0f;
+    brightnessPercent = static_cast<uint8_t>(roundf(pct));
+    return true;
 }
 
 bool HueGatewayClient::setLightColor(const String& lightId, float x, float y)
@@ -1834,6 +1975,59 @@ bool HueGatewayClient::pingBridgeApiV2()
     return false;
 }
 
+bool HueGatewayClient::releaseEventStreamForRetry(const char* method, bool eventWasActive)
+{
+    if (!eventWasActive || !_eventAutoRestartEnabled) return false;
+    if (hasTlsInternalHeadroom()) return false;
+
+    logWarning("HueGatewayClient", "Pausing EventStream after failed HTTPS %s (internal TLS headroom low)", method);
+    _http.end();
+    stopEventStream();
+    _secureClient.stop();
+    delay(25);
+    return true;
+}
+
+void HueGatewayClient::loopKeepAlive()
+{
+    if (_lastHttpActivityMs == 0) return;
+    const unsigned long idleMs = millis() - _lastHttpActivityMs;
+
+    if (sTlsBuffersInPsram)
+    {
+        // Keep the command connection open. A cold TLS handshake costs ~900 ms on
+        // this hardware (about 95 ms from a PC, which is why Home Assistant shows no
+        // such delay although aiohttp drops idle connections after 15 s as well), and
+        // it hit the first command after every pause.
+        //
+        // Measured against a Hue bridge (2026-11-26): it closes an idle connection
+        // after 600 s and leaves a used one open (358 requests in 12 min). Refresh at
+        // half of that, so bridges with a shorter idle timeout are covered too. Should
+        // the bridge close it anyway, the retry path reconnects (retry=1 in TIMING).
+        static constexpr unsigned long kHttpKeepAliveMs = 300000UL;
+
+        if (idleMs < kHttpKeepAliveMs) return;
+        pingBridgeApiV2(); // httpGet() marks the activity again, also when it fails
+        return;
+    }
+
+    // Without PSRAM buffers the TLS context occupies internal RAM the EventStream needs to
+    // come up, so the idle connection has to go. 15 s is what aiohttp holds open by
+    // default (BaseConnector: keepalive_timeout = 15.0).
+    static constexpr unsigned long kHttpIdleCloseMs = 15000UL;
+
+    if (idleMs < kHttpIdleCloseMs) return;
+
+    _lastHttpActivityMs = 0;
+    if (!_secureClient.connected()) return;
+
+    _http.end();
+    _secureClient.stop();
+    logInfo("HueGatewayClient", "TIMING idle close (internalFree=%u internalLargest=%u)",
+            static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+            static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)));
+}
+
 bool HueGatewayClient::startEventStream()
 {
     if (!_initialized)
@@ -1851,6 +2045,11 @@ bool HueGatewayClient::startEventStream()
         return true;
     }
 
+    if (_eventConnectPending)
+    {
+        return true;
+    }
+
     if (!hasTlsInternalHeadroom())
     {
         logWarning("HueGatewayClient", "EventStream deferred: insufficient internal TLS headroom (need free>=%lu, largest>=%lu)",
@@ -1863,15 +2062,119 @@ bool HueGatewayClient::startEventStream()
     stopEventStream();
 
     _eventClient.setTimeout(100);
-    logInfo("HueGatewayClient", "EventStream connecting to %s:443", _bridgeIP.c_str());
+    logInfo("HueGatewayClient", "EventStream async connecting to %s:443", _bridgeIP.c_str());
     logHeapStats("before-event-connect");
-    if (!_eventClient.connect(_bridgeIP.c_str(), 443))
+
+    _eventConnectPending = true;
+    _eventConnectDone    = false;
+    _eventConnectOk      = false;
+    _eventConnectAbort   = false;
+
+    BaseType_t result = xTaskCreatePinnedToCore(
+        sEventStreamConnectTask,
+        "hue-esc",
+        kEventConnectStackSize,
+        this,
+        1,
+        &_eventConnectTask,
+        0
+    );
+
+    if (result != pdPASS)
     {
+        _eventConnectPending = false;
+        _eventConnectTask    = nullptr;
         _diagStats.eventConnectFail++;
-        logError("HueGatewayClient", "EventStream connect failed");
-        logHeapStats("event-connect-failed");
+        logError("HueGatewayClient", "EventStream connect task creation failed");
+        logHeapStats("event-connect-task-failed");
         return false;
     }
+
+    return true;
+}
+
+void HueGatewayClient::stopEventStream()
+{
+    if (_eventConnectPending)
+    {
+        _eventConnectAbort = true;
+        const unsigned long waitStart = millis();
+        while (_eventConnectPending && (millis() - waitStart < 2000UL))
+        {
+            vTaskDelay(pdMS_TO_TICKS(5));
+        }
+        if (_eventConnectPending)
+        {
+            logWarning("HueGatewayClient", "EventStream connect task abort timed out");
+            _eventConnectPending = false;
+        }
+    }
+    else
+    {
+        if (_eventClient.connected())
+        {
+            _diagStats.eventStopCount++;
+            logInfo("HueGatewayClient", "EventStream stopping");
+            _eventClient.stop();
+        }
+    }
+
+    _eventConnectDone      = false;
+    _eventStreamConnected  = false;
+    _eventHandshakePending = false;
+    _eventHandshakeStartMs = 0;
+    _eventParseErrorStreak = 0;
+    _eventLineBuffer       = "";
+    _eventDataBuffer       = "";
+}
+
+// Async EventStream connect — FreeRTOS task (runs on Core 0)
+
+void HueGatewayClient::sEventStreamConnectTask(void* param)
+{
+    HueGatewayClient* self = static_cast<HueGatewayClient*>(param);
+
+    bool ok = self->_eventClient.connect(self->_bridgeIP.c_str(), 443);
+
+    if (self->_eventConnectAbort)
+    {
+        if (ok)
+        {
+            self->_eventClient.stop();
+        }
+        ok = false;
+    }
+
+    self->_eventConnectOk      = ok;
+    self->_eventConnectDone    = true;
+    self->_eventConnectPending = false;
+    self->_eventConnectTask    = nullptr;
+    vTaskDelete(nullptr);
+}
+
+void HueGatewayClient::checkEventStreamConnect()
+{
+    if (!_eventConnectDone)
+    {
+        return;
+    }
+
+    _eventConnectDone = false;
+
+    if (_eventConnectAbort)
+    {
+        return;
+    }
+
+    if (!_eventConnectOk)
+    {
+        _diagStats.eventConnectFail++;
+        logError("HueGatewayClient", "Async EventStream connect failed");
+        logHeapStats("event-connect-failed");
+        return;
+    }
+
+    logInfo("HueGatewayClient", "EventStream handshake complete");
 
     _eventClient.printf("GET /eventstream/clip/v2 HTTP/1.1\r\n");
     _eventClient.printf("Host: %s\r\n", _bridgeIP.c_str());
@@ -1881,29 +2184,11 @@ bool HueGatewayClient::startEventStream()
 
     _eventHandshakePending = true;
     _eventHandshakeStartMs = millis();
-    _eventLastDataMs = _eventHandshakeStartMs;
+    _eventLastDataMs       = _eventHandshakeStartMs;
     _eventParseErrorStreak = 0;
-    _eventStreamConnected = false;
-    _eventLineBuffer = "";
-    _eventDataBuffer = "";
-
-    return true;
-}
-
-void HueGatewayClient::stopEventStream()
-{
-    _eventStreamConnected = false;
-    _eventHandshakePending = false;
-    _eventHandshakeStartMs = 0;
-    _eventParseErrorStreak = 0;
-    _eventLineBuffer = "";
-    _eventDataBuffer = "";
-    if (_eventClient.connected())
-    {
-        _diagStats.eventStopCount++;
-        logInfo("HueGatewayClient", "EventStream stopping");
-        _eventClient.stop();
-    }
+    _eventStreamConnected  = false;
+    _eventLineBuffer       = "";
+    _eventDataBuffer       = "";
 }
 
 int HueGatewayClient::pollEventStream(HueGatewayEventLightUpdate* updates, int maxUpdates)
@@ -2243,25 +2528,60 @@ int HueGatewayClient::httpGet(const String& endpoint, JsonDocument& doc, JsonDoc
     _diagStats.lastJsonError = "";
     _diagStats.lastContentLength = -1;
     _http.setTimeout(timeoutMs);
-    const bool eventWasActive = (_eventHandshakePending || _eventStreamConnected) && _eventClient.connected();
-    bool eventPausedForGet = false;
+    const bool eventWasActive = (_eventHandshakePending || _eventStreamConnected || _eventConnectPending);
 
-    if (eventWasActive && _eventAutoRestartEnabled && !hasTlsInternalHeadroom())
-    {
-        logWarning("HueGatewayClient", "Pausing EventStream for HTTPS GET (internal TLS headroom low)");
-        _http.end();
-        stopEventStream();
-        _secureClient.stop();
-        delay(25);
-        eventPausedForGet = true;
-    }
-    
-    _http.useHTTP10(true);
+    // HTTP/1.1 with keep-alive, like httpPut. This used to be HTTP/1.0 so the reply
+    // always carries a Content-Length and can be parsed straight off the socket
+    // instead of being held in RAM as a whole -- but that cost a handshake per poll,
+    // measured at ~820 ms against ~18 ms on an open connection. Should the bridge
+    // answer chunked, getSize() returns -1 and the getString() path below takes over;
+    // writeToStream() reassembles the chunks.
+    const unsigned long timingStartMs = millis();
+    const bool connectionReused = _secureClient.connected();
+
+    _http.useHTTP10(false);
+    _http.setReuse(true);
     _http.begin(_secureClient, url);
     _http.addHeader("hue-application-key", _appKey);
-    
+
     int statusCode = _http.GET();
+
+    uint8_t retryReason = 0; // 1 = stale kept-alive connection, 2 = EventStream released
+    if (statusCode < 0 && connectionReused)
+    {
+        retryReason = 1;
+        _http.end();
+        _secureClient.stop();
+        _http.useHTTP10(false);
+        _http.setReuse(true);
+        _http.begin(_secureClient, url);
+        _http.addHeader("hue-application-key", _appKey);
+        statusCode = _http.GET();
+    }
+    if (statusCode < 0 && releaseEventStreamForRetry("GET", eventWasActive))
+    {
+        retryReason = 2;
+        _http.useHTTP10(false);
+        _http.setReuse(true);
+        _http.begin(_secureClient, url);
+        _http.addHeader("hue-application-key", _appKey);
+        statusCode = _http.GET();
+    }
+
     _diagStats.lastHttpStatusCode = statusCode;
+    // Also mark GET activity: it resets the keep-alive timer, and without PSRAM a
+    // connection a poll opened must fall to the idle close as well.
+    _lastHttpActivityMs = millis();
+
+    logInfo("HueGatewayClient", "TIMING GET %s start=%lu dur=%lums reused=%d retry=%u status=%d internalFree=%u internalLargest=%u",
+            endpoint.c_str(),
+            timingStartMs,
+            millis() - timingStartMs,
+            connectionReused ? 1 : 0,
+            static_cast<unsigned>(retryReason),
+            statusCode,
+            static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+            static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)));
 
     if (statusCode < 0)
     {
@@ -2332,17 +2652,7 @@ int HueGatewayClient::httpGet(const String& endpoint, JsonDocument& doc, JsonDoc
     
     _http.end();
 
-    if (eventPausedForGet)
-    {
-        if (!hasTlsInternalHeadroom())
-        {
-            logWarning("HueGatewayClient", "EventStream restart deferred after HTTP GET (internal TLS headroom)");
-        }
-        else if (!startEventStream())
-        {
-            logError("HueGatewayClient", "EventStream restart after HTTP GET failed");
-        }
-    }
+    // EventStream restart is handled by the module loop via startEventStream()/checkEventStreamConnect().
 
     return statusCode;
 }
@@ -2355,25 +2665,63 @@ int HueGatewayClient::httpPut(const String& endpoint, const String& payload)
     _diagStats.lastHttpMethod = "PUT";
     _diagStats.lastHttpEndpoint = endpoint;
     _http.setTimeout(2000);
-    const bool eventWasActive = (_eventHandshakePending || _eventStreamConnected) && _eventClient.connected();
-    bool eventPausedForPut = false;
+    const bool eventWasActive = (_eventHandshakePending || _eventStreamConnected || _eventConnectPending);
 
-    if (eventWasActive && _eventAutoRestartEnabled && !hasTlsInternalHeadroom())
-    {
-        logWarning("HueGatewayClient", "Pausing EventStream for HTTPS PUT (internal TLS headroom low)");
-        _http.end();
-        stopEventStream();
-        _secureClient.stop();
-        delay(25);
-        eventPausedForPut = true;
-    }
-    
+    // Keep-alive, set per request because useHTTP10() and setReuse() stick to the
+    // shared client object. Without it every command pays a full TLS handshake,
+    // measured at ~1 s per command on this hardware against well under 150 ms on an
+    // open connection.
+    _http.useHTTP10(false);
+    _http.setReuse(true);
+
+    // Timing probe: cost of one command and whether the TLS connection was reused.
+    const unsigned long timingStartMs = millis();
+    const bool connectionReused = _secureClient.connected();
+
     _http.begin(_secureClient, url);
     _http.addHeader("Content-Type", "application/json");
     _http.addHeader("hue-application-key", _appKey);
-    
+
     int statusCode = _http.PUT(payload);
+
+    // A kept-alive connection the bridge closed while idle only shows up on the next
+    // send. Reconnect once and repeat -- the PUT is idempotent.
+    uint8_t retryReason = 0; // 1 = stale kept-alive connection, 2 = EventStream released
+    if (statusCode < 0 && connectionReused)
+    {
+        retryReason = 1;
+        _http.end();
+        _secureClient.stop();
+        _http.useHTTP10(false);
+        _http.setReuse(true);
+        _http.begin(_secureClient, url);
+        _http.addHeader("Content-Type", "application/json");
+        _http.addHeader("hue-application-key", _appKey);
+        statusCode = _http.PUT(payload);
+    }
+    if (statusCode < 0 && releaseEventStreamForRetry("PUT", eventWasActive))
+    {
+        retryReason = 2;
+        _http.useHTTP10(false);
+        _http.setReuse(true);
+        _http.begin(_secureClient, url);
+        _http.addHeader("Content-Type", "application/json");
+        _http.addHeader("hue-application-key", _appKey);
+        statusCode = _http.PUT(payload);
+    }
+
     _diagStats.lastHttpStatusCode = statusCode;
+    _lastHttpActivityMs = millis();
+
+    logInfo("HueGatewayClient", "TIMING PUT %s start=%lu dur=%lums reused=%d retry=%u status=%d internalFree=%u internalLargest=%u",
+            endpoint.c_str(),
+            timingStartMs,
+            millis() - timingStartMs,
+            connectionReused ? 1 : 0,
+            static_cast<unsigned>(retryReason),
+            statusCode,
+            static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+            static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)));
 
     if (statusCode < 0)
     {
@@ -2411,17 +2759,7 @@ int HueGatewayClient::httpPut(const String& endpoint, const String& payload)
     
     _http.end();
 
-    if (eventPausedForPut)
-    {
-        if (!hasTlsInternalHeadroom())
-        {
-            logWarning("HueGatewayClient", "EventStream restart deferred after HTTP PUT (internal TLS headroom)");
-        }
-        else if (!startEventStream())
-        {
-            logError("HueGatewayClient", "EventStream restart after HTTP PUT failed");
-        }
-    }
+    // EventStream restart is handled by the module loop via startEventStream()/checkEventStreamConnect().
 
     return statusCode;
 }
@@ -2433,23 +2771,20 @@ int HueGatewayClient::httpDelete(const String& endpoint)
     _diagStats.lastHttpMethod = "DELETE";
     _diagStats.lastHttpEndpoint = endpoint;
     _http.setTimeout(2000);
-    const bool eventWasActive = (_eventHandshakePending || _eventStreamConnected) && _eventClient.connected();
-    bool eventPausedForDelete = false;
-
-    if (eventWasActive && _eventAutoRestartEnabled && !hasTlsInternalHeadroom())
-    {
-        logWarning("HueGatewayClient", "Pausing EventStream for HTTPS DELETE (internal TLS headroom low)");
-        _http.end();
-        stopEventStream();
-        _secureClient.stop();
-        delay(25);
-        eventPausedForDelete = true;
-    }
+    const bool eventWasActive = (_eventHandshakePending || _eventStreamConnected || _eventConnectPending);
 
     _http.begin(_secureClient, url);
     _http.addHeader("hue-application-key", _appKey);
 
     int statusCode = _http.sendRequest("DELETE");
+
+    if (statusCode < 0 && releaseEventStreamForRetry("DELETE", eventWasActive))
+    {
+        _http.begin(_secureClient, url);
+        _http.addHeader("hue-application-key", _appKey);
+        statusCode = _http.sendRequest("DELETE");
+    }
+
     _diagStats.lastHttpStatusCode = statusCode;
 
     if (statusCode < 0)
@@ -2469,17 +2804,7 @@ int HueGatewayClient::httpDelete(const String& endpoint)
 
     _http.end();
 
-    if (eventPausedForDelete)
-    {
-        if (!hasTlsInternalHeadroom())
-        {
-            logWarning("HueGatewayClient", "EventStream restart deferred after HTTP DELETE (internal TLS headroom)");
-        }
-        else if (!startEventStream())
-        {
-            logError("HueGatewayClient", "EventStream restart after HTTP DELETE failed");
-        }
-    }
+    // EventStream restart is handled by the module loop via startEventStream()/checkEventStreamConnect().
 
     return statusCode;
 }

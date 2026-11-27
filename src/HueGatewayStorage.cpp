@@ -62,4 +62,23 @@ void clearAuthKeys()
     prefs.remove(HueGatewayNvs::ClientKey);
     prefs.end();
 }
+
+uint32_t loadRestoreBrightness(uint8_t channel)
+{
+    const String key = String(HueGatewayNvs::RestoreBrightnessPrefix) + String(channel);
+    Preferences prefs;
+    prefs.begin(HueGatewayNvs::Namespace, true);
+    const uint32_t value = prefs.getULong(key.c_str(), 0);
+    prefs.end();
+    return value;
+}
+
+void saveRestoreBrightness(uint8_t channel, uint32_t value)
+{
+    const String key = String(HueGatewayNvs::RestoreBrightnessPrefix) + String(channel);
+    Preferences prefs;
+    prefs.begin(HueGatewayNvs::Namespace, false);
+    prefs.putULong(key.c_str(), value);
+    prefs.end();
+}
 }

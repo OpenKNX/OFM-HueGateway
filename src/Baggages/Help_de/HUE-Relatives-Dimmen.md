@@ -7,5 +7,5 @@ Legt fest, wie schnell ein relatives Dimmkommando (DPT 3.007) pro Schritt übern
 Hinweise:
 - Kleinere Werte = schnelleres Dimmen.
 - Gilt für alle Kanäle mit Lampentyp `Dimmbar` oder höher.
-- Typischer Richtwert: `80..150 ms`.
+- Standardwert: `120 ms`. Typischer Richtwert: `80..150 ms`.
 

@@ -2,7 +2,7 @@
 
 
 1. **Nur KNX zu Hue**: Telegramme steuern Hue, Statusrückmeldungen aus Hue werden ignoriert. Sichtbar sind nur die Steuer-KOs.
-2. **Nur Hue zu KNX**: KNX-Kommandos werden blockiert, Status wird aus Hue übernommen. Sichtbar sind nur die Status-KOs.
+2. **Nur Hue zu KNX**: KNX-Kommandos werden blockiert, Status wird aus Hue übernommen. Sichtbar sind die Status-KOs; das KO **Schalten** bleibt ebenfalls eingeblendet.
 3. **Bidirektional**: KNX-Kommandos und Hue-Statusübernahme aktiv. Sichtbar sind Steuer- und Status-KOs. (Standardempfehlung)
 
 Hinweis:
@@ -10,8 +10,9 @@ Hinweis:
 
 Latenz-Hinweis:
 - `Nur KNX zu Hue`: direkte KNX-Steuerung, aber keine Hue-Rückmeldung.
-- `Nur Hue zu KNX`: Statusänderungen werden nur mit Polling-/Abfrage-Latenz auf KNX sichtbar.
-- `Bidirektional`: meist beste Alltagswahl; Änderungen aus App oder Direktbedienung erscheinen dennoch nicht instantan, sondern gemäß Abfrageintervall.
+- `Nur Hue zu KNX`: Statusänderungen meldet die Bridge über ihren Eventstream; sie erscheinen ohne Abfrageintervall auf KNX.
+- `Bidirektional`: meist beste Alltagswahl; Änderungen aus App oder Direktbedienung kommen ebenfalls über den Eventstream.
+- Nur solange der Eventstream nicht verbunden ist, gilt das Polling-Intervall; Änderungen erscheinen dann erst mit der nächsten Abfrage.
 
 Empfehlung: Für einzelne Leuchten meist `Bidirektional`, für reine Statusobjekte oder Monitoring-Kanäle auch `Nur Hue zu KNX`.
 

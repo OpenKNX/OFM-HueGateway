@@ -215,8 +215,8 @@ public:
     * @param fadeDurationSec Transition duration in seconds (0 = immediate)
     * @return true on success
      */
-    bool setLightState(const String& lightId, bool on, uint8_t brightness, uint8_t fadeDurationSec = 0);
-    bool setGroupedLightState(const String& groupedLightId, bool on, uint8_t brightness, uint8_t fadeDurationSec = 0);
+    bool setLightState(const String& lightId, bool on, uint8_t brightness, uint8_t fadeDurationSec = 0, bool includeOnState = true);
+    bool setGroupedLightState(const String& groupedLightId, bool on, uint8_t brightness, uint8_t fadeDurationSec = 0, bool includeOnState = true);
 
     /**
     * @brief Applies relative dimming delta to a light.
@@ -245,10 +245,10 @@ public:
     * @param fadeDurationSec Fade duration in seconds (0 = instant)
     * @return true on success
      */
-    bool setLightStateWithColorTemp(const String& lightId, bool on, uint8_t brightness, 
-                                    uint16_t mirek, uint8_t fadeDurationSec);
+    bool setLightStateWithColorTemp(const String& lightId, bool on, uint8_t brightness,
+                                    uint16_t mirek, uint8_t fadeDurationSec, bool includeOnState = true);
     bool setGroupedLightStateWithColorTemp(const String& groupedLightId, bool on, uint8_t brightness,
-                                           uint16_t mirek, uint8_t fadeDurationSec);
+                                           uint16_t mirek, uint8_t fadeDurationSec, bool includeOnState = true);
     
     /**
     * @brief Sets the color temperature of a light.
@@ -272,9 +272,40 @@ public:
 
     bool pingBridgeApiV2();
 
+    /**
+    * @brief Keeps the REST connection for commands open. Call from the module loop.
+    * With PSRAM it refreshes the idle TLS connection with a small request before
+    * the bridge closes it, so the first command after a pause needs no handshake.
+    * Without PSRAM it closes the idle connection: the TLS context then occupies
+    * internal RAM, and that is exactly what the EventStream needs to come up.
+     */
+    void loopKeepAlive();
+
+    /**
+    * @brief Frees the EventStream's TLS context so a failed request can be retried.
+    * Only worth doing once a request has actually failed: internal RAM fits one TLS
+    * context at a time, but giving the EventStream up in advance cost it on every
+    * single request.
+    * @return true when the context was freed, i.e. a retry makes sense
+     */
+    bool releaseEventStreamForRetry(const char* method, bool eventWasActive);
+
+    /**
+    * @brief Diagnostics only: sends a raw payload to a resource (fade test).
+    * @param resourceType "light" or "grouped_light"
+    */
+    bool diagRawPut(const char* resourceType, const String& rid, const String& payload);
+
+    /**
+    * @brief Diagnostics only: reads on-state and brightness percent of a resource.
+    */
+    bool diagReadState(const char* resourceType, const String& rid, bool& on, uint8_t& brightnessPercent);
+
     bool startEventStream();
     void stopEventStream();
     bool isEventStreamConnected() { return _eventStreamConnected && _eventClient.connected(); }
+    bool isEventStreamConnectPending() const { return _eventConnectPending; }
+    void checkEventStreamConnect();
     void setEventStreamAutoRestartEnabled(bool enabled) { _eventAutoRestartEnabled = enabled; }
     bool isEventStreamAutoRestartEnabled() const { return _eventAutoRestartEnabled; }
     int pollEventStream(HueGatewayEventLightUpdate* updates, int maxUpdates);
@@ -417,6 +448,7 @@ private:
     String _appKey;
     HTTPClient _http;
     WiFiClientSecure _secureClient;
+    unsigned long _lastHttpActivityMs = 0; // 0 = no kept-alive connection open
     WiFiClientSecure _eventClient;
     bool _eventStreamConnected;
     bool _eventHandshakePending;
@@ -429,6 +461,15 @@ private:
     String _eventLineBuffer;
     String _eventDataBuffer;
     DiagnosticsStats _diagStats;
+
+    // Async EventStream connect (FreeRTOS task on Core 0)
+    volatile bool _eventConnectPending;
+    volatile bool _eventConnectDone;
+    volatile bool _eventConnectOk;
+    volatile bool _eventConnectAbort;
+    TaskHandle_t _eventConnectTask;
+    static constexpr uint32_t kEventConnectStackSize = 12288u;
+    static void sEventStreamConnectTask(void* param);
 
     struct LightLocation
     {

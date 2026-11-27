@@ -12,4 +12,5 @@ Hinweise:
 - Reine Dimmänderungen ohne Zustandswechsel verwenden diese Parameter nicht automatisch.
 - Standardwerte: `2 s` für Ein, `6 s` für Aus.
 - Für typische Praxisanforderungen: Einschalten eher kurz, Ausschalten eher länger.
+- Nach einem Ausschalten mit Überblendung merkt sich die Hue Bridge als letzte Helligkeit den Wert am Ende der Rampe, etwa 1 %. Beim Einschalten über KNX sendet das Gateway deshalb die zuletzt bekannte Helligkeit mit. Das Gateway speichert diesen Wert je Kanal im Flash, damit er auch nach einem Neustart oder Stromausfall gilt (bei Kanälen mit Lichtmanager nicht nötig, sie übernehmen dessen Wert). Ausschaltgeschwindigkeit `0 s` vermeidet die 1 % ganz, die Lampen gehen dann aber hart aus.
 

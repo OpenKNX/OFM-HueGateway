@@ -31,7 +31,7 @@ public:
         , _initialized(false)
     {}
 
-    uint8_t deviceType() const override { return 1; }
+    PT_HUEChannelType deviceType() const override { return PT_HUEChannelType::Bewegungsmelder; }
 
     String getResourceId() const override { return _resourceId; }
     String getName() const override { return _name; }
