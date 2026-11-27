@@ -96,8 +96,17 @@ public:
     * Called by event stream updates or by polling fallback.
     * @param on On/off state
     * @param brightness Brightness 0-254 (Hue range)
+    * @param brightnessFresh false when brightness is not a value reported by the
+    *        bridge but the cached one (event without brightness, grouped event)
      */
-    void updateFromHue(bool on, uint8_t brightness, uint16_t colorTempKelvin, uint8_t red, uint8_t green, uint8_t blue);
+    void updateFromHue(bool on, uint8_t brightness, uint16_t colorTempKelvin, uint8_t red, uint8_t green, uint8_t blue,
+                       bool brightnessFresh = true);
+
+    /**
+    * @brief True while an outside switch-on after a soft KNX off waits for the
+    *        bridge brightness to decide whether to restore (see setSoftOffRestore).
+     */
+    bool isSoftOffCheckPending() const { return _softOffCheckPending; }
     
     /**
     * @brief Sends current state feedback to KNX status KOs.
@@ -161,6 +170,22 @@ public:
     uint8_t getSwitchOnTransitionSec() const override { return _switchOnTransitionSec; }
     uint8_t getSwitchOffTransitionSec() const override { return _switchOffTransitionSec; }
 
+    /**
+    * @brief Restore the remembered brightness when the light is switched on from
+    *        outside (Hue app/switch/automation) at ~1 % after a soft KNX off.
+     */
+    void setSoftOffRestore(bool enabled) { _softOffRestore = enabled; }
+
+    /** Remembered brightness for a plain switch-on (Hue 0-254, 0 = none). */
+    uint8_t getRestoreBrightness() const { return _lastNonZeroBrightnessHue; }
+
+    /** Sets the remembered brightness (e.g. from flash) if none is known yet. */
+    void setRestoreBrightness(uint8_t brightness)
+    {
+        if (_lastNonZeroBrightnessHue == 0)
+            _lastNonZeroBrightnessHue = brightness;
+    }
+
     void setGroupedTarget(bool groupedTarget) override { _isGroupedTarget = groupedTarget; }
     bool isGroupedTarget() const override { return _isGroupedTarget; }
     unsigned long getLastHueWriteSuccessMs() const override { return _lastHueWriteSuccessMs; }
@@ -212,6 +237,11 @@ private:
     // Set by processKnxSwitch(false), cleared when bridge confirms on=false.
     // Used to suppress brightness-cache updates during a commanded fade-out.
     bool _switchOffPending;
+
+    // Soft-off restore: the bridge keeps ~1 % after an off with transition.
+    bool _softOffRestore;       // ETS option
+    bool _softOffByKnx;         // last off was a KNX off with transition
+    bool _softOffCheckPending;  // switched on from outside, waiting for brightness
 
     // Lifecycle flags.
     bool _initialized;

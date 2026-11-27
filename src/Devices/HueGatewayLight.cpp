@@ -13,6 +13,9 @@ namespace
 static constexpr unsigned long kGlobalHclWriteSpacingMs = 220UL;
 static unsigned long sGlobalHclWriteNextAllowedMs = 0UL;
 static constexpr uint8_t kMaxHclMasters = 16;
+// After an off with transition the bridge keeps ~1 % (Hue 3). Up to 2 % counts
+// as that residue.
+static constexpr uint8_t kSoftOffResidualHue = 5;
 
 static unsigned long relativeDimRepeatMs()
 {
@@ -77,6 +80,9 @@ HueGatewayLight::HueGatewayLight(const String& lightId, const String& name, HueG
     , _relativeDimCooldownUntilMs(0)
     , _relativeDimErrorStreak(0)
     , _switchOffPending(false)
+    , _softOffRestore(false)
+    , _softOffByKnx(false)
+    , _softOffCheckPending(false)
     , _relativeDimHoldActive(false)
     , _relativeDimHoldBrighter(false)
     , _relativeDimHoldSteps(0)
@@ -138,6 +144,8 @@ void HueGatewayLight::processKnxSwitch(bool value)
     // Track explicit off-commands so updateFromHue can suppress brightness
     // cache updates during the bridge's fade-out transition.
     _switchOffPending = !value;
+    _softOffByKnx = !value && _switchOffTransitionSec > 0;
+    _softOffCheckPending = false;
 
     _on = value;
     uint8_t switchTransitionSec = value ? _switchOnTransitionSec : _switchOffTransitionSec;
@@ -261,6 +269,8 @@ void HueGatewayLight::processKnxBrightness(uint8_t value)
     if (previousOn != _on)
     {
         const uint8_t transitionSec = _on ? _switchOnTransitionSec : _switchOffTransitionSec;
+        _softOffByKnx = !_on && transitionSec > 0;
+        _softOffCheckPending = false;
         sendToHue(transitionSec);
         return;
     }
@@ -470,7 +480,8 @@ void HueGatewayLight::processKnxColorRGB(uint8_t red, uint8_t green, uint8_t blu
     }
 }
 
-void HueGatewayLight::updateFromHue(bool on, uint8_t brightness, uint16_t colorTempKelvin, uint8_t red, uint8_t green, uint8_t blue)
+void HueGatewayLight::updateFromHue(bool on, uint8_t brightness, uint16_t colorTempKelvin, uint8_t red, uint8_t green, uint8_t blue,
+                                    bool brightnessFresh)
 {
     // grouped_light can transiently report on=false while brightness is still >0
     // around relative dim stop; keep channel ON in this short reconciliation window.
@@ -480,6 +491,40 @@ void HueGatewayLight::updateFromHue(bool on, uint8_t brightness, uint16_t colorT
         if ((nowMs - _lastRelativeDimCmdMs) <= 3000UL)
         {
             on = true;
+        }
+    }
+
+    // Soft-off restore: after a KNX off with transition the bridge keeps ~1 %, so a
+    // switch-on from outside (Hue app, Hue switch, automation) comes on at ~1 %.
+    // _on is still false only for such an outside switch-on: a KNX switch-on sets
+    // it before the bridge reports. The check waits for a brightness reported by
+    // the bridge; an on event usually has none.
+    if (on && !_on && _softOffByKnx && !_switchOffPending)
+    {
+        _softOffCheckPending = _softOffRestore && _lastNonZeroBrightnessHue > kSoftOffResidualHue;
+    }
+    if (on)
+        _softOffByKnx = false;
+    else
+        _softOffCheckPending = false;
+
+    if (_softOffCheckPending && on && brightnessFresh)
+    {
+        _softOffCheckPending = false;
+        if (brightness <= kSoftOffResidualHue)
+        {
+            Serial.printf("[HueGatewayLight] %s - Switched on from outside at %u after soft off, restoring %u\n",
+                          _name.c_str(),
+                          static_cast<unsigned>(brightness),
+                          static_cast<unsigned>(_lastNonZeroBrightnessHue));
+            // processKnxSwitch(true) restores the remembered brightness (or the
+            // LightManager value) with the switch-on transition.
+            _on = false;
+            _brightness = 0;
+            processKnxSwitch(true);
+            _lastUpdate = millis();
+            sendStatusToKnx();
+            return;
         }
     }
 
@@ -782,6 +827,8 @@ void HueGatewayLight::processKnxSceneRecall(bool on,
     }
 
     const uint8_t fadeDuration = on ? _switchOnTransitionSec : _switchOffTransitionSec;
+    _softOffByKnx = !on && fadeDuration > 0;
+    _softOffCheckPending = false;
 
     const bool doColor = applyColor && (_lightType >= 3) && (red != 0 || green != 0 || blue != 0);
     const bool doCT    = applyCT && !doColor && (_lightType >= 2) && (kelvin >= 2000 && kelvin <= 6500);

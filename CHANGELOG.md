@@ -2,7 +2,11 @@
 
 Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumentiert.
 
-## [0.10.1] - 2026-11-27 — Dauerhafte Verbindung zur Bridge 
+## [0.11.0] - 2026-11-27 — Dauerhafte Verbindung zur Bridge und gemerkte Helligkeit
+
+### Hinzugefügt
+- **Gemerkte Helligkeit übersteht einen Neustart.** Die Hue Bridge merkt sich nach einem Ausschalten mit Überblendung etwa 1 %; deshalb sendet das Gateway beim Einschalten über KNX die zuletzt bekannte Helligkeit mit. Nach einem Neustart war dieser Wert weg, und das erste Einschalten kam mit 1 %. Der Wert wird jetzt je Kanal im NVS gespeichert (höchstens einmal pro Minute und nur bei Änderung; Kanäle mit Lichtmanager ausgenommen) und gilt nur, solange der Kanal auf dasselbe Ziel zeigt.
+- **ETS-Option „1 % nach weichem Ausschalten korrigieren"** unter Allgemein → Einschaltverhalten, sichtbar bei Ausschaltgeschwindigkeit > 0, Standard aus. Wird eine Lampe nach einem weichen Ausschalten über KNX von außen (Hue-App, Hue-Schalter, Automation) mit höchstens 2 % eingeschaltet, stellt das Gateway die zuletzt bekannte Helligkeit wieder her und übernimmt die 1 % nicht als neue Helligkeit.
 
 ### Behoben
 - **Der erste Schaltbefehl nach 15 s Pause brauchte etwa eine Sekunde.** Das Gateway hat die HTTPS-Verbindung für Befehle nach 15 s Leerlauf selbst geschlossen; der nächste Befehl musste sie neu aufbauen, und der TLS-Handshake kostet auf dem ESP32 rund 900 ms. Die Verbindung bleibt jetzt offen und wird nach 5 Minuten Leerlauf mit einer kleinen Anfrage aufgefrischt. Gemessen an einer Hue Bridge: Sie schließt eine ungenutzte Verbindung nach 600 s und lässt eine genutzte offen. Schließt die Bridge die Verbindung trotzdem, baut das Gateway sie wie bisher beim nächsten Befehl neu auf. Geräte ohne PSRAM schließen die Verbindung weiterhin nach 15 s, weil der TLS-Speicher dort dem Eventstream fehlen würde.

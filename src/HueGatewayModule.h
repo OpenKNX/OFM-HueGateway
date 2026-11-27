@@ -130,6 +130,11 @@ private:
     unsigned long _channelGroupSettleMs[MAX_CHANNELS];
     /// Schedules a refresh of the grouped channels the given light belongs to.
     void scheduleGroupRefreshForLight(const String& lightId, unsigned long nowMs);
+    /// Remembered switch-on brightness last written to flash, per channel.
+    uint8_t _persistedRestoreBri[MAX_CHANNELS];
+    unsigned long _lastRestoreBriSaveMs;
+    /// Writes changed remembered brightness values to flash.
+    void persistRestoreBrightness();
     unsigned long _pollBackoffUntilMs;
     unsigned long _pollBackoffMs;
     uint8_t _pollFailureCount;

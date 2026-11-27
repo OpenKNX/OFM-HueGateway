@@ -501,6 +501,9 @@
                 <Memory CodeSegment="%MID%" Offset="1037" BitOffset="0" />
                 </Parameter>
               
+              <Parameter Id="%AID%_P-%TT%00042" Name="HUESoftOffRestore" ParameterType="%AID%_PT-CheckBox" Text="1 % nach weichem Ausschalten korrigieren" Value="0">
+                <Memory CodeSegment="%MID%" Offset="1713" BitOffset="1" />
+                </Parameter>
               <Parameter Id="%AID%_P-%TT%00005" Name="HUEChannelCount" ParameterType="%AID%_PT-HUEChannelCount" Text="Verfügbare Kanäle" Value="%N%" Access="None">
                 <Memory CodeSegment="%MID%" Offset="29" BitOffset="0" />
                 </Parameter>
@@ -554,6 +557,7 @@
               <ParameterRef Id="%AID%_P-%TT%00007_R-%TT%0000701" RefId="%AID%_P-%TT%00007" />
               <ParameterRef Id="%AID%_P-%TT%00040_R-%TT%0004001" RefId="%AID%_P-%TT%00040" />
               <ParameterRef Id="%AID%_P-%TT%00041_R-%TT%0004101" RefId="%AID%_P-%TT%00041" />
+              <ParameterRef Id="%AID%_P-%TT%00042_R-%TT%0004201" RefId="%AID%_P-%TT%00042" />
               <ParameterRef Id="%AID%_P-%TT%00069_R-%TT%0006901" RefId="%AID%_P-%TT%00069" />
               <ParameterRef Id="%AID%_P-%TT%00070_R-%TT%0007001" RefId="%AID%_P-%TT%00070" />
               <ParameterRef Id="%AID%_P-%TT%00071_R-%TT%0007101" RefId="%AID%_P-%TT%00071" />
@@ -634,6 +638,12 @@
                 <ParameterSeparator Id="%AID%_PS-HUESwitchTransition" Text="Einschaltverhalten" UIHint="Headline" />
                 <ParameterRefRef RefId="%AID%_P-%TT%00040_R-%TT%0004001" HelpContext="HUE-Einschaltverhalten" />
                 <ParameterRefRef RefId="%AID%_P-%TT%00041_R-%TT%0004101" HelpContext="HUE-Einschaltverhalten" />
+                <choose ParamRefId="%AID%_P-%TT%00041_R-%TT%0004101">
+                  <when test="&gt;0">
+                    <ParameterRefRef RefId="%AID%_P-%TT%00042_R-%TT%0004201" HelpContext="HUE-Korrektur-nach-weichem-Ausschalten" />
+                    <ParameterSeparator Id="%AID%_PS-HUESoftOffRestoreInfo" Text="Die Bridge merkt sich nach weichem Ausschalten ca. 1 %. Wenn aktiviert, stellt das Gateway die letzte Helligkeit wieder her, wenn eine Lampe danach von außen (Hue-App, Schalter, Automation) mit ca. 1 % angeht, auch bei bewusst gewählten 1 %." UIHint="Information" />
+                  </when>
+                </choose>
                 <ParameterSeparator Id="%AID%_PS-HUESwitchTransitionInfo" Text="Hinweis: Hue-Leuchten haben je nach Modell/Firmware ein eigenes Übergangsverhalten. Die eingestellten Zeiten wirken zusätzlich darauf, daher kann die reale Schaltzeit leicht abweichen." UIHint="Information" />
 
                 <ParameterSeparator Id="%AID%_PS-HUERelDimLine" Text="" UIHint="HorizontalRuler" />

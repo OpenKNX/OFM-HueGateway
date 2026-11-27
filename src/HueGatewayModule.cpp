@@ -3,6 +3,7 @@
 #include "HueGatewayDiscovery.h"
 #include "HueGatewayAuth.h"
 #include "HueGatewayClient.h"
+#include "HueGatewayStorage.h"
 #include "Devices/HueGatewayLight.h"
 #include "Devices/HueGatewaySensor.h"
 #include "Devices/HueGatewayButton.h"
@@ -50,6 +51,21 @@ static constexpr uint8_t kFastTrackChecksPerCommand = 2;
 // the member lights' final state; settle time after a change from outside (Hue app).
 static constexpr unsigned long kGroupSettleMarginMs = 1500UL;
 static constexpr unsigned long kGroupExternalSettleMs = 2000UL;
+// Remembered switch-on brightness is written to flash at most this often.
+static constexpr unsigned long kRestoreBriSaveIntervalMs = 60000UL;
+
+// Tag of a channel's target in the stored remembered brightness, so a value is
+// not applied to a different lamp after the channel was reassigned.
+static uint32_t restoreBrightnessTag(const String& targetId)
+{
+    uint32_t hash = 2166136261u;
+    for (size_t i = 0; i < targetId.length(); i++)
+    {
+        hash ^= static_cast<uint8_t>(targetId[i]);
+        hash *= 16777619u;
+    }
+    return hash & 0xFFFFFF00u;
+}
 static constexpr unsigned long kBridgePingBackoffMinMs = 60000UL;
 static constexpr unsigned long kBridgePingBackoffMaxMs = 120000UL;
 static constexpr unsigned long kBridgeDiscoveryRetryMs = 1000UL;
@@ -982,6 +998,8 @@ HueGatewayModule::HueGatewayModule()
     , _diagLastZoneTargetCount(0)
     , _diagLastHasUnresolvedTarget(false)
 {
+    _lastRestoreBriSaveMs = 0;
+
     // Light-Array initialisieren
     for (int i = 0; i < MAX_CHANNELS; i++)
     {
@@ -991,6 +1009,7 @@ HueGatewayModule::HueGatewayModule()
         _channelFastTrackCooldownUntilMs[i] = 0;
         _channelFastTrackRemaining[i] = 0;
         _channelGroupSettleMs[i] = 0;
+        _persistedRestoreBri[i] = 0;
         _hclChannelLockActive[i] = false;
         _hclChannelLockFallbackMode[i] = static_cast<uint8_t>(HclLockFallbackMode::None);
         _hclChannelAutoStandby[i] = 0;
@@ -1164,6 +1183,12 @@ void HueGatewayModule::loop()
         return false;
     };
     
+    if (now - _lastRestoreBriSaveMs >= kRestoreBriSaveIntervalMs)
+    {
+        _lastRestoreBriSaveMs = now;
+        persistRestoreBrightness();
+    }
+
     // Re-check bridge connectivity every 5 seconds.
     if (now - _lastConnectionCheckMs > 5000)
     {
@@ -3663,6 +3688,18 @@ void HueGatewayModule::setupDevices()
         switchOffTransitionSec = ParamHUE_HUESwitchOffTransitionSec;
         #endif
         _devices[ch]->setSwitchTransitionDurations(switchOnTransitionSec, switchOffTransitionSec);
+        #ifdef ParamHUE_HUESoftOffRestore
+        setupLight->setSoftOffRestore(ParamHUE_HUESoftOffRestore);
+        #endif
+        {
+            // Remembered switch-on brightness from before a restart.
+            const uint32_t stored = HueGatewayStorage::loadRestoreBrightness(ch + 1);
+            if ((stored & 0xFFu) != 0 && (stored & 0xFFFFFF00u) == restoreBrightnessTag(setupLight->getLightId()))
+            {
+                setupLight->setRestoreBrightness(static_cast<uint8_t>(stored & 0xFFu));
+                _persistedRestoreBri[ch] = static_cast<uint8_t>(stored & 0xFFu);
+            }
+        }
         _channelLastPollMs[ch] = 0;
 
         Serial.printf("[HueGatewayModule] Channel %d: %s (%s)%s, Type:%u Sync:%u Poll:%us MinBri:%u%% HCL:%u OnFade:%us OffFade:%us -> KO %d/%d/%d/%d/%d\n",
@@ -5388,6 +5425,7 @@ String HueGatewayModule::getBridgeIP()
 
 void HueGatewayModule::resetDevices()
 {
+    persistRestoreBrightness();
     for (int i = 0; i < MAX_LIGHTS; i++)
     {
         if (_devices[i])
@@ -5639,6 +5677,24 @@ bool HueGatewayModule::initClientWithAppKey()
     return true;
 }
 
+void HueGatewayModule::persistRestoreBrightness()
+{
+    for (int i = 0; i < MAX_LIGHTS; i++)
+    {
+        HueGatewayLight* light = lightAt(i);
+        // LightManager channels switch on with the LightManager value anyway.
+        if (light == nullptr || light->getHCLMaster() > 0)
+            continue;
+
+        const uint8_t brightness = light->getRestoreBrightness();
+        if (brightness == 0 || brightness == _persistedRestoreBri[i])
+            continue;
+
+        HueGatewayStorage::saveRestoreBrightness(i + 1, restoreBrightnessTag(light->getLightId()) | brightness);
+        _persistedRestoreBri[i] = brightness;
+    }
+}
+
 void HueGatewayModule::scheduleGroupRefreshForLight(const String& lightId, unsigned long nowMs)
 {
     for (const auto& membership : _lightGroupMembership)
@@ -5770,7 +5826,7 @@ void HueGatewayModule::applyEventStreamUpdates(const HueGatewayEventLightUpdate*
             uint8_t green = updates[u].hasColorRgb ? updates[u].green : light->getGreen();
             uint8_t blue = updates[u].hasColorRgb ? updates[u].blue : light->getBlue();
 
-            light->updateFromHue(on, brightness, colorTempKelvin, red, green, blue);
+            light->updateFromHue(on, brightness, colorTempKelvin, red, green, blue, eventBrightnessUsable);
             Serial.printf("[HueGatewayModule] Event applied -> channel %d id=%s on=%d bri=%u ct=%u rgb=(%u,%u,%u)\n",
                           i + 1,
                           updates[u].lightId.c_str(),
@@ -5812,6 +5868,14 @@ void HueGatewayModule::applyEventStreamUpdates(const HueGatewayEventLightUpdate*
             {
                 _channelFastTrackRemaining[i] = 0;
                 _channelFastTrackNextMs[i] = 0;
+            }
+
+            // Switched on from outside after a soft KNX off: fetch the brightness
+            // the light came on with, the event does not carry it.
+            if (!light->isGroupedTarget() && light->isSoftOffCheckPending() && _channelFastTrackRemaining[i] == 0)
+            {
+                _channelFastTrackRemaining[i] = 1;
+                _channelFastTrackNextMs[i] = millis() + 300UL;
             }
 
 #ifdef OPENKNX_WEBSERVER
