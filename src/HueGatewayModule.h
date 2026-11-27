@@ -110,6 +110,26 @@ private:
     unsigned long _channelFastTrackNextMs[MAX_CHANNELS];
     unsigned long _channelFastTrackCooldownUntilMs[MAX_CHANNELS];
     uint8_t _channelFastTrackRemaining[MAX_CHANNELS];
+
+    // The bridge reports no usable brightness for a room or zone (grouped_light), so
+    // a grouped channel derives it from its member lights, like Home Assistant does.
+    // Filled by refreshLightStatus(): the room/zone of every light of the last light
+    // poll, and the room/zone a grouped channel belongs to.
+    struct LightGroupMembership
+    {
+        String lightId;
+        String roomRid;
+        String zoneRid;
+    };
+    std::vector<LightGroupMembership> _lightGroupMembership;
+    String _channelGroupRid[MAX_CHANNELS];
+    // While a room/zone fades, the bridge reports intermediate states (e.g. "on" again
+    // during a fade-out, member lights still off right after a switch-on). Until this
+    // time a grouped channel ignores bridge updates and then reads the settled state
+    // once (0 = no settle pending).
+    unsigned long _channelGroupSettleMs[MAX_CHANNELS];
+    /// Schedules a refresh of the grouped channels the given light belongs to.
+    void scheduleGroupRefreshForLight(const String& lightId, unsigned long nowMs);
     unsigned long _pollBackoffUntilMs;
     unsigned long _pollBackoffMs;
     uint8_t _pollFailureCount;

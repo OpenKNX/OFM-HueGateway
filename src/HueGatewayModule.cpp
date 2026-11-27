@@ -45,6 +45,11 @@ static constexpr unsigned long kFastTrackFirstDelayMs = 200UL;
 static constexpr unsigned long kFastTrackSecondDelayMs = 300UL;
 static constexpr unsigned long kFastTrackCooldownMs = 800UL;
 static constexpr uint8_t kFastTrackChecksPerCommand = 2;
+// Room/zone (grouped_light): read the state once after the fade has ended, see
+// _channelGroupSettleMs. Margin after the configured fade for the bridge to report
+// the member lights' final state; settle time after a change from outside (Hue app).
+static constexpr unsigned long kGroupSettleMarginMs = 1500UL;
+static constexpr unsigned long kGroupExternalSettleMs = 2000UL;
 static constexpr unsigned long kBridgePingBackoffMinMs = 60000UL;
 static constexpr unsigned long kBridgePingBackoffMaxMs = 120000UL;
 static constexpr unsigned long kBridgeDiscoveryRetryMs = 1000UL;
@@ -985,6 +990,7 @@ HueGatewayModule::HueGatewayModule()
         _channelFastTrackNextMs[i] = 0;
         _channelFastTrackCooldownUntilMs[i] = 0;
         _channelFastTrackRemaining[i] = 0;
+        _channelGroupSettleMs[i] = 0;
         _hclChannelLockActive[i] = false;
         _hclChannelLockFallbackMode[i] = static_cast<uint8_t>(HclLockFallbackMode::None);
         _hclChannelAutoStandby[i] = 0;
@@ -2189,7 +2195,18 @@ void HueGatewayModule::processInputKo(GroupObject& ko)
 
     if (isCommandKo && _devices[channel] != nullptr)
     {
-        if (syncDir == 1 || syncDir == 2)
+        if ((syncDir == 1 || syncDir == 2) && _devices[channel]->isGroupedTarget())
+        {
+            // Room/zone: the bridge reports intermediate states while the lights fade,
+            // so read once after the longer of the two fade times. The status of the
+            // command itself already went to KNX. Every command restarts the wait.
+            const uint8_t fadeSec = max(_devices[channel]->getSwitchOnTransitionSec(), _devices[channel]->getSwitchOffTransitionSec());
+            const unsigned long settleMs = nowMs + static_cast<unsigned long>(fadeSec) * 1000UL + kGroupSettleMarginMs;
+            _channelFastTrackRemaining[channel] = 1;
+            _channelFastTrackNextMs[channel] = settleMs;
+            _channelGroupSettleMs[channel] = settleMs;
+        }
+        else if (syncDir == 1 || syncDir == 2)
         {
             if (_channelFastTrackCooldownUntilMs[channel] == 0 || nowMs >= _channelFastTrackCooldownUntilMs[channel])
             {
@@ -4133,13 +4150,28 @@ void HueGatewayModule::refreshLightStatus(bool fastTrackOnly)
         fetchGroupedNow = (dueGroupedChannels > 0) && !groupedCacheReusable;
     }
 
+    // A fast-track poll verifies a command that just went out, so it has to read the
+    // bridge; a cached snapshot predates the command and may also predate changes the
+    // EventStream applied since (e.g. brightness set in the Hue app).
+    // A grouped channel derives its brightness from its member lights, so it needs
+    // a light snapshot as well.
+    if (fastTrackOnly)
+    {
+        fetchLightNow = (dueLightChannels > 0) || (dueGroupedChannels > 0);
+        fetchGroupedNow = (dueGroupedChannels > 0);
+    }
+    else if (dueGroupedChannels > 0 && dueLightChannels == 0 && !haveLightSnapshot)
+    {
+        fetchLightNow = true;
+    }
+
     if ((lightCacheReusable || haveLightSnapshot) && !fetchLightNow)
     {
         lightSnapshot = cachedLights;
         count = cachedCount;
         Serial.printf("[HueGatewayModule] Reusing poll cache with %d light(s)\n", count);
     }
-    else if (dueLightChannels > 0)
+    else if (dueLightChannels > 0 || dueGroupedChannels > 0)
     {
         count = _client->getLights(pollLights, MAX_LIGHTS);
         Serial.printf("[HueGatewayModule] Polling returned %d light(s)\n", count);
@@ -4179,7 +4211,7 @@ void HueGatewayModule::refreshLightStatus(bool fastTrackOnly)
     _pollBackoffUntilMs = 0;
     _lastBridgeHealthOkMs = now;
 
-    if (dueLightChannels > 0 && lightSnapshot == pollLights)
+    if ((dueLightChannels > 0 || dueGroupedChannels > 0) && lightSnapshot == pollLights)
     {
         cachedCount = count;
         for (int i = 0; i < count; i++)
@@ -4190,6 +4222,15 @@ void HueGatewayModule::refreshLightStatus(bool fastTrackOnly)
         if (count > 0)
         {
             lastLightSnapshotMs = now;
+
+            // Remember which room/zone each light belongs to, so an EventStream update
+            // of a single light can refresh the grouped channels it belongs to.
+            _lightGroupMembership.clear();
+            _lightGroupMembership.reserve(static_cast<size_t>(count));
+            for (int k = 0; k < count; k++)
+            {
+                _lightGroupMembership.push_back({pollLights[k].id, pollLights[k].roomRid, pollLights[k].zoneRid});
+            }
         }
         lightSnapshot = cachedLights;
     }
@@ -4278,9 +4319,47 @@ void HueGatewayModule::refreshLightStatus(bool fastTrackOnly)
             HueGatewayLight* lightI = lightAt(i);
             if (lightI != nullptr && channelSnapshot[j].id == lightI->getLightId())
             {
+                // Room/zone still fading: only the settle read counts, not a regular poll.
+                if (lightI->isGroupedTarget() && _channelGroupSettleMs[i] != 0 && !fastTrackDue)
+                {
+                    break;
+                }
+
+                uint8_t brightness = channelSnapshot[j].brightness;
+
+                // Room or zone: the bridge reports no usable brightness for the
+                // grouped_light, so use the average of its member lights that are on,
+                // as Home Assistant does. Lights without dimming report 0 and are
+                // skipped. Without a light snapshot the group's own value stays.
+                if (lightI->isGroupedTarget())
+                {
+                    const String& groupRid = (channelSnapshot[j].roomRid != "-") ? channelSnapshot[j].roomRid : channelSnapshot[j].zoneRid;
+                    _channelGroupRid[i] = (groupRid != "-") ? groupRid : String();
+
+                    if (channelSnapshot[j].on && _channelGroupRid[i].length() > 0)
+                    {
+                        uint32_t brightnessSum = 0;
+                        uint16_t lightsOn = 0;
+                        for (int k = 0; k < count; k++)
+                        {
+                            const bool member = (lightSnapshot[k].roomRid == _channelGroupRid[i])
+                                             || (lightSnapshot[k].zoneRid == _channelGroupRid[i]);
+                            if (member && lightSnapshot[k].on && lightSnapshot[k].brightness > 0)
+                            {
+                                brightnessSum += lightSnapshot[k].brightness;
+                                lightsOn++;
+                            }
+                        }
+                        if (lightsOn > 0)
+                        {
+                            brightness = static_cast<uint8_t>((brightnessSum + lightsOn / 2) / lightsOn);
+                        }
+                    }
+                }
+
                 lightI->updateFromHue(
                     channelSnapshot[j].on,
-                    channelSnapshot[j].brightness,
+                    brightness,
                     channelSnapshot[j].colorTempKelvin,
                     channelSnapshot[j].red,
                     channelSnapshot[j].green,
@@ -4288,7 +4367,7 @@ void HueGatewayModule::refreshLightStatus(bool fastTrackOnly)
 
                 _lastChannelSyncOkMs = now;
                 {
-                    uint16_t briPct = (uint16_t)((channelSnapshot[j].brightness * 100u + 127u) / 254u);
+                    uint16_t briPct = (uint16_t)((brightness * 100u + 127u) / 254u);
                     if (briPct > 100) briPct = 100;
                     logInfo("HUE", "K%d %s: %s %u%% (Poll)",
                             i + 1,
@@ -4314,6 +4393,7 @@ void HueGatewayModule::refreshLightStatus(bool fastTrackOnly)
                     else
                     {
                         _channelFastTrackNextMs[i] = 0;
+                        _channelGroupSettleMs[i] = 0; // settled state read, bridge updates count again
                     }
                 }
                 break;
@@ -5319,6 +5399,7 @@ void HueGatewayModule::resetDevices()
         _channelFastTrackNextMs[i] = 0;
         _channelFastTrackCooldownUntilMs[i] = 0;
         _channelFastTrackRemaining[i] = 0;
+        _channelGroupSettleMs[i] = 0;
     }
 
     for (int i = 0; i < MAX_CHANNELS; i++)
@@ -5558,6 +5639,51 @@ bool HueGatewayModule::initClientWithAppKey()
     return true;
 }
 
+void HueGatewayModule::scheduleGroupRefreshForLight(const String& lightId, unsigned long nowMs)
+{
+    for (const auto& membership : _lightGroupMembership)
+    {
+        if (!membership.lightId.equalsIgnoreCase(lightId))
+        {
+            continue;
+        }
+
+        for (int i = 0; i < MAX_LIGHTS; i++)
+        {
+            HueGatewayLight* light = lightAt(i);
+            if (light == nullptr || !light->isGroupedTarget() || _channelGroupRid[i].length() == 0)
+            {
+                continue;
+            }
+            if (_channelGroupRid[i] != membership.roomRid && _channelGroupRid[i] != membership.zoneRid)
+            {
+                continue;
+            }
+            // Only channels that take status from Hue; refreshLightStatus() skips the
+            // others without clearing the request, which would poll again every loop.
+            uint8_t _channelIndex = static_cast<uint8_t>(i);
+            uint8_t syncDir = ParamHUE_CHSyncDir;
+            if (syncDir > 2)
+            {
+                syncDir = 2;
+            }
+            if (!(syncDir == 1 || syncDir == 2))
+            {
+                continue;
+            }
+            // Leave a refresh that is already pending alone (e.g. after an own command);
+            // a burst of events then costs one poll.
+            if (_channelFastTrackRemaining[i] > 0)
+            {
+                continue;
+            }
+            _channelFastTrackRemaining[i] = 1;
+            _channelFastTrackNextMs[i] = nowMs + kFastTrackSecondDelayMs;
+        }
+        return;
+    }
+}
+
 void HueGatewayModule::applyEventStreamUpdates(const HueGatewayEventLightUpdate* updates, int updateCount)
 {
     if (updates == nullptr || updateCount <= 0)
@@ -5584,6 +5710,13 @@ void HueGatewayModule::applyEventStreamUpdates(const HueGatewayEventLightUpdate*
 
     for (int u = 0; u < updateCount; u++)
     {
+        // A change of a single light (e.g. dimmed in the Hue app) also changes the
+        // brightness of every room/zone it belongs to; refresh those grouped channels.
+        if (!updates[u].isGroupedResource && (updates[u].hasOn || updates[u].hasBrightness))
+        {
+            scheduleGroupRefreshForLight(updates[u].lightId, millis());
+        }
+
         bool applied = false;
         for (int i = 0; i < MAX_LIGHTS; i++)
         {
@@ -5617,8 +5750,21 @@ void HueGatewayModule::applyEventStreamUpdates(const HueGatewayEventLightUpdate*
                 break;
             }
 
+            // Room/zone still fading after a command or an outside change: the bridge
+            // reports intermediate states here (e.g. "on" again during a fade-out).
+            // Ignore them, the settle read in refreshLightStatus() sets the final state.
+            if (light->isGroupedTarget() && _channelGroupSettleMs[i] != 0
+                && static_cast<long>(millis() - _channelGroupSettleMs[i]) < 0)
+            {
+                applied = true;
+                break;
+            }
+
             bool on = updates[u].hasOn ? updates[u].on : light->isOn();
-            uint8_t brightness = updates[u].hasBrightness ? updates[u].brightness : light->getBrightness();
+            // A grouped_light's own brightness is not usable; a grouped channel takes it
+            // from its member lights in refreshLightStatus().
+            const bool eventBrightnessUsable = updates[u].hasBrightness && !updates[u].isGroupedResource;
+            uint8_t brightness = eventBrightnessUsable ? updates[u].brightness : light->getBrightness();
             uint16_t colorTempKelvin = updates[u].hasColorTemp ? updates[u].colorTempKelvin : light->getColorTempKelvin();
             uint8_t red = updates[u].hasColorRgb ? updates[u].red : light->getRed();
             uint8_t green = updates[u].hasColorRgb ? updates[u].green : light->getGreen();
@@ -5644,8 +5790,29 @@ void HueGatewayModule::applyEventStreamUpdates(const HueGatewayEventLightUpdate*
                         static_cast<unsigned>(briPct));
             }
 
-            _channelFastTrackRemaining[i] = 0;
-            _channelFastTrackNextMs[i] = 0;
+            // The event confirms the command, so the fast-track verification poll is
+            // not needed -- unless it is an on event without brightness: after a plain
+            // switch-on the bridge restores its own brightness and does not report it,
+            // and only that poll fetches it. With the command connection kept alive a
+            // command takes ~50 ms, so this event arrives before the poll is due and
+            // used to cancel it; the brightness status then never reached KNX.
+            if (light->isGroupedTarget())
+            {
+                // Switched from outside (Hue app, Hue switch): the switch state is
+                // applied now; brightness follows once the lights have settled.
+                if (updates[u].hasOn)
+                {
+                    const unsigned long settleMs = millis() + kGroupExternalSettleMs;
+                    _channelFastTrackRemaining[i] = 1;
+                    _channelFastTrackNextMs[i] = settleMs;
+                    _channelGroupSettleMs[i] = settleMs;
+                }
+            }
+            else if (eventBrightnessUsable || (updates[u].hasOn && !updates[u].on))
+            {
+                _channelFastTrackRemaining[i] = 0;
+                _channelFastTrackNextMs[i] = 0;
+            }
 
 #ifdef OPENKNX_WEBSERVER
             markChannelDirty(i);

@@ -461,6 +461,8 @@ int HueGatewayClient::getGroupedLights(HueGatewayLightState* groupedLights, int 
     JsonObject groupedFilterData = groupedFilterRoot["data"][0].to<JsonObject>();
     groupedFilterData["id"] = true;
     groupedFilterData["metadata"]["name"] = true;
+    groupedFilterData["owner"]["rid"] = true;
+    groupedFilterData["owner"]["rtype"] = true;
     groupedFilterData["on"]["on"] = true;
     groupedFilterData["dimming"]["brightness"] = true;
     groupedFilterData["color_temperature"]["mirek"] = true;
@@ -525,6 +527,22 @@ int HueGatewayClient::getGroupedLights(HueGatewayLightState* groupedLights, int 
         groupedLights[count].zone = "-";
         groupedLights[count].zoneRid = "-";
         groupedLights[count].zoneIdV1 = "-";
+
+        // The room or zone this grouped_light belongs to. Its id is what a light's
+        // roomRid/zoneRid holds, so the group's member lights can be found.
+        const char* ownerRid = item["owner"]["rid"] | "";
+        const char* ownerType = item["owner"]["rtype"] | "";
+        if (ownerRid[0] != '\0')
+        {
+            if (strcmp(ownerType, "room") == 0)
+            {
+                groupedLights[count].roomRid = String(ownerRid);
+            }
+            else if (strcmp(ownerType, "zone") == 0)
+            {
+                groupedLights[count].zoneRid = String(ownerRid);
+            }
+        }
 
         count++;
     }

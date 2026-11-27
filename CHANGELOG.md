@@ -2,10 +2,12 @@
 
 Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumentiert.
 
-## [0.10.1] - 2026-11-26 — Dauerhafte Verbindung zur Bridge 
+## [0.10.1] - 2026-11-27 — Dauerhafte Verbindung zur Bridge 
 
 ### Behoben
 - **Der erste Schaltbefehl nach 15 s Pause brauchte etwa eine Sekunde.** Das Gateway hat die HTTPS-Verbindung für Befehle nach 15 s Leerlauf selbst geschlossen; der nächste Befehl musste sie neu aufbauen, und der TLS-Handshake kostet auf dem ESP32 rund 900 ms. Die Verbindung bleibt jetzt offen und wird nach 5 Minuten Leerlauf mit einer kleinen Anfrage aufgefrischt. Gemessen an einer Hue Bridge: Sie schließt eine ungenutzte Verbindung nach 600 s und lässt eine genutzte offen. Schließt die Bridge die Verbindung trotzdem, baut das Gateway sie wie bisher beim nächsten Befehl neu auf. Geräte ohne PSRAM schließen die Verbindung weiterhin nach 15 s, weil der TLS-Speicher dort dem Eventstream fehlen würde.
+- **Nach einem einfachen Einschalten kam keine Helligkeit auf KNX an.** Die Bridge meldet nach „Ein" über den Eventstream nur den Schaltzustand, nicht die Helligkeit; die liest das Gateway kurz nach dem Befehl nach (Fast-Track). Jede Eventstream-Meldung hat dieses Nachlesen aber abgebrochen. Solange ein Befehl wegen des Verbindungsaufbaus rund eine Sekunde brauchte, lief das Nachlesen trotzdem vorher; mit der offen gehaltenen Verbindung kam die Meldung zuerst. Das Nachlesen entfällt jetzt nur noch, wenn die Meldung die Helligkeit enthält oder „Aus" meldet, und es liest immer frisch von der Bridge statt aus dem Zwischenspeicher.
+- **Räume und Zonen meldeten keine Helligkeit auf KNX.** Die Bridge liefert für eine Gruppe (`grouped_light`) keinen verwertbaren Helligkeitswert. Das Gateway berechnet ihn jetzt als Mittelwert der eingeschalteten Lampen des Raums bzw. der Zone; Lampen ohne Dimmfunktion zählen nicht mit. Ändert sich eine einzelne Lampe (z. B. in der Hue-App gedimmt), werden die Raum- und Zonen-Kanäle, zu denen sie gehört, kurz nachgelesen. Gehört eine Lampe zu mehreren Zonen, wird sie nur einer davon zugerechnet. Während ein Raum oder eine Zone überblendet, meldet die Bridge Zwischenstände, z. B. beim Ausschalten kurz wieder „Ein"; der Raum blieb dann auf KNX „Ein", obwohl die Lampen aus waren. Raum- und Zonen-Kanäle lesen deshalb erst nach dem Ende der Überblendung nach (längere der beiden Überblendzeiten plus 1,5 s, nach einer Änderung von außen 2 s) und ignorieren Meldungen der Bridge bis dahin.
 - Der ETS-Hinweis zur Dimmgeschwindigkeit nannte 80 ms als Standard; der Vorgabewert ist 120 ms.
 
 ### Geändert
